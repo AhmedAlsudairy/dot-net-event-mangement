@@ -2,6 +2,8 @@
 
 One ASP.NET Core MVC app serves both the internal site (AD/LDAP login) and the public QR pages (`/p/{token}`).
 
+Licensed under the [MIT License](LICENSE).
+
 ## Run (development, no AD needed)
     cd src/GuestEvents
     set ASPNETCORE_ENVIRONMENT=Development
