@@ -29,7 +29,12 @@ First-time bootstrap (before anyone can sign in) still uses appsettings.json / e
 2. Press **Use standard defaults** (LDAPS 636, verify certificate, nested groups, the usual role group names). If the server name is filled in, the Base DN is worked out from it (`dc1.company.local` -> `DC=company,DC=local`).
 3. Enter the server, the read-only service account DN and its password. The password stays in your browser until you press Save or Test; it is stored encrypted.
 4. Press **Test LDAP**. It checks the connection and certificate, the service account sign-in, the Base DN, each role group, and **how many users have an email address and whether any two share one** (people sharing an email cannot sign in by email; they can still use their username). Add a test user and password to try a full sign-in and see the roles.
-5. Press **Fetch groups from LDAP** to pick the groups for each role, then **Save**.
+5. **Who gets each role:**
+   - Each role box takes **one or several groups** separated by commas ("Group-A, Group-B"); a person gets the role when they are in any of them, including groups inside those groups when nested groups are on.
+   - Press **Fetch groups from LDAP** to list the directory's groups. **Members** opens a group: its people with their email addresses and, indented, the groups inside it (as a tree, or as one flat list with where each person comes from). **Copy emails** copies the whole list. A role button on each group adds or removes it from that role.
+   - **Preview people per role** shows, for every role, the groups (green = found, with a head count), every person who would get the role and why, and lets you **add a single person** by email address or username (or remove one). People added directly are saved at once and also appear on the Roles page; group boxes are saved with **Save**.
+   - Pick **what to show** (emails, usernames, tree or flat list); the choice is remembered in your browser.
+   - From a group's member list, the *Assign role...* menu next to a person gives that one person a role directly.
 The mail box has the same **Use standard defaults** button (port 587, STARTTLS) and a **Send test email** check.
 
 ## Other sections

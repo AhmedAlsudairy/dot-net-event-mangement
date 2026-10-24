@@ -147,6 +147,55 @@ page, _ = admin.get("/Admin/Connections")
 check("form has the standard defaults buttons", 'id="ldDefaults"' in page and 'id="smDefaults"' in page and page.count("Use standard defaults</button>") == 2)
 check("form is prefilled with the default role groups", 'value="Events-Staff"' in page and 'value="Research-InCharge"' in page and 'name="ldap[Port]"' in page)
 
+# ---- group explorer: nested members with emails, several groups per role, people added directly
+def tree_of(g):
+    h, _ = admin.post("/Admin/GroupTree", dict(form, group=g), "/Admin/Connections"); return json.loads(h)
+def find(node, name):
+    if node["name"] == name: return node
+    for c in node["children"]:
+        r = find(c, name)
+        if r: return r
+    return None
+def emails(node):
+    out = [u["email"] for u in node["users"] if u["email"]]
+    for c in node["children"]: out += emails(c)
+    return out
+t = tree_of("Events-Staff")
+check("group tree opens", t["ok"] and t["tree"]["name"] == "Events-Staff", t)
+check("group tree lists direct members with emails", "staff@test.local" in [u["email"] for u in t["tree"]["users"]])
+mk = find(t["tree"], "Marketing-All")
+check("nested group shown inside its parent", mk is not None and "nested@test.local" in emails(mk), t["tree"]["children"])
+d = tree_of("Deep-1")["tree"]
+check("three levels of nesting are followed", find(d, "Deep-3") is not None and "deep@test.local" in emails(find(d, "Deep-3")))
+lp = tree_of("Loop-B")["tree"]
+def has_cycle(n): return n.get("cycle") or any(has_cycle(c) for c in n["children"])
+check("circular groups are marked, not followed forever", has_cycle(lp), lp)
+check("unknown group reported", not tree_of("Ghost-Group")["ok"])
+h, _ = admin.post("/Admin/GroupTree", dict(form, **{"ldap[Nested]": "false", "group": "Events-Staff"}), "/Admin/Connections")
+check("nested off: only direct members", json.loads(h)["tree"]["children"] == [])
+check("staff cannot read group members", '"tree"' not in st.post("/Admin/GroupTree", dict(form, group="Events-Staff"), "/Research")[0])
+
+pf = dict(form, **{"ldap[GroupStaff]": "Events-Staff, Marketing-All", "ldap[GroupHod]": "Ghost-Group"})
+h, _ = admin.post("/Admin/RolePreview", pf, "/Admin/Connections"); pv = json.loads(h)
+staff_role = next(r for r in pv["roles"] if r["role"] == "Staff"); hod_role = next(r for r in pv["roles"] if r["role"] == "HOD")
+check("preview lists several groups for one role", [g["name"] for g in staff_role["groups"]] == ["Events-Staff", "Marketing-All"] and all(g["found"] for g in staff_role["groups"]), staff_role["groups"])
+check("preview includes nested people with their emails", "nested@test.local" in [p["email"] for p in staff_role["people"]])
+check("preview shows where each person comes from", any("Events-Staff > Marketing-All" in " ".join(p["via"]) for p in staff_role["people"]))
+check("preview flags a group that does not exist", hod_role["groups"][0]["found"] is False and hod_role["people"] == [])
+h, _ = admin.post("/Admin/AssignPerson", {"who": "new.person@test.local", "role": "HOD"}, "/Admin/Connections"); check("assign a person directly", json.loads(h)["ok"], h)
+h, _ = admin.post("/Admin/AssignPerson", {"who": "new.person@test.local", "role": "Bogus"}, "/Admin/Connections"); check("unknown role refused", not json.loads(h)["ok"], h)
+h, _ = admin.post("/Admin/RolePreview", pf, "/Admin/Connections"); pv = json.loads(h)
+direct = next(r for r in pv["roles"] if r["role"] == "HOD")["direct"]
+check("direct person appears in the preview", [d["username"] for d in direct] == ["new.person@test.local"], direct)
+check("direct role works at sign-in time (listed on the roles page)", "new.person@test.local" in admin.get("/Admin/RolesPage")[0])
+admin.post("/Admin/UnassignPerson", {"id": str(direct[0]["id"])}, "/Admin/Connections")
+h, _ = admin.post("/Admin/RolePreview", pf, "/Admin/Connections")
+check("direct person can be removed", next(r for r in json.loads(h)["roles"] if r["role"] == "HOD")["direct"] == [])
+h, _ = admin.post("/Admin/TestLdap", dict(form, **{"ldap[GroupStaff]": "Nope-Group, Loop-B", "testUser": "looper", "testPassword": "looper123"}), "/Admin/Connections"); tl = json.loads(h)
+check("a role can come from the second of several groups", tl["ok"] and "Staff" in tl["message"].split("Roles:")[-1], tl)
+page, _ = admin.get("/Admin/Connections")
+check("page has the people-per-role workspace and display options", all(x in page for x in ['id="rpBtn"', 'id="gx-email"', 'id="gx-tree"', 'id="rpOut"']))
+
 # ---- forgot password
 anon = Client(); h, _ = anon.get("/Account/Forgot")
 check("forgot page opens without signing in", "Ask IT to reset it" in h and "Reset my password" not in h, h[:200])

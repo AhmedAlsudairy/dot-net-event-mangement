@@ -15,6 +15,21 @@ public record AuthResult(AdUser? User, AuthFail Fail = AuthFail.None, string? De
     public static AuthResult Failed(AuthFail f, string? detail = null) => new(null, f, detail);
 }
 
+public record GroupPerson(string Name, string? Email, string Sam);
+
+/// <summary>One group in the "who is in this group" tree: its direct members and the groups inside it.</summary>
+public class GroupNode
+{
+    public string Name { get; set; } = "";
+    public string Dn { get; set; } = "";
+    public List<GroupPerson> Users { get; set; } = new();
+    public List<GroupNode> Children { get; set; } = new();
+    /// <summary>This group was already shown higher up (groups can contain each other).</summary>
+    public bool Cycle { get; set; }
+    /// <summary>The tree was cut short (too many groups or members) - the list is not complete.</summary>
+    public bool Truncated { get; set; }
+}
+
 public interface IAuthService
 {
     Task<AuthResult> AuthenticateAsync(string username, string password);
@@ -61,7 +76,7 @@ public class LdapAuthService : IAuthService
             {
                 await svc.BindAsync(o.SvcDn, o.SvcPassword);
                 var parts = new List<string>();
-                foreach (var g in new[] { o.GroupStaff, o.GroupHod, o.GroupMedia, o.GroupAdmin, o.GroupResearch })
+                foreach (var g in new[] { o.GroupStaff, o.GroupHod, o.GroupMedia, o.GroupAdmin, o.GroupResearch }.SelectMany(MailService.Split).Distinct(StringComparer.OrdinalIgnoreCase))
                 {
                     var res = await svc.SearchAsync(o.BaseDn, LdapConnection.ScopeSub, $"(&(objectClass=group)(cn={Esc(g)}))", new[] { "cn" }, false);
                     bool found = false;
@@ -117,6 +132,76 @@ public class LdapAuthService : IAuthService
             return s;
         }
         catch (Exception ex) { return $"Could not read users: {ex.Message}"; }
+    }
+
+    /// <summary>
+    /// Admin "Members": the people in a group and, when nested groups are on, in every group inside it (loops are safe, depth and size are capped).
+    /// </summary>
+    public async Task<(bool ok, string message, GroupNode? tree)> GroupTreeAsync(LdapOpts o, string group)
+    {
+        var info = new CertInfo();
+        try
+        {
+            var (svc, _) = await ConnectAsync(o, info);
+            using (svc)
+            {
+                await svc.BindAsync(o.SvcDn, o.SvcPassword);
+                var res = await svc.SearchAsync(o.BaseDn, LdapConnection.ScopeSub, $"(&(objectClass=group)(cn={Esc(group)}))", new[] { "cn" }, false);
+                string? dn = null;
+                while (dn == null)
+                {
+                    try { if (!await res.HasMoreAsync()) break; dn = (await res.NextAsync()).Dn; } catch (LdapReferralException) { }
+                }
+                if (dn == null) return (false, $"Group \"{group}\" was not found in the directory.", null);
+                var budget = new[] { 150 }; // groups we are willing to open
+                return (true, "", await ExpandAsync(svc, o, dn, group, 0, new HashSet<string>(StringComparer.OrdinalIgnoreCase), budget));
+            }
+        }
+        catch (Exception ex) { return (false, Explain(ex, info), null); }
+    }
+
+    private static string? Val(LdapAttributeSet a, string k) => a.ContainsKey(k) ? a[k].StringValue?.Trim() : null;
+
+    private static async Task<GroupNode> ExpandAsync(LdapConnection svc, LdapOpts o, string dn, string name, int depth, HashSet<string> visited, int[] budget)
+    {
+        var node = new GroupNode { Name = name, Dn = dn };
+        visited.Add(dn); budget[0]--;
+        var esc = Esc(dn);
+        var res = await svc.SearchAsync(o.BaseDn, LdapConnection.ScopeSub, $"(&(objectClass=user)(!(objectClass=computer))(memberOf={esc}))", new[] { "sAMAccountName", "displayName", "mail" }, false);
+        while (true)
+        {
+            if (node.Users.Count >= 500) { node.Truncated = true; break; }
+            try
+            {
+                if (!await res.HasMoreAsync()) break;
+                var a = (await res.NextAsync()).GetAttributeSet();
+                var sam = Val(a, "sAMAccountName") ?? "";
+                node.Users.Add(new GroupPerson(Val(a, "displayName") ?? sam, Val(a, "mail"), sam));
+            }
+            catch (LdapReferralException) { }
+        }
+        node.Users.Sort((x, y) => string.Compare(x.Name, y.Name, StringComparison.OrdinalIgnoreCase));
+        if (!o.Nested || depth >= 6) return node;
+
+        var kids = new List<(string dn, string name)>();
+        var cres = await svc.SearchAsync(o.BaseDn, LdapConnection.ScopeSub, $"(&(objectClass=group)(memberOf={esc}))", new[] { "cn" }, false);
+        while (kids.Count < 50)
+        {
+            try
+            {
+                if (!await cres.HasMoreAsync()) break;
+                var e = await cres.NextAsync();
+                kids.Add((e.Dn, Val(e.GetAttributeSet(), "cn") ?? e.Dn));
+            }
+            catch (LdapReferralException) { }
+        }
+        foreach (var k in kids.OrderBy(k => k.name, StringComparer.OrdinalIgnoreCase))
+        {
+            if (visited.Contains(k.dn)) { node.Children.Add(new GroupNode { Name = k.name, Dn = k.dn, Cycle = true }); continue; }
+            if (budget[0] <= 0) { node.Truncated = true; break; }
+            node.Children.Add(await ExpandAsync(svc, o, k.dn, k.name, depth + 1, visited, budget));
+        }
+        return node;
     }
 
     /// <summary>Admin "Fetch groups": every group name under the Base DN, so the admin can pick one for each role instead of typing it.</summary>
@@ -233,7 +318,8 @@ public class LdapAuthService : IAuthService
                 var direct = attrs.ContainsKey("memberOf") ? attrs["memberOf"].StringValueArray : Array.Empty<string>();
                 var groups = await GroupNamesAsync(svc, direct, o.Nested);
                 var roles = new List<string>();
-                void Map(string g, string role) { if (groups.Contains(g)) roles.Add(role); }
+                // a role can be given by several groups: "Group-A, Group-B"
+                void Map(string g, string role) { if (MailService.Split(g).Any(groups.Contains)) roles.Add(role); }
                 Map(o.GroupStaff, Roles.Staff); Map(o.GroupHod, Roles.Hod); Map(o.GroupMedia, Roles.Media); Map(o.GroupAdmin, Roles.Admin); Map(o.GroupResearch, Roles.Research);
                 var sam = Attr(e, "sAMAccountName") ?? login;
                 return AuthResult.Ok(new AdUser(sam, Attr(e, "displayName") ?? sam, Attr(e, "mail"), Attr(e, "department"), roles, groups.OrderBy(x => x).ToList()));

@@ -95,6 +95,92 @@ public class AdminController : AppController
         return Json(new { ok, message = msg });
     }
 
+    // Who is in one group (with the groups inside it), using the unsaved form values.
+    [HttpPost]
+    public async Task<IActionResult> GroupTree(Dictionary<string, string> ldap, string group)
+    {
+        var o = await MergeLdap(NormalizeLdap(ldap));
+        var (ok, msg, tree) = await HttpContext.RequestServices.GetRequiredService<LdapAuthService>().GroupTreeAsync(o, (group ?? "").Trim());
+        return Json(new { ok, message = msg, tree });
+    }
+
+    private sealed record PersonRow(string Name, string? Email, string Sam, List<string> Via);
+
+    // "Who gets each role": every person coming from the role's groups (nested too) plus the people assigned directly.
+    [HttpPost]
+    public async Task<IActionResult> RolePreview(Dictionary<string, string> ldap)
+    {
+        var o = await MergeLdap(NormalizeLdap(ldap));
+        var auth = HttpContext.RequestServices.GetRequiredService<LdapAuthService>();
+        var defs = new[] { (Roles.Staff, o.GroupStaff), (Roles.Hod, o.GroupHod), (Roles.Media, o.GroupMedia), (Roles.Research, o.GroupResearch), (Roles.Admin, o.GroupAdmin) };
+        var direct = await _db.RoleAssignments.AsNoTracking().OrderBy(r => r.Username).ToListAsync();
+        var roles = new List<object>(); var calls = 0; string? problem = null;
+        foreach (var (role, groups) in defs)
+        {
+            var people = new Dictionary<string, PersonRow>(StringComparer.OrdinalIgnoreCase);
+            var glist = new List<object>();
+            foreach (var g in MailService.Split(groups).Distinct(StringComparer.OrdinalIgnoreCase).Take(10))
+            {
+                if (++calls > 30) break;
+                var (ok, msg, tree) = await auth.GroupTreeAsync(o, g);
+                if (!ok || tree == null) { glist.Add(new { name = g, found = false, people = 0, message = msg }); if (!msg.Contains("was not found")) problem ??= msg; continue; }
+                var inGroup = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                void Walk(GroupNode nd, string path)
+                {
+                    var p = path == "" ? nd.Name : path + " > " + nd.Name;
+                    foreach (var u in nd.Users)
+                    {
+                        var key = string.IsNullOrEmpty(u.Sam) ? (u.Email ?? u.Name) : u.Sam;
+                        if (!people.TryGetValue(key, out var row)) people[key] = row = new PersonRow(u.Name, u.Email, u.Sam, new List<string>());
+                        if (!row.Via.Contains(p)) row.Via.Add(p);
+                        inGroup.Add(key);
+                    }
+                    foreach (var c in nd.Children) if (!c.Cycle) Walk(c, p);
+                }
+                Walk(tree, "");
+                glist.Add(new { name = g, found = true, people = inGroup.Count, truncated = tree.Truncated, message = "" });
+            }
+            roles.Add(new
+            {
+                role,
+                groups = glist,
+                people = people.Values.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList(),
+                direct = direct.Where(d => d.Role == role).Select(d => new { d.Id, d.Username }).ToList(),
+            });
+        }
+        return Json(new { ok = problem == null, message = problem ?? "", nested = o.Nested, roles });
+    }
+
+    // Give a role straight to one person (email address or username), without any group. Same store as the Roles page.
+    [HttpPost]
+    public async Task<IActionResult> AssignPerson(string who, string role)
+    {
+        who = (who ?? "").Trim();
+        if (who.Contains('\\')) who = who.Split('\\')[1];
+        if (who.Length == 0 || who.Length > 100 || !AssignableRoles.Contains(role)) return Json(new { ok = false, message = "Enter an email address or username and choose a role." });
+        var lower = who.ToLower();
+        if (!await _db.RoleAssignments.AnyAsync(r => r.Username.ToLower() == lower && r.Role == role))
+        {
+            _db.RoleAssignments.Add(new RoleAssignment { Username = who, Role = role, AssignedBy = Username });
+            await _db.SaveChangesAsync();
+            await _wf.Audit(Username, "RoleAssigned", $"{who} -> {role}");
+        }
+        return Json(new { ok = true, message = "" });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UnassignPerson(int id)
+    {
+        var r = await _db.RoleAssignments.FindAsync(id);
+        if (r != null)
+        {
+            _db.RoleAssignments.Remove(r);
+            await _db.SaveChangesAsync();
+            await _wf.Audit(Username, "RoleRemoved", $"{r.Username} -> {r.Role}");
+        }
+        return Json(new { ok = true, message = "" });
+    }
+
     // Lists the groups in the directory (using the unsaved form values) so each role can be pointed at a real group.
     [HttpPost]
     public async Task<IActionResult> FetchGroups(Dictionary<string, string> ldap)

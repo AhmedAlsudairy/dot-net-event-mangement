@@ -52,22 +52,34 @@
             <div class="col-md-6"><label class="form-label">Service account password</label>@{ Pw("ldap[ServiceAccountPassword]", !string.IsNullOrEmpty(l.SvcPassword)); }</div>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2 mt-4 mb-2">
-            <h6 class="mb-0">Role groups <span class="text-muted fw-normal small">- AD group name for each role (extra people can be added on the Roles page)</span></h6>
-            <button type="button" class="btn btn-sm btn-outline-primary ms-auto" id="fg"><i class="bi bi-cloud-download"></i><span>Fetch groups from LDAP</span></button>
+            <h6 class="mb-0">Who gets each role <span class="text-muted fw-normal small">- by AD group (one or several, separated by commas) and/or by person</span></h6>
+            <span class="ms-auto d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="fg"><i class="bi bi-cloud-download"></i><span>Fetch groups from LDAP</span></button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="rpBtn"><i class="bi bi-people"></i><span>Preview people per role</span></button>
+            </span>
         </div>
         <div class="row g-3">
-            <div class="col-6 col-md-3"><label class="form-label">Staff</label><input class="form-control" name="ldap[GroupStaff]" value="@l.GroupStaff" /></div>
-            <div class="col-6 col-md-3"><label class="form-label">HOD</label><input class="form-control" name="ldap[GroupHod]" value="@l.GroupHod" /></div>
-            <div class="col-6 col-md-3"><label class="form-label">Media Officer</label><input class="form-control" name="ldap[GroupMedia]" value="@l.GroupMedia" /></div>
-            <div class="col-6 col-md-3"><label class="form-label">Admin</label><input class="form-control" name="ldap[GroupAdmin]" value="@l.GroupAdmin" /></div>
-            <div class="col-6 col-md-3"><label class="form-label">Research in-charge</label><input class="form-control" name="ldap[GroupResearch]" value="@l.GroupResearch" /></div>
+            <div class="col-md-6"><label class="form-label">Staff</label><input class="form-control" name="ldap[GroupStaff]" value="@l.GroupStaff" placeholder="Group-A, Group-B" /></div>
+            <div class="col-md-6"><label class="form-label">HOD</label><input class="form-control" name="ldap[GroupHod]" value="@l.GroupHod" placeholder="Group-A, Group-B" /></div>
+            <div class="col-md-6"><label class="form-label">Media Officer</label><input class="form-control" name="ldap[GroupMedia]" value="@l.GroupMedia" placeholder="Group-A, Group-B" /></div>
+            <div class="col-md-6"><label class="form-label">Research in-charge</label><input class="form-control" name="ldap[GroupResearch]" value="@l.GroupResearch" placeholder="Group-A, Group-B" /></div>
+            <div class="col-md-6"><label class="form-label">Admin</label><input class="form-control" name="ldap[GroupAdmin]" value="@l.GroupAdmin" placeholder="Group-A, Group-B" /></div>
+        </div>
+        <div class="field-help">A person gets a role when they are in <b>any</b> of its groups (and in groups inside them, if nested groups are on). You can also give a role to a single person: use <b>Preview people per role</b> and add an email address or username. Group boxes are saved with <b>Save</b>; people added directly are saved at once.</div>
+        <div class="d-flex flex-wrap gap-3 small mt-2" id="gopts">
+            <span class="text-muted">Show:</span>
+            <label class="form-check form-check-inline m-0"><input class="form-check-input" type="checkbox" id="gx-email" /> <span class="form-check-label">emails</span></label>
+            <label class="form-check form-check-inline m-0"><input class="form-check-input" type="checkbox" id="gx-sam" /> <span class="form-check-label">usernames</span></label>
+            <label class="form-check form-check-inline m-0"><input class="form-check-input" type="checkbox" id="gx-tree" /> <span class="form-check-label">groups inside groups as a tree</span></label>
+            <span class="text-muted">(remembered in this browser)</span>
         </div>
         <div id="fgr" class="test-result mt-2 d-none"></div>
         <div id="gpanel" class="border rounded p-2 mt-2 d-none">
             <input id="gfilter" class="form-control form-control-sm mb-2" placeholder="Filter groups..." autocomplete="off" />
-            <div id="glist" style="max-height:240px;overflow:auto"></div>
-            <div class="field-help mt-1">Press a role button to put that group in the role box above, then Save. Role boxes turn green when the group exists in the directory and red when it does not.</div>
+            <div id="glist" style="max-height:340px;overflow:auto"></div>
+            <div class="field-help mt-1"><b>Members</b> shows who is in a group, with the groups inside it. A role button adds the group to that role (press again to remove it), then Save. Role boxes turn green when every group exists and red when one does not.</div>
         </div>
+        <div id="rpOut" class="mt-3"></div>
         <div class="bg-light rounded p-3 mt-4">
             <div class="fw-semibold mb-2"><i class="bi bi-plug"></i> Test this connection <span class="text-muted fw-normal small">(uses the values above, nothing is saved)</span></div>
             <div class="row g-2">
@@ -176,43 +188,199 @@
     })();
     // Fetch the directory's groups and let the admin assign each one to a role
     (function () {
-        var roles = [['Staff', 'GroupStaff'], ['HOD', 'GroupHod'], ['Media', 'GroupMedia'], ['Admin', 'GroupAdmin'], ['Research', 'GroupResearch']];
-        var all = [], panel = document.getElementById('gpanel'), list = document.getElementById('glist'), filter = document.getElementById('gfilter');
+        var roles = [['Staff', 'GroupStaff'], ['HOD', 'GroupHod'], ['Media', 'GroupMedia'], ['Research', 'GroupResearch'], ['Admin', 'GroupAdmin']];
+        var all = [], panel = document.getElementById('gpanel'), list = document.getElementById('glist'), filter = document.getElementById('gfilter'), rpOut = document.getElementById('rpOut');
+        var opts = { email: true, sam: false, tree: true };
+        try { var o0 = JSON.parse(localStorage.getItem('gx:opts') || '{}'); for (var k in o0) opts[k] = !!o0[k]; } catch (e) { }
+        ['email', 'sam', 'tree'].forEach(function (k) {
+            var c = document.getElementById('gx-' + k); c.checked = opts[k];
+            c.onchange = function () { opts[k] = c.checked; try { localStorage.setItem('gx:opts', JSON.stringify(opts)); } catch (e) { } redrawOpen(); };
+        });
+
+        function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
         function box(key) { return document.querySelector('[name="ldap[' + key + ']"]'); }
+        function items(key) { return box(key).value.split(/[,;\n]/).map(function (x) { return x.trim(); }).filter(Boolean); }
+        function setItems(key, arr) { box(key).value = arr.join(', '); }
+        function has(arr, g) { return arr.some(function (x) { return x.toLowerCase() === g.toLowerCase(); }); }
+        async function post(url, extra) {
+            var fd = new FormData();
+            document.querySelectorAll('#ldapBox [name]').forEach(function (e) { fd.append(e.name, e.value); });
+            for (var k in extra) fd.append(k, extra[k]);
+            fd.append('__RequestVerificationToken', token);
+            return await (await fetch(url, { method: 'POST', body: fd })).json();
+        }
+        function notice(parent, ok, text) { var n = el('div', 'test-result mt-1 ' + (ok ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis'), text); parent.appendChild(n); return n; }
+
+        // role boxes: green when every listed group exists, red when one is missing
         function mark() {
-            var have = all.map(function (g) { return g.toLowerCase(); });
             roles.forEach(function (r) {
-                var b = box(r[1]), v = b.value.trim().toLowerCase();
-                b.classList.toggle('is-valid', !!v && have.indexOf(v) >= 0); b.classList.toggle('is-invalid', !!v && have.indexOf(v) < 0);
+                var b = box(r[1]), v = items(r[1]);
+                var missing = all.length ? v.filter(function (g) { return !has(all, g); }) : [];
+                b.classList.toggle('is-valid', !!all.length && v.length > 0 && missing.length === 0);
+                b.classList.toggle('is-invalid', missing.length > 0);
+                b.title = missing.length ? 'Not found in the directory: ' + missing.join(', ') : '';
             });
         }
+        function refreshButtons() {
+            list.querySelectorAll('button[data-g]').forEach(function (b) {
+                var on = has(items(b.dataset.key), b.dataset.g);
+                b.className = 'btn btn-sm py-0 ' + (on ? 'btn-primary' : 'btn-outline-secondary'); b.setAttribute('aria-pressed', on);
+            });
+        }
+
+        // ---- people in a group (with the groups inside it)
+        function walk(node, fn, depth, path) {
+            var p = path ? path + ' > ' + node.name : node.name;
+            node.users.forEach(function (u) { fn(u, node, depth, p); });
+            node.children.forEach(function (c) { if (!c.cycle) walk(c, fn, depth + 1, p); });
+        }
+        function uniquePeople(tree) {
+            var seen = {}, out = [];
+            walk(tree, function (u, n, d, p) { var k = (u.sam || u.email || u.name).toLowerCase(); if (!seen[k]) { seen[k] = { person: u, via: [] }; out.push(seen[k]); } if (seen[k].via.indexOf(p) < 0) seen[k].via.push(p); }, 0, '');
+            return out;
+        }
+        function personLine(u, via) {
+            var line = el('div', 'd-flex flex-wrap align-items-center gap-2 py-0');
+            line.appendChild(el('span', '', u.name || u.sam));
+            if (opts.email) line.appendChild(el('span', u.email ? 'text-muted' : 'text-muted fst-italic', u.email || '(no email)'));
+            if (opts.sam && u.sam) line.appendChild(el('code', 'small', u.sam));
+            if (via) line.appendChild(el('span', 'badge bg-light text-dark border fw-normal', via));
+            var sel = el('select', 'form-select form-select-sm w-auto py-0 ms-auto'); sel.title = 'Give this person a role directly';
+            sel.appendChild(new Option('Assign role...', ''));
+            roles.forEach(function (r) { sel.appendChild(new Option(r[0], r[0])); });
+            sel.onchange = async function () {
+                var role = sel.value; if (!role) return;
+                var j = await post('@Url.Action("AssignPerson")', { who: u.email || u.sam, role: role });
+                sel.value = ''; var n = notice(line, j.ok, j.ok ? 'Added as ' + role : j.message); setTimeout(function () { n.remove(); }, 3000);
+            };
+            line.appendChild(sel);
+            return line;
+        }
+        function renderNode(node, depth) {
+            var wrap = el('div', depth ? 'ms-3 ps-2 border-start' : '');
+            var head = el('div', 'fw-semibold mt-1'); head.textContent = node.name + ' (' + node.users.length + ' direct)';
+            if (node.cycle) head.appendChild(el('span', 'badge bg-warning text-dark ms-2', 'already shown above'));
+            if (node.truncated) head.appendChild(el('span', 'badge bg-warning text-dark ms-2', 'list cut short'));
+            wrap.appendChild(head);
+            node.users.forEach(function (u) { wrap.appendChild(personLine(u)); });
+            node.children.forEach(function (c) { wrap.appendChild(renderNode(c, depth + 1)); });
+            return wrap;
+        }
+        function renderMembers(host, tree) {
+            host.textContent = '';
+            var people = uniquePeople(tree), withMail = people.filter(function (p) { return p.person.email; });
+            var sub = 0; (function c(n) { n.children.forEach(function (x) { sub++; c(x); }); })(tree);
+            var head = el('div', 'd-flex flex-wrap align-items-center gap-2 mb-1');
+            head.appendChild(el('span', 'small', people.length + ' people (' + withMail.length + ' with an email address)' + (sub ? ', ' + sub + ' group(s) inside' : '')));
+            var copy = el('button', 'btn btn-sm btn-outline-secondary py-0 ms-auto', 'Copy emails'); copy.type = 'button';
+            copy.onclick = function () { var t = withMail.map(function (p) { return p.person.email; }).join('; '); if (navigator.clipboard) navigator.clipboard.writeText(t); copy.textContent = 'Copied ' + withMail.length; };
+            head.appendChild(copy); host.appendChild(head);
+            if (opts.tree) host.appendChild(renderNode(tree, 0));
+            else people.forEach(function (p) { host.appendChild(personLine(p.person, p.via.join(' | '))); });
+            if (!people.length) host.appendChild(el('div', 'text-muted small', 'Nobody is in this group.'));
+        }
+        var openTrees = {};
+        function redrawOpen() { Object.keys(openTrees).forEach(function (g) { var o = openTrees[g]; if (o.tree && o.host.isConnected) renderMembers(o.host, o.tree); }); if (lastPreview) renderPreview(lastPreview); }
+
         function draw() {
             var t = filter.value.trim().toLowerCase(), shown = 0;
-            list.textContent = '';
+            list.textContent = ''; openTrees = {};
             all.forEach(function (g) {
                 if (shown >= 100 || (t && g.toLowerCase().indexOf(t) < 0)) return;
                 shown++;
-                var row = document.createElement('div'); row.className = 'd-flex align-items-center gap-2 py-1 border-bottom';
-                var name = document.createElement('span'); name.className = 'flex-grow-1 text-break'; name.textContent = g; row.appendChild(name);
+                var row = el('div', 'py-1 border-bottom'), top = el('div', 'd-flex align-items-center gap-2 flex-wrap');
+                top.appendChild(el('span', 'flex-grow-1 text-break fw-semibold', g));
+                var mem = el('button', 'btn btn-sm btn-outline-info py-0', 'Members'); mem.type = 'button'; top.appendChild(mem);
                 roles.forEach(function (r) {
-                    var b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-sm btn-outline-secondary py-0'; b.textContent = r[0];
-                    b.onclick = function () { box(r[1]).value = g; mark(); };
-                    row.appendChild(b);
+                    var b = el('button', 'btn btn-sm py-0 btn-outline-secondary', r[0]); b.type = 'button'; b.dataset.g = g; b.dataset.key = r[1];
+                    b.onclick = function () { var cur = items(r[1]); setItems(r[1], has(cur, g) ? cur.filter(function (x) { return x.toLowerCase() !== g.toLowerCase(); }) : cur.concat([g])); mark(); refreshButtons(); };
+                    top.appendChild(b);
                 });
+                row.appendChild(top);
+                var host = el('div', 'ms-3 mt-1 mb-1 d-none'); row.appendChild(host);
+                mem.onclick = async function () {
+                    if (!host.classList.contains('d-none')) { host.classList.add('d-none'); return; }
+                    host.classList.remove('d-none');
+                    if (openTrees[g] && openTrees[g].tree) return;
+                    host.textContent = 'Loading...';
+                    try {
+                        var j = await post('@Url.Action("GroupTree")', { group: g });
+                        if (!j.ok) { host.textContent = ''; notice(host, false, j.message); return; }
+                        openTrees[g] = { host: host, tree: j.tree }; renderMembers(host, j.tree);
+                    } catch (e) { host.textContent = String(e); }
+                };
                 list.appendChild(row);
             });
             if (!shown) list.textContent = 'No group matches.';
+            refreshButtons();
         }
         filter.oninput = draw;
-        document.querySelectorAll('[name^="ldap[Group"]').forEach(function (i) { i.addEventListener('input', mark); });
+        document.querySelectorAll('[name^="ldap[Group"]').forEach(function (i) { i.addEventListener('input', function () { mark(); refreshButtons(); }); });
+
+        // ---- who gets each role (groups + people added directly)
+        var lastPreview = null;
+        function renderPreview(j) {
+            rpOut.textContent = '';
+            if (!j.ok && j.message) notice(rpOut, false, j.message);
+            if (!j.nested) rpOut.appendChild(el('div', 'small text-muted mb-2', 'Groups inside groups are switched off, so only direct members count.'));
+            j.roles.forEach(function (r) {
+                var card = el('div', 'border rounded p-2 mb-2');
+                var head = el('div', 'd-flex flex-wrap align-items-center gap-2 mb-1');
+                head.appendChild(el('span', 'fw-semibold', r.role));
+                var total = r.people.length + r.direct.length;
+                head.appendChild(el('span', 'badge ' + (total ? 'bg-primary' : 'bg-secondary'), total + (total === 1 ? ' person' : ' people')));
+                r.groups.forEach(function (g) {
+                    var chip = el('span', 'badge fw-normal ' + (g.found ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis'), g.found ? g.name + ' - ' + g.people + (g.truncated ? '+' : '') : g.name + ' - not found');
+                    if (!g.found) chip.title = g.message; head.appendChild(chip);
+                });
+                card.appendChild(head);
+                var add = el('div', 'input-group input-group-sm mb-1');
+                var inp = el('input', 'form-control'); inp.placeholder = 'Add a person: email address or username'; inp.autocomplete = 'off'; inp.setAttribute('aria-label', 'Add a person to ' + r.role);
+                var btn = el('button', 'btn btn-outline-primary', 'Add'); btn.type = 'button';
+                btn.onclick = async function () {
+                    var v = inp.value.trim(); if (!v) return;
+                    var res = await post('@Url.Action("AssignPerson")', { who: v, role: r.role });
+                    if (!res.ok) { notice(card, false, res.message); return; }
+                    runPreview();
+                };
+                inp.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } };
+                add.appendChild(inp); add.appendChild(btn); card.appendChild(add);
+                if (total === 0) card.appendChild(el('div', 'small text-muted', 'Nobody has this role yet.'));
+                else {
+                    var tbl = el('table', 'table table-sm mb-0 align-middle'), body = el('tbody');
+                    r.direct.forEach(function (d) {
+                        var tr = el('tr'); tr.appendChild(el('td', '', d.username));
+                        tr.appendChild(el('td', 'small text-muted', 'added directly'));
+                        var td = el('td', 'text-end'); var rm = el('button', 'btn btn-sm btn-outline-danger py-0', 'Remove'); rm.type = 'button';
+                        rm.onclick = async function () { await post('@Url.Action("UnassignPerson")', { id: d.id }); runPreview(); };
+                        tr.appendChild(el('td', '')); tr.lastChild.appendChild(rm); body.appendChild(tr);
+                    });
+                    r.people.slice(0, 200).forEach(function (p) {
+                        var tr = el('tr'); tr.appendChild(el('td', '', p.name || p.sam));
+                        var det = [opts.email ? (p.email || '(no email)') : '', opts.sam && p.sam ? p.sam : ''].filter(Boolean).join('  ');
+                        tr.appendChild(el('td', 'text-muted', det));
+                        tr.appendChild(el('td', 'small text-muted', p.via.join(' | '))); body.appendChild(tr);
+                    });
+                    tbl.appendChild(body); card.appendChild(tbl);
+                    if (r.people.length > 200) card.appendChild(el('div', 'small text-muted', '... and ' + (r.people.length - 200) + ' more'));
+                }
+                rpOut.appendChild(card);
+            });
+        }
+        async function runPreview() {
+            var btn = document.getElementById('rpBtn'), label = btn.querySelector('span'), icon = btn.querySelector('i'), old = label.textContent, oldIcon = icon.className;
+            btn.disabled = true; label.textContent = 'Working...'; icon.className = 'spinner-border spinner-border-sm';
+            try { var j = await post('@Url.Action("RolePreview")', {}); lastPreview = j; renderPreview(j); }
+            catch (e) { rpOut.textContent = ''; notice(rpOut, false, String(e)); }
+            finally { btn.disabled = false; label.textContent = old; icon.className = oldIcon; }
+        }
+        document.getElementById('rpBtn').onclick = runPreview;
+
         document.getElementById('fg').onclick = async function () {
             var btn = this, out = document.getElementById('fgr'), label = btn.querySelector('span'), icon = btn.querySelector('i'), old = label.textContent, oldIcon = icon.className;
-            var fd = new FormData();
-            document.querySelectorAll('#ldapBox [name]').forEach(function (e) { fd.append(e.name, e.value); });
-            fd.append('__RequestVerificationToken', token);
             btn.disabled = true; label.textContent = 'Fetching...'; icon.className = 'spinner-border spinner-border-sm'; out.className = 'test-result mt-2 d-none';
             try {
-                var j = await (await fetch('@Url.Action("FetchGroups")', { method: 'POST', body: fd })).json();
+                var j = await post('@Url.Action("FetchGroups")', {});
                 out.className = 'test-result mt-2 ' + (j.ok ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis');
                 out.textContent = j.message;
                 if (j.ok) { all = j.groups; panel.classList.remove('d-none'); filter.value = ''; draw(); mark(); } else panel.classList.add('d-none');
