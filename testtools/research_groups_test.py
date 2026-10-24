@@ -110,4 +110,51 @@ msgs = json.loads(urllib.request.urlopen(MAILPIT + "/api/v1/messages").read())["
 m = [x for x in msgs if x["Subject"].endswith("Second study") and "Research paper" in x["Subject"]]
 check("upload goes to the configured research email", m and any("in.charge@test.local" in t["Address"] for t in m[0]["To"]), m[:1])
 
+# ---- email is the sign-in name
+check("sign in with email", login("staff@test.local", "staff123")[1])
+check("email is case-insensitive", login("STAFF@Test.Local", "staff123")[1])
+check("wrong password by email refused", not login("staff@test.local", "nope")[1])
+lg = Client().get("/Account/Login")[0]
+check("login page asks for the email address", "Email address" in lg and "Forgot your password?" in lg)
+check("user with no role refused", not login("nogroup@test.local", "nogroup123")[1])
+admin.post("/Admin/AddRole", {"username": "nogroup@test.local", "role": "Staff"}, "/Admin/RolesPage")
+check("role given to an email address works with the email", login("nogroup@test.local", "nogroup123")[1])
+check("...and with the short username", login("nogroup", "nogroup123")[1])
+check("roles page keeps the whole email", "nogroup@test.local" in admin.get("/Admin/RolesPage")[0])
+
+# visit approvers can be listed by email
+st3, _, _, _ = login("staff@test.local", "staff123")
+vf = {"Name": "Museum trip", "Destination": "City museum", "Date": __import__("datetime").date.today().isoformat(), "DepartureTime": "08:00", "ReturnTime": "13:00",
+      "PickupLocation": "Main gate", "StudentCount": "20", "StaffCount": "2", "SupervisorName": "S. Staff", "SupervisorPhone": "0500000000", "submitAction": "submit"}
+h, url = st3.post("/Visits/Save", vf, "/Visits/Create"); vid = re.search(r"/Visits/Details/(\d+)", url)
+check("same-day visit submitted", vid is not None and "Museum trip" in h, url)
+vid = vid.group(1) if vid else "1"
+hod, _, _, _ = login("hod@test.local", "hod123")
+check("HOD role approves visits by default", 'value="approve"' in hod.get(f"/Visits/Details/{vid}")[0])
+admin.post("/Admin/Settings", {"values[VisitApprovers]": "someone.else@test.local"}, "/Admin/Settings")
+check("HOD not in the approver list cannot decide", 'value="approve"' not in hod.get(f"/Visits/Details/{vid}")[0])
+admin.post("/Admin/Settings", {"values[VisitApprovers]": "HOD@test.local"}, "/Admin/Settings")
+check("approver listed by email can decide", 'value="approve"' in hod.get(f"/Visits/Details/{vid}")[0])
+admin.post("/Admin/Settings", {"values[VisitApprovers]": ""}, "/Admin/Settings")
+
+# ---- forgot password
+anon = Client(); h, _ = anon.get("/Account/Forgot")
+check("forgot page opens without signing in", "Ask IT to reset it" in h and "Reset my password" not in h, h[:200])
+admin.post("/Admin/Settings", {"values[PasswordResetUrl]": "javascript:alert(1)"}, "/Admin/Settings")
+check("unsafe reset URL rejected", "javascript:" not in Client().get("/Account/Forgot")[0])
+admin.post("/Admin/Settings", {"values[PasswordResetUrl]": "https://reset.test.local/sspr", "values[PasswordHelpEmail]": "helpdesk@test.local"}, "/Admin/Settings")
+h, _ = Client().get("/Account/Forgot"); check("reset button shown when a URL is set", "https://reset.test.local/sspr" in h and "Reset my password" in h)
+h, _ = anon.post("/Account/Forgot", {"email": "not-an-email", "note": ""}, "/Account/Forgot"); check("invalid email rejected", "valid email" in h)
+before = json.loads(urllib.request.urlopen(MAILPIT + "/api/v1/messages").read())["total"]
+h, _ = anon.post("/Account/Forgot", {"email": "staff@test.local", "note": "locked out"}, "/Account/Forgot"); check("request accepted", "IT has been told" in h, h[-300:])
+h2, _ = anon.post("/Account/Forgot", {"email": "ghost@nowhere.test", "note": ""}, "/Account/Forgot"); check("unknown address gets the same answer", "IT has been told" in h2)
+msgs = json.loads(urllib.request.urlopen(MAILPIT + "/api/v1/messages").read())
+helps = [x for x in msgs["messages"] if x["Subject"].startswith("Password help requested: staff@test.local")]
+check("IT helpdesk got the request", helps and any("helpdesk@test.local" in t["Address"] for t in helps[0]["To"]), [x["Subject"] for x in msgs["messages"]][:4])
+SUBJ = "Password help requested: staff@test.local"
+n1 = sum(1 for x in json.loads(urllib.request.urlopen(MAILPIT + "/api/v1/messages").read())["messages"] if x["Subject"] == SUBJ)
+anon.post("/Account/Forgot", {"email": "staff@test.local", "note": "again"}, "/Account/Forgot")
+n2 = sum(1 for x in json.loads(urllib.request.urlopen(MAILPIT + "/api/v1/messages").read())["messages"] if x["Subject"] == SUBJ)
+check("same address is limited to one request per 10 minutes", n2 == n1 and n1 >= 1, (n1, n2))
+
 print("\nFAILED:", fails); sys.exit(1 if fails else 0)

@@ -27,7 +27,7 @@ public class AdminController : AppController
         {
             if (!SettingsService.Defaults.ContainsKey(kv.Key)) continue; // ignore unknown keys
             var v = (kv.Value ?? "").Trim();
-            if (kv.Key is "AdminMailbox" or "MediaOfficerEmail" or "AdminExtraTo" or "AdminCc" or "HodEmail" or "VisitApproverEmail" or "VisitBusEmail" or "VisitBusCc" or "ResearchEmail" or "ResearchCc")
+            if (kv.Key is "AdminMailbox" or "MediaOfficerEmail" or "AdminExtraTo" or "AdminCc" or "HodEmail" or "VisitApproverEmail" or "VisitBusEmail" or "VisitBusCc" or "ResearchEmail" or "ResearchCc" or "PasswordHelpEmail")
             {
                 var list = MailService.Split(v);
                 if (list.Any(x => !System.Net.Mail.MailAddress.TryCreate(x, out _)) || (kv.Key is "AdminMailbox" or "MediaOfficerEmail" && list.Count != 1))
@@ -36,6 +36,7 @@ public class AdminController : AppController
             if (kv.Key is "ReminderWorkingDays" or "CheckInOpenMinutesBefore" or "CheckInCloseMinutesAfterEnd" or "EvaluationOpenDays" or "VisitMinDaysAhead" or "ResearchMaxMb"
                 && !(int.TryParse(v, out var n) && n >= 0 && (kv.Key != "ResearchMaxMb" || n is >= 1 and <= 25)))
             { errors.Add(kv.Key); continue; }
+            if (kv.Key == "PasswordResetUrl" && v.Length > 0 && !(Uri.TryCreate(v, UriKind.Absolute, out var ru) && (ru.Scheme == "https" || ru.Scheme == "http"))) { errors.Add(kv.Key); continue; }
             if (kv.Key is "ImgPrimary" or "ImgAccent" && !SkiaSharp.SKColor.TryParse(v, out _)) { errors.Add(kv.Key); continue; }
             if (current[kv.Key] == v) continue;
             await _settings.SetAsync(kv.Key, v);
@@ -156,8 +157,8 @@ public class AdminController : AppController
     {
         username = (username ?? "").Trim();
         if (username.Contains('\\')) username = username.Split('\\')[1];
-        if (username.Contains('@')) username = username.Split('@')[0];
-        if (username.Length == 0 || username.Length > 100 || !AssignableRoles.Contains(role)) { TempData["Error"] = "Enter a username and choose a role."; return RedirectToAction(nameof(RolesPage)); }
+        // an email address is kept whole: people sign in with their email and a role can be given to it directly
+        if (username.Length == 0 || username.Length > 100 || !AssignableRoles.Contains(role)) { TempData["Error"] = "Enter an email address (or username) and choose a role."; return RedirectToAction(nameof(RolesPage)); }
         var lower = username.ToLower();
         if (!await _db.RoleAssignments.AnyAsync(r => r.Username.ToLower() == lower && r.Role == role))
         {

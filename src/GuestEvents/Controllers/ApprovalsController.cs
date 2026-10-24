@@ -41,6 +41,6 @@ public class ApprovalsController : AppController
     private async Task<bool> IsAssignedHod()
     {
         var hod = (await _settings.AllAsync())["HodUsername"];
-        return string.IsNullOrWhiteSpace(hod) || hod.Equals(Username, StringComparison.OrdinalIgnoreCase);
+        return string.IsNullOrWhiteSpace(hod) || SettingsService.InUserList(hod, User); // username or email
     }
 }

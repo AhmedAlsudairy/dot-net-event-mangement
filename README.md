@@ -19,6 +19,11 @@ First-time bootstrap (before anyone can sign in) still uses appsettings.json / e
 - `Smtp:Enabled` = true plus host/port/credentials.
 - `App:PublicHost` / `App:PublicBaseUrl` / `App:InternalBaseUrl`.
 
+## Sign-in
+- People sign in with their **company email address** (the AD `mail` attribute) and their normal password. The short username, `DOMAIN\user` and the UPN also still work.
+- Roles, the HOD, visit approvers and bus coordinators can be given by **email address or username** (Roles page and Settings). Existing records keep working because the internal user name is unchanged.
+- **Forgot your password?** on the sign-in page. Passwords live in Active Directory and the app never stores or sets them, so the page shows a *Reset my password* button (set the URL in Settings > Sign-in help, for example your self-service reset portal) and an *Ask IT to reset it* form that emails the IT helpdesk address. The answer is always the same, so nobody can find out which addresses exist, and one address can ask once every 10 minutes.
+
 ## Other sections
 - **External visits (bus requests):** Staff request a bus for a student trip. Who approves, who confirms the bus and who gets the emails is set in Settings > External visits (bus).
 - **Research:** Staff upload a research paper or proposal (PDF, DOC, DOCX). It is emailed to the research in-charge and saved in the archive; there is no approval. The in-charge has the **Research** role (AD group `Research-InCharge` by default, or assign it on the Roles page). Set the in-charge email in Settings > Research.

@@ -345,8 +345,11 @@ public class DevAuthService : IAuthService
         ["research"] = new("research", "Rana Research", "research@example.com", "Research", new() { Roles.Research }),
         ["admin"] = new("admin", "Adam Admin", "admin@example.com", "IT", new() { Roles.Admin, Roles.Staff }),
     };
+    // dev users sign in by name or by email (staff@example.com), like the real directory
+    private static AdUser? Find(string? login) =>
+        Users.TryGetValue(login ?? "", out var u) ? u : Users.Values.FirstOrDefault(x => string.Equals(x.Email, login, StringComparison.OrdinalIgnoreCase));
     public Task<AuthResult> AuthenticateAsync(string username, string password) =>
-        Task.FromResult(password == "dev" && Users.TryGetValue(username ?? "", out var u) ? AuthResult.Ok(u) : AuthResult.Failed(AuthFail.Invalid));
+        Task.FromResult(password == "dev" && Find(username) is { } u ? AuthResult.Ok(u) : AuthResult.Failed(AuthFail.Invalid));
     public Task<AuthResult> LookupAsync(string login)
     {
         var name = (login ?? "").Contains('\\') ? login![(login.IndexOf('\\') + 1)..] : (login ?? "");

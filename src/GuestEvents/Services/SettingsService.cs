@@ -31,6 +31,9 @@ public class SettingsService
         ["ResearchCc"] = "",
         ["ResearchNotifySubmitter"] = "true",
         ["ResearchMaxMb"] = "20",
+        // Sign-in help: the app never stores passwords, so "Forgot password" sends people to the company reset page and/or to IT
+        ["PasswordResetUrl"] = "",       // e.g. https://aka.ms/sspr or the company self-service portal; empty = only the "ask IT" form
+        ["PasswordHelpEmail"] = "",      // IT helpdesk; empty = admin mailbox
         ["ReminderWorkingDays"] = "2",
         ["CheckInOpenMinutesBefore"] = "30",
         ["CheckInCloseMinutesAfterEnd"] = "0",
@@ -79,13 +82,17 @@ public class SettingsService
     static bool InList(string? list, string? user) =>
         !string.IsNullOrEmpty(user) && MailService.Split(list).Any(x => x.Equals(user, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>Who may approve external visits: the listed users; with an empty list anyone with the HOD role. Admin always.</summary>
-    public static bool IsVisitApprover(Dictionary<string, string> s, System.Security.Claims.ClaimsPrincipal u) =>
-        u.IsInRole(Roles.Admin) || (string.IsNullOrWhiteSpace(s.GetValueOrDefault("VisitApprovers")) ? u.IsInRole(Roles.Hod) : InList(s["VisitApprovers"], u.Identity?.Name));
+    /// <summary>True when the person is in a comma separated list of usernames or email addresses.</summary>
+    public static bool InUserList(string? list, System.Security.Claims.ClaimsPrincipal u) =>
+        InList(list, u.Identity?.Name) || InList(list, u.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value);
 
-    /// <summary>Who may confirm the bus: the listed users, and Admin.</summary>
+    /// <summary>Who may approve external visits: the listed users (username or email); with an empty list anyone with the HOD role. Admin always.</summary>
+    public static bool IsVisitApprover(Dictionary<string, string> s, System.Security.Claims.ClaimsPrincipal u) =>
+        u.IsInRole(Roles.Admin) || (string.IsNullOrWhiteSpace(s.GetValueOrDefault("VisitApprovers")) ? u.IsInRole(Roles.Hod) : InUserList(s["VisitApprovers"], u));
+
+    /// <summary>Who may confirm the bus: the listed users (username or email), and Admin.</summary>
     public static bool IsVisitBusUser(Dictionary<string, string> s, System.Security.Claims.ClaimsPrincipal u) =>
-        u.IsInRole(Roles.Admin) || InList(s.GetValueOrDefault("VisitBusUsers"), u.Identity?.Name);
+        u.IsInRole(Roles.Admin) || InUserList(s.GetValueOrDefault("VisitBusUsers"), u);
 }
 
 public static class WorkingDays

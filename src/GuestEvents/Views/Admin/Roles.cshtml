@@ -6,11 +6,11 @@
 <div class="alert alert-info d-flex gap-2 small">
     <i class="bi bi-info-circle-fill mt-1"></i>
     <div>A user's roles are their AD groups (Events-Staff / HOD / Media / Admin) <b>plus</b> the roles assigned here. Use this when a group does not exist yet or a person is not in it.
-    They still sign in with their normal AD password and must be enabled in AD. Roles apply from the next sign-in.
+    People sign in with their <b>company email address</b> and normal AD password, and must be enabled in AD. Type the email address as it is in AD (the username also works). Roles apply from the next sign-in.
     To create the very first Admin, put their username in <code>App:BootstrapAdmins</code> in appsettings.json.</div>
 </div>
 <form method="post" asp-action="AddRole" class="card mb-3"><div class="card-body row g-2 align-items-end">
-    <div class="col-md-5"><label class="form-label">AD username</label><input name="username" class="form-control" placeholder="sAMAccountName, e.g. jsmith" required maxlength="100" autocomplete="off" /></div>
+    <div class="col-md-5"><label class="form-label">Email address (or AD username)</label><input name="username" class="form-control" placeholder="jsmith@company.com" required maxlength="100" autocomplete="off" /></div>
     <div class="col-md-4"><label class="form-label">Role</label><select name="role" class="form-select">
         <option value="Staff">Staff - create requests</option><option value="HOD">HOD - approve requests</option>
         <option value="Media">Media Officer - view approved events</option><option value="Research">Research in-charge - research archive</option><option value="Admin">Admin - everything</option></select></div>

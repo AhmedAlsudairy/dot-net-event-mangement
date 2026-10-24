@@ -1,0 +1,33 @@
+@{
+    ViewData["Title"] = L.T("Forgot your password?", "نسيت كلمة المرور؟");
+    string resetUrl = ViewBag.ResetUrl as string ?? "";
+    bool hasUrl = Uri.TryCreate(resetUrl, UriKind.Absolute, out var u) && (u.Scheme == "https" || u.Scheme == "http");
+}
+<div class="row justify-content-center"><div class="col-md-7 col-lg-5">
+    <div class="card"><div class="card-body p-4">
+        <h4 class="mb-1">@ViewData["Title"]</h4>
+        <p class="text-muted">@L.T("Your password is the same one you use for your computer. It is kept by the company directory, so this system cannot change it.", "كلمة المرور هي نفسها التي تستخدمها لجهازك وتحفظها الشركة، لذلك لا يستطيع هذا النظام تغييرها.")</p>
+
+        @if (hasUrl)
+        {
+            <a class="btn btn-primary w-100 mb-3" href="@resetUrl" target="_blank" rel="noopener noreferrer"><i class="bi bi-key"></i> @L.T("Reset my password", "إعادة تعيين كلمة المرور")</a>
+            <div class="text-center text-muted small mb-3">- @L.T("or ask IT to do it", "أو اطلب من قسم تقنية المعلومات") -</div>
+        }
+
+        @if (ViewBag.Sent == true)
+        {
+            <div class="alert alert-success" role="status"><i class="bi bi-check-circle"></i> @L.T("If you gave your company email, IT has been told and will contact you. Please wait a few minutes before asking again.", "إذا أدخلت بريد الشركة فقد تم إبلاغ تقنية المعلومات وسيتواصلون معك. يرجى الانتظار بضع دقائق قبل الطلب مجدداً.")</div>
+        }
+        else
+        {
+            if (ViewBag.Error == true) { <div class="alert alert-danger py-2" role="alert"><i class="bi bi-exclamation-triangle"></i> @L.T("Enter a valid email address.", "أدخل بريداً إلكترونياً صحيحاً.")</div> }
+            <form method="post">
+                <div class="mb-3"><label class="form-label">@L.T("Your company email", "بريد الشركة الإلكتروني")</label>
+                    <div class="input-group"><span class="input-group-text bg-white"><i class="bi bi-envelope"></i></span><input type="email" name="email" class="form-control" placeholder="name@company.com" maxlength="200" required autofocus /></div></div>
+                <div class="mb-3"><label class="form-label">@L.T("Note (optional)", "ملاحظة (اختياري)")</label><textarea name="note" rows="2" maxlength="500" class="form-control"></textarea></div>
+                <button class="btn btn-outline-primary w-100"><i class="bi bi-send"></i> @L.T("Ask IT to reset it", "اطلب من تقنية المعلومات إعادة التعيين")</button>
+            </form>
+        }
+        <div class="mt-3"><a asp-action="Login" class="small text-decoration-none"><i class="bi bi-arrow-@(L.IsAr ? "right" : "left")"></i> @L.T("Back to sign in", "العودة إلى تسجيل الدخول")</a></div>
+    </div></div>
+</div></div>
