@@ -24,6 +24,14 @@ First-time bootstrap (before anyone can sign in) still uses appsettings.json / e
 - Roles, the HOD, visit approvers and bus coordinators can be given by **email address or username** (Roles page and Settings). Existing records keep working because the internal user name is unchanged.
 - **Forgot your password?** on the sign-in page. Passwords live in Active Directory and the app never stores or sets them, so the page shows a *Reset my password* button (set the URL in Settings > Sign-in help, for example your self-service reset portal) and an *Ask IT to reset it* form that emails the IT helpdesk address. The answer is always the same, so nobody can find out which addresses exist, and one address can ask once every 10 minutes.
 
+## Setting up and testing the real directory
+1. Sign in as Admin and open **Admin > LDAP & Email**.
+2. Press **Use standard defaults** (LDAPS 636, verify certificate, nested groups, the usual role group names). If the server name is filled in, the Base DN is worked out from it (`dc1.company.local` -> `DC=company,DC=local`).
+3. Enter the server, the read-only service account DN and its password. The password stays in your browser until you press Save or Test; it is stored encrypted.
+4. Press **Test LDAP**. It checks the connection and certificate, the service account sign-in, the Base DN, each role group, and **how many users have an email address and whether any two share one** (people sharing an email cannot sign in by email; they can still use their username). Add a test user and password to try a full sign-in and see the roles.
+5. Press **Fetch groups from LDAP** to pick the groups for each role, then **Save**.
+The mail box has the same **Use standard defaults** button (port 587, STARTTLS) and a **Send test email** check.
+
 ## Other sections
 - **External visits (bus requests):** Staff request a bus for a student trip. Who approves, who confirms the bus and who gets the emails is set in Settings > External visits (bus).
 - **Research:** Staff upload a research paper or proposal (PDF, DOC, DOCX). It is emailed to the research in-charge and saved in the archive; there is no approval. The in-charge has the **Research** role (AD group `Research-InCharge` by default, or assign it on the Roles page). Set the in-charge email in Settings > Research.

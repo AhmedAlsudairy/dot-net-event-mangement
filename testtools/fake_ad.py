@@ -51,6 +51,8 @@ ENTRIES = [
     user("hod", "Hamad HOD", "hod@test.local", "Management", "hod123", ["Events-HOD"]),
     user("media", "Mona Media", "media@test.local", "Media", "media123", ["Events-Media"]),
     user("admin", "Adam Admin", "admin@test.local", "IT", "admin123", ["Events-Admin", "Events-Staff"]),
+    user("share1", "Share One", "shared@test.local", "A", "share123", ["Events-Staff"]),    # two people with the same email:
+    user("share2", "Share Two", "shared@test.local", "B", "share123", ["Events-Staff"]),    # cannot sign in by email, only by username
     user("research", "Rana Research", "research@test.local", "Research", "research123", ["Research-InCharge"]),
     user("nogroup", "Nora NoGroup", "nogroup@test.local", "Finance", "nogroup123", []),
     user("disabled", "Dana Disabled", "disabled@test.local", "HR", "disabled123", ["Events-Staff"], uac=514),

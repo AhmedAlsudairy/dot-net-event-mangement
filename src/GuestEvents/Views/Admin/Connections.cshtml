@@ -22,6 +22,10 @@
     <div class="card-header"><i class="bi bi-diagram-3"></i>Active Directory (LDAP)
         <span class="badge ms-auto @(ldapSet ? "bg-success" : "bg-secondary")">@(ldapSet ? "Configured" : "Not set")</span></div>
     <div class="card-body">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="text-muted small">Not sure what to enter? Fill the usual values, then add your server, service account and password.</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" id="ldDefaults"><i class="bi bi-magic"></i> Use standard defaults</button>
+        </div>
         <div class="row g-3">
             <div class="col-md-7"><label class="form-label">Server(s)</label><input class="form-control" name="ldap[Host]" value="@l.Host" placeholder="dc1.company.local, dc2.company.local" />
                 <div class="field-help">One or more domain controllers, separated by commas - they are tried in order, so if the first is down the next one is used. Add <code>:port</code> to a server to override the port.</div></div>
@@ -81,6 +85,10 @@
     <div class="card-header"><i class="bi bi-envelope-at"></i>Email (SMTP / Exchange)
         <span class="badge ms-auto @(s.Enabled ? "bg-success" : smtpSet ? "bg-warning text-dark" : "bg-secondary")">@(s.Enabled ? "Sending" : smtpSet ? "Configured - sending off" : "Not set")</span></div>
     <div class="card-body">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="text-muted small">Usual values for a company mail server (port 587 with STARTTLS).</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" id="smDefaults"><i class="bi bi-magic"></i> Use standard defaults</button>
+        </div>
         <div class="row g-3">
             <div class="col-md-4"><label class="form-label">Sending</label>
                 <select class="form-select" name="smtp[Enabled]"><option value="true" selected="@s.Enabled">On - send real emails</option><option value="false" selected="@(!s.Enabled)">Off - only log them</option></select></div>
@@ -142,6 +150,30 @@
         } finally { btn.disabled = false; label.textContent = old; icon.className = oldIcon; }
     }
     document.getElementById('tl').onclick = function () { run(this, 'ldapBox', '@Url.Action("TestLdap")', { testUser: document.getElementById('tu').value, testPassword: document.getElementById('tp').value }, document.getElementById('lr')); };
+    // "Use standard defaults": fill the usual non-secret values; never touches the server, service account or passwords
+    (function () {
+        function f(name) { return document.querySelector('[name="' + name + '"]'); }
+        function domainOf(host) { var h = (host || '').split(',')[0].trim().split(':')[0]; var p = h.split('.'); return p.length >= 3 ? p.slice(1).join('.') : (p.length === 2 ? h : ''); }
+        document.getElementById('ldDefaults').onclick = function () {
+            var enc = document.getElementById('ldEnc'), cert = document.getElementById('ldCert'), gc = document.getElementById('ldGc');
+            enc.value = 'ldaps'; gc.checked = false; document.getElementById('ldPort').value = 636;
+            cert.value = 'verify'; cert.onchange();
+            f('ldap[Nested]').value = 'true';
+            f('ldap[GroupStaff]').value = 'Events-Staff'; f('ldap[GroupHod]').value = 'Events-HOD'; f('ldap[GroupMedia]').value = 'Events-Media';
+            f('ldap[GroupAdmin]').value = 'Events-Admin'; f('ldap[GroupResearch]').value = 'Research-InCharge';
+            var d = domainOf(f('ldap[Host]').value), bd = f('ldap[BaseDn]');
+            if (d && !bd.value.trim()) bd.value = d.split('.').map(function (x) { return 'DC=' + x; }).join(',');
+            var out = document.getElementById('lr'); out.className = 'test-result mt-2 bg-success-subtle text-success-emphasis';
+            out.textContent = 'Defaults filled (LDAPS 636, verify certificate, nested groups, role group names' + (d && bd.value ? ', Base DN ' + bd.value : '') + '). Now enter the server, service account and password, then press Test LDAP.';
+        };
+        document.getElementById('smDefaults').onclick = function () {
+            f('smtp[Port]').value = 587; f('smtp[UseStartTls]').value = 'true';
+            var from = f('smtp[From]'), d = domainOf(f('smtp[Host]').value || f('ldap[Host]').value);
+            if (d && (!from.value.trim() || from.value.indexOf('@@example.com') >= 0)) from.value = 'events@@' + d;
+            var out = document.getElementById('sr'); out.className = 'test-result mt-2 bg-success-subtle text-success-emphasis';
+            out.textContent = 'Defaults filled (port 587, STARTTLS on' + (d ? ', from ' + from.value : '') + '). Enter the server, then send a test email.';
+        };
+    })();
     // Fetch the directory's groups and let the admin assign each one to a role
     (function () {
         var roles = [['Staff', 'GroupStaff'], ['HOD', 'GroupHod'], ['Media', 'GroupMedia'], ['Admin', 'GroupAdmin'], ['Research', 'GroupResearch']];

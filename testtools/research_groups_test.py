@@ -137,6 +137,16 @@ admin.post("/Admin/Settings", {"values[VisitApprovers]": "HOD@test.local"}, "/Ad
 check("approver listed by email can decide", 'value="approve"' in hod.get(f"/Visits/Details/{vid}")[0])
 admin.post("/Admin/Settings", {"values[VisitApprovers]": ""}, "/Admin/Settings")
 
+# ---- directory readiness report (Test LDAP) and form defaults
+h, _ = admin.post("/Admin/TestLdap", form, "/Admin/Connections"); j = json.loads(h)
+check("test LDAP reports users and emails", j["ok"] and re.search(r"Users: \d+, \d+ with an email address", j["message"]) is not None, j)
+check("test LDAP lists duplicate emails", "Duplicate emails" in j["message"] and "shared@test.local" in j["message"], j["message"])
+check("duplicate email cannot sign in by email", not login("shared@test.local", "share123")[1])
+check("...but each can sign in with the username", login("share1", "share123")[1] and login("share2", "share123")[1])
+page, _ = admin.get("/Admin/Connections")
+check("form has the standard defaults buttons", 'id="ldDefaults"' in page and 'id="smDefaults"' in page and page.count("Use standard defaults</button>") == 2)
+check("form is prefilled with the default role groups", 'value="Events-Staff"' in page and 'value="Research-InCharge"' in page and 'name="ldap[Port]"' in page)
+
 # ---- forgot password
 anon = Client(); h, _ = anon.get("/Account/Forgot")
 check("forgot page opens without signing in", "Ask IT to reset it" in h and "Reset my password" not in h, h[:200])

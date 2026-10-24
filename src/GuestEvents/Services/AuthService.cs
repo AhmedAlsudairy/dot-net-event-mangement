@@ -69,11 +69,54 @@ public class LdapAuthService : IAuthService
                     parts.Add($"{g} {(found ? "found" : "NOT FOUND")}");
                 }
                 var tls = o.UseSsl ? "LDAPS" : o.StartTls ? "StartTLS" : "NO encryption";
-                return (true, $"Connected to {server} ({tls}) and signed in as the service account. Groups: {string.Join(", ", parts)}." +
+                var users = await SampleUsersAsync(svc, o);
+                return (true, $"Connected to {server} ({tls}) and signed in as the service account. Groups: {string.Join(", ", parts)}. {users}" +
                               (info.Thumbprint != null ? $" Server certificate thumbprint: {info.Thumbprint}." : ""));
             }
         }
         catch (Exception ex) { return (false, Explain(ex, info)); }
+    }
+
+    /// <summary>
+    /// Readiness check for email sign-in: is the Base DN readable, how many users (sample of up to 1000) have an email, and do any two share one.
+    /// Two people with the same email cannot sign in with it, and people with no email can only use their username.
+    /// </summary>
+    private static async Task<string> SampleUsersAsync(LdapConnection svc, LdapOpts o)
+    {
+        const int Max = 1000;
+        try
+        {
+            try
+            {
+                var b = await svc.SearchAsync(o.BaseDn, LdapConnection.ScopeBase, "(objectClass=*)", new[] { "distinguishedName" }, false);
+                while (await b.HasMoreAsync()) { try { await b.NextAsync(); break; } catch (LdapReferralException) { } }
+            }
+            catch (LdapException ex) when (ex.ResultCode == LdapException.NoSuchObject) { return $"The Base DN \"{o.BaseDn}\" was not found - check it."; }
+
+            var res = await svc.SearchAsync(o.BaseDn, LdapConnection.ScopeSub, "(&(objectClass=user)(!(objectClass=computer)))", new[] { "mail" }, false);
+            int total = 0, withMail = 0;
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase); var dup = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+            while (total < Max)
+            {
+                try
+                {
+                    if (!await res.HasMoreAsync()) break;
+                    var e = await res.NextAsync(); total++;
+                    var a = e.GetAttributeSet();
+                    var m = a.ContainsKey("mail") ? a["mail"].StringValue?.Trim() : null;
+                    if (string.IsNullOrEmpty(m)) continue;
+                    withMail++;
+                    if (!seen.Add(m)) dup.Add(m);
+                }
+                catch (LdapReferralException) { }
+            }
+            if (total == 0) return "No user accounts were found under the Base DN - check the Base DN and the service account's read rights.";
+            var s = $"Users: {total}{(total >= Max ? "+ (sampled)" : "")}, {withMail} with an email address";
+            if (withMail < total) s += $" ({total - withMail} without one can sign in only with their username)";
+            s += dup.Count == 0 ? ", no duplicate emails." : $". Duplicate emails (these people cannot sign in by email): {string.Join(", ", dup.Take(5))}{(dup.Count > 5 ? ", ..." : "")}.";
+            return s;
+        }
+        catch (Exception ex) { return $"Could not read users: {ex.Message}"; }
     }
 
     /// <summary>Admin "Fetch groups": every group name under the Base DN, so the admin can pick one for each role instead of typing it.</summary>
