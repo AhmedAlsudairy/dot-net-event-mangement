@@ -4,6 +4,13 @@ One ASP.NET Core MVC app serves both the internal site (AD/LDAP login) and the p
 
 Licensed under the [MIT License](LICENSE).
 
+## Documentation
+- [Product requirements (PRD)](docs/PRD.md) - goals, roles, requirements, workflows, architecture, data model, security
+- [Setup and deployment guide](docs/SETUP.md) - run it locally, connect the real directory, deploy, configuration reference, troubleshooting
+- [User guide](docs/USER-GUIDE.md) - how each role uses it (Staff, HOD, Media, Research in-charge, Admin, attendees)
+- [Sitemap](docs/SITEMAP.md) - every page and route, who sees what
+- [Test tools](testtools/README.md) - fake directory, mail catcher and the automated checks
+
 ## Run (development, no AD needed)
     cd src/GuestEvents
     set ASPNETCORE_ENVIRONMENT=Development
