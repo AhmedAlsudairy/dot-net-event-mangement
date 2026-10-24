@@ -1,0 +1,59 @@
+@model ExternalVisit
+@{
+    ViewData["Title"] = Model.Id == 0 ? L.T("New external visit", "زيارة خارجية جديدة") : L["Edit"];
+}
+<div class="page-head">
+    <div>
+        <a class="small text-decoration-none" href="@(Model.Id == 0 ? Url.Action("Index") : Url.Action("Details", new { id = Model.Id }))"><i class="bi bi-arrow-@(L.IsAr ? "right" : "left")"></i> @L["Back"]</a>
+        <h3 class="mt-1">@ViewData["Title"]</h3>
+        <div class="sub">@L.T("Request a bus for students visiting a place outside the school. The HOD approves, then the admin confirms the bus.", "اطلب حافلة لطلاب يزورون مكاناً خارج المدرسة. يعتمد رئيس القسم الطلب ثم تؤكد الإدارة الحافلة.")</div>
+    </div>
+</div>
+@if (Model.Status == VisitStatus.Rejected)
+{
+    <div class="alert alert-danger d-flex gap-2"><i class="bi bi-exclamation-octagon-fill mt-1"></i><div><strong>@L["Rejected"]</strong> - @Model.DecisionBy<div>@Model.DecisionComment</div></div></div>
+}
+<form method="post" asp-action="Save" novalidate class="needs-validation">
+    <input type="hidden" asp-for="Id" />
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @L["Required"]<ul class="mb-0 mt-1 small">@foreach (var e in ViewData.ModelState.Values.SelectMany(v => v.Errors)) { <li>@e.ErrorMessage</li> }</ul></div>
+    }
+
+    <div class="card mb-3"><div class="card-header"><i class="bi bi-signpost-2"></i>@L.T("The visit", "الزيارة")</div><div class="card-body row g-3">
+        <div class="col-md-6"><label class="form-label req">@L.T("Visit name", "اسم الزيارة")</label><input class="form-control" asp-for="Name" required maxlength="200" /></div>
+        <div class="col-md-6"><label class="form-label req">@L.T("Destination", "الوجهة")</label><input class="form-control" asp-for="Destination" required maxlength="200" /></div>
+        <div class="col-12"><label class="form-label">@L.T("Destination address", "عنوان الوجهة")</label><input class="form-control" asp-for="DestinationAddress" maxlength="500" /></div>
+        <div class="col-12"><label class="form-label">@L.T("Purpose", "الغرض من الزيارة")</label><textarea rows="3" class="form-control" asp-for="Purpose"></textarea></div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header"><i class="bi bi-bus-front"></i>@L.T("Bus & timing", "الحافلة والوقت")</div><div class="card-body row g-3">
+        <div class="col-md-3"><label class="form-label req">@L["Date"]</label><input type="date" class="form-control" name="Date" value="@Model.Date.ToString("yyyy-MM-dd")" required /></div>
+        <div class="col-6 col-md-3"><label class="form-label req">@L.T("Departure time", "وقت المغادرة")</label><input type="time" class="form-control" name="DepartureTime" value="@Model.DepartureTime.ToString(@"hh\:mm")" required /></div>
+        <div class="col-6 col-md-3"><label class="form-label req">@L.T("Return time", "وقت العودة")</label><input type="time" class="form-control" name="ReturnTime" value="@Model.ReturnTime.ToString(@"hh\:mm")" required /></div>
+        <div class="col-md-3"><label class="form-label req">@L.T("Pick-up point", "مكان الانطلاق")</label><input class="form-control" asp-for="PickupLocation" required maxlength="200" /></div>
+        <div class="col-md-4"><label class="form-label">@L.T("Grade / class", "الصف / الشعبة")</label><input class="form-control" asp-for="Grade" maxlength="100" /></div>
+        <div class="col-md-4"><label class="form-label req">@L.T("Number of students", "عدد الطلاب")</label><input type="number" min="1" class="form-control" asp-for="StudentCount" required /></div>
+        <div class="col-md-4"><label class="form-label req">@L.T("Accompanying staff", "عدد المرافقين من الموظفين")</label><input type="number" min="1" class="form-control" asp-for="StaffCount" required /></div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header"><i class="bi bi-person-badge"></i>@L.T("Supervisor on the trip", "المشرف على الرحلة")</div><div class="card-body row g-3">
+        <div class="col-md-6"><label class="form-label req">@L.T("Supervisor name", "اسم المشرف")</label><input class="form-control" asp-for="SupervisorName" required maxlength="200" /></div>
+        <div class="col-md-6"><label class="form-label req">@L.T("Supervisor phone", "هاتف المشرف")</label><input class="form-control" asp-for="SupervisorPhone" required maxlength="50" /></div>
+        <div class="col-12"><label class="form-label">@L["Comments"]</label><textarea rows="3" class="form-control" asp-for="Notes"></textarea></div>
+    </div></div>
+
+    <div class="actionbar">
+        <button class="btn btn-primary" name="submitAction" value="submit"><i class="bi bi-send"></i>@(Model.Status == VisitStatus.Rejected ? L["Resubmit"] : L["Submit"])</button>
+        <button class="btn btn-outline-secondary" name="submitAction" value="draft" formnovalidate><i class="bi bi-save"></i>@L["SaveDraft"]</button>
+        <span class="text-muted small ms-auto">@L["SubmitHint"]</span>
+    </div>
+</form>
+@section Scripts {
+<script>
+    document.querySelector('form.needs-validation').addEventListener('submit', function (e) {
+        var b = e.submitter;
+        if (b && b.value === 'submit' && !this.checkValidity()) { e.preventDefault(); e.stopPropagation(); this.classList.add('was-validated'); this.querySelector(':invalid').focus(); }
+    }, true);
+</script>
+}

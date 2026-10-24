@@ -1,0 +1,48 @@
+@model EventRequest
+@{
+    ViewData["Title"] = Model.Name;
+    var st = (EventStat)ViewBag.Stat;
+    var list = (List<Attendance>)ViewBag.Attendance;
+}
+<div class="page-head">
+    <div><a class="small text-decoration-none" asp-controller="Events" asp-action="Details" asp-route-id="@Model.Id"><i class="bi bi-arrow-@(L.IsAr ? "right" : "left")"></i> @Model.Name</a><h3 class="mt-1">@L["Reports"]</h3></div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-success" asp-action="ExportAttendance" asp-route-id="@Model.Id"><i class="bi bi-file-earmark-excel"></i>@L["AttendanceList"]</a>
+        <a class="btn btn-outline-success" asp-action="ExportEvaluations" asp-route-id="@Model.Id"><i class="bi bi-file-earmark-excel"></i>@L["Responses"]</a>
+    </div>
+</div>
+<partial name="_Guide" model='"report-event"' />
+<div class="row g-3 mb-3 text-center">
+    <div class="col-6 col-md-3"><div class="stat static"><div class="n" id="att">@L.Num(st.Attendees)</div><div class="l">@L["Live"] / @L.Num(Model.ExpectedAttendees)</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat static"><div class="n" id="ev">@L.Num(st.Evaluations)</div><div class="l">@L["Responses"]</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat static"><div class="n">@L.Num(st.Rate)%</div><div class="l">@L["ResponseRate"]</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat static"><div class="n">@(st.Overall?.ToString("0.00") ?? "-")</div><div class="l">@L["Overall"]</div></div></div>
+</div>
+<div class="row g-3">
+<div class="col-lg-5"><div class="card"><div class="card-body"><h6>@L["Average"]</h6><canvas id="c" height="200"></canvas></div></div></div>
+<div class="col-lg-7"><div class="card"><div class="card-body"><h6>@L["AttendanceList"]</h6>
+@if (Model.IsMultiDay)
+{
+    var perDay = (Dictionary<DateTime, int>)ViewBag.PerDay;
+    <div class="d-flex flex-wrap gap-2 mb-3">
+    @for (int i = 0; i < Model.DayCount; i++) { var d = Model.Date.Date.AddDays(i); <span class="badge bg-light text-dark border">@L.Date(d): <b>@L.Num(perDay.GetValueOrDefault(d))</b></span> }
+    </div>
+}
+<div class="table-responsive"><table class="table table-sm mb-0">
+    <thead><tr><th>@L["FullName"]</th><th>@L["Org"]</th>@if (Model.IsMultiDay) { <th>@L["EventDay"]</th> }<th>@L["Time"]</th></tr></thead>
+    <tbody>@foreach (var a in list) { <tr><td>@a.FullName</td><td>@a.Organization</td>@if (Model.IsMultiDay) { <td>@L.Date(a.Day)</td> }<td>@L.DateTimeStr(a.CheckedInAt.ToLocalTime())</td></tr> }</tbody>
+</table></div></div></div></div>
+</div>
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+    new Chart(document.getElementById('c'), { type: 'bar',
+        data: { labels: ['Overall', 'Presenter', 'Content', 'Venue', 'Food'],
+                datasets: [{ data: [@Html.Raw(string.Join(",", new double?[] { st.Overall, st.Presenter, st.Content, st.Venue, st.Food }.Select(x => x?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null")))], backgroundColor: '#0B3D5C' }] },
+        options: { scales: { y: { min: 0, max: 5 } }, plugins: { legend: { display: false } } } });
+    setInterval(async function () {
+        const r = await fetch('@Url.Action("Live", new { id = Model.Id })'); if (!r.ok) return;
+        const j = await r.json(); document.getElementById('att').textContent = j.attendees; document.getElementById('ev').textContent = j.evaluations;
+    }, 15000);
+</script>
+}

@@ -1,0 +1,14 @@
+bin/
+obj/
+App_Data/
+*.log
+*.db
+*.db-shm
+*.db-wal
+.vs/
+*.user
+__pycache__/
+
+# generated or downloaded test tooling (see testtools/README.md)
+testtools/*.pem
+testtools/mailpit/mailpit.exe

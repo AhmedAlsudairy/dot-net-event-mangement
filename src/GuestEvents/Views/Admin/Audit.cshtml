@@ -1,0 +1,8 @@
+@model List<AuditLog>
+@{ ViewData["Title"] = L["Audit"]; }
+<div class="page-head"><h3>@L["Audit"]</h3><a asp-action="Notifications" class="btn btn-sm btn-outline-secondary"><i class="bi bi-envelope-paper"></i>Notifications</a></div>
+<partial name="_Guide" model='"audit"' />
+<div class="card"><div class="table-responsive"><table class="table table-sm mb-0">
+    <thead><tr><th>@L["At"]</th><th>@L["By"]</th><th>Action</th><th>@L["Details"]</th></tr></thead>
+    <tbody>@foreach (var a in Model) { <tr><td>@L.DateTimeStr(a.At.ToLocalTime())</td><td>@a.User</td><td>@a.Action</td><td>@a.Details</td></tr> }</tbody>
+</table></div></div>

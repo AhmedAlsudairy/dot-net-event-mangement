@@ -1,0 +1,116 @@
+@model EventRequest
+@{
+    ViewData["Title"] = Model.Name;
+    var mine = Model.RequesterUsername == User.Identity!.Name;
+    var admin = User.IsInRole(Roles.Admin);
+    var canEdit = mine && (Model.Status == EventStatus.Draft || Model.Status == EventStatus.Rejected);
+    var approved = Model.Status >= EventStatus.Approved && Model.Status != EventStatus.Rejected;
+    var lastReject = Model.Status == EventStatus.Rejected ? Model.Approvals.LastOrDefault(a => !a.Approved) : null;
+    // timeline: Draft -> Submitted -> Approved -> Event done -> Evaluation closed (Rejected replaces "Approved")
+    var rejected = Model.Status == EventStatus.Rejected;
+    int cur = Model.Status switch { EventStatus.Draft => 0, EventStatus.Submitted => 1, EventStatus.Rejected => 2, EventStatus.Approved => 3, EventStatus.EventDone => 4, _ => 5 };
+    var steps = new[] { ("Draft", "bi-pencil"), ("Submitted", "bi-send"), (rejected ? "Rejected" : "Approved", rejected ? "bi-x-lg" : "bi-check-lg"), ("EventDone", "bi-flag"), ("EvaluationClosed", "bi-clipboard-check") };
+}
+<div class="page-head">
+    <div>
+        <a class="small text-decoration-none" asp-action="Index"><i class="bi bi-arrow-@(L.IsAr ? "right" : "left")"></i> @L["MyEvents"]</a>
+        <h3 class="mt-1">@Model.Name <partial name="_Status" model="Model.Status" /></h3>
+        <div class="sub">@Model.Presenter - @Model.CompanyName</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        @if (canEdit) { <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id"><i class="bi bi-pencil"></i>@(rejected ? L["Resubmit"] : L["Edit"])</a> }
+        @if (canEdit && Model.Status == EventStatus.Draft) { <form method="post" asp-action="Submit" asp-route-id="@Model.Id"><button class="btn btn-primary"><i class="bi bi-send"></i>@L["Submit"]</button></form> }
+        @if (approved && (mine || admin) && Model.Status != EventStatus.EvaluationClosed) { <a class="btn btn-outline-primary" asp-controller="Food" asp-action="Create" asp-route-eventId="@Model.Id"><i class="bi bi-cup-hot"></i>@L["FoodRequest"]</a> }
+        @if (admin && approved) { <a class="btn btn-outline-dark" asp-controller="Reports" asp-action="Event" asp-route-id="@Model.Id"><i class="bi bi-bar-chart-line"></i>@L["Reports"]</a> }
+    </div>
+</div>
+
+<div class="card mb-3"><div class="card-body py-3">
+    <ol class="stepper">
+        @for (int i = 0; i < steps.Length; i++)
+        {
+            var state = i < cur ? "done" : i == cur ? "current" : "";
+            if (rejected && i == 2) { state = "rejected"; }
+            <li class="@state"><div class="dot"><i class="bi @steps[i].Item2"></i></div>@L[steps[i].Item1]</li>
+        }
+    </ol>
+</div></div>
+
+<partial name="_NextStep" model="Model" />
+@if (lastReject != null)
+{
+    <div class="alert alert-danger d-flex gap-2 align-items-start">
+        <i class="bi bi-exclamation-octagon-fill mt-1"></i>
+        <div><strong>@L["Rejected"]</strong> - @lastReject.ApproverName, @L.DateTimeStr(lastReject.DecidedAt.ToLocalTime())<div>@lastReject.Comment</div>
+            @if (canEdit) { <a class="btn btn-sm btn-danger mt-2" asp-action="Edit" asp-route-id="@Model.Id">@L["Resubmit"]</a> }</div>
+    </div>
+}
+else if (Model.Status == EventStatus.Submitted)
+{
+    <div class="alert alert-warning d-flex gap-2 align-items-center"><i class="bi bi-hourglass-split"></i>@L["WaitingHod"]</div>
+}
+
+<div class="row g-3">
+<div class="col-lg-7">
+    <div class="card mb-3"><div class="card-header"><i class="bi bi-info-circle"></i>@L["Details"]</div><div class="card-body">
+        <dl class="kv">
+            <dt>@L["Date"]</dt><dd><i class="bi bi-calendar3 text-muted"></i> @L.Range(Model) @if (Model.IsMultiDay) { <span class="badge bg-light text-dark border">@L.Num(Model.DayCount) @L["DayWord"]</span> } &nbsp; <i class="bi bi-clock text-muted"></i> @L.Times(Model)</dd>
+            <dt>@L["Venue"]</dt><dd>@Model.Venue</dd>
+            <dt>@L["Type"]</dt><dd>@L[Model.Type]</dd>
+            <dt>@L["Expected"]</dt><dd>@L.Num(Model.ExpectedAttendees)</dd>
+            <dt>@L["Presenter"]</dt><dd>@Model.Presenter</dd>
+            <dt>@L["Company"]</dt><dd>@Model.CompanyName</dd>
+            <dt>@L["ContactName"]</dt><dd>@Model.ContactName<div class="small text-muted"><a href="mailto:@Model.ContactEmail">@Model.ContactEmail</a> @Model.ContactPhone</div></dd>
+            <dt>@L["Requester"]</dt><dd>@Model.RequesterName <span class="text-muted">(@Model.RequesterDepartment)</span></dd>
+        </dl>
+    </div></div>
+    @if (!string.IsNullOrWhiteSpace(Model.ContentEn) || !string.IsNullOrWhiteSpace(Model.ContentAr))
+    {
+        <div class="card"><div class="card-header"><i class="bi bi-card-text"></i>@L["Content"]</div><div class="card-body">
+            @if (!string.IsNullOrWhiteSpace(Model.ContentEn)) { <div dir="ltr" class="mb-3" style="white-space:pre-wrap">@Model.ContentEn</div> }
+            @if (!string.IsNullOrWhiteSpace(Model.ContentAr)) { <div dir="rtl" style="white-space:pre-wrap">@Model.ContentAr</div> }
+        </div></div>
+    }
+</div>
+<div class="col-lg-5">
+    @if (Model.Image != null)
+    {
+        <div class="card mb-3 overflow-hidden">
+            <img class="w-100" src="@Url.Action("DownloadImage", new { id = Model.Id })" alt="" />
+            <div class="card-body d-flex gap-2 flex-wrap">
+                <a class="btn btn-success flex-fill" asp-action="DownloadImage" asp-route-id="@Model.Id" download><i class="bi bi-download"></i>@L["DownloadImage"]</a>
+                @if (Model.QR != null) { <a class="btn btn-outline-success flex-fill" asp-action="DownloadQr" asp-route-id="@Model.Id"><i class="bi bi-qr-code"></i>@L["DownloadQr"]</a> }
+                @if (Model.QR != null && (mine || admin)) { <a class="btn btn-outline-secondary flex-fill" asp-action="Poster" asp-route-id="@Model.Id" target="_blank"><i class="bi bi-printer"></i>@L.T("Print QR poster", "اطبع ملصق QR")</a><a class="btn btn-outline-secondary flex-fill" asp-action="Screen" asp-route-id="@Model.Id"><i class="bi bi-display"></i>@L["Screen"]</a> }
+            </div>
+        </div>
+    }
+    <div class="card mb-3"><div class="card-header"><i class="bi bi-clock-history"></i>@L["History"]</div><div class="card-body">
+        @if (!Model.Approvals.Any()) { <div class="text-muted small">@L["None"]</div> }
+        else
+        {
+            <ul class="tl">
+            @foreach (var a in Model.Approvals.OrderByDescending(x => x.DecidedAt))
+            {
+                <li class="@(a.Approved ? "" : "no")">
+                    <div><strong>@(a.Approved ? L["Approved"] : L["Rejected"])</strong> <span class="text-muted small">- @a.ApproverName</span></div>
+                    <div class="small text-muted">@L.DateTimeStr(a.DecidedAt.ToLocalTime())</div>
+                    @if (!string.IsNullOrWhiteSpace(a.Comment)) { <div class="small mt-1">“@a.Comment”</div> }
+                </li>
+            }
+            </ul>
+        }
+    </div></div>
+    @if (Model.FoodRequests.Any())
+    {
+        <div class="card"><div class="card-header"><i class="bi bi-cup-hot"></i>@L["FoodRequest"]</div><div class="card-body">
+        @foreach (var f in Model.FoodRequests)
+        {
+            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                <div><strong>@L[f.Meal.ToString()]</strong> <span class="text-muted small">- @L.Num(f.People) @L["PeopleShort"], @L.Time(f.DeliveryTime), @f.Location</span></div>
+                <span class="badge bg-@(f.Status == FoodStatus.Confirmed ? "success" : f.Status == FoodStatus.Rejected ? "danger" : "warning text-dark")">@L[f.Status.ToString()]</span>
+            </div>
+        }
+        </div></div>
+    }
+</div>
+</div>

@@ -1,0 +1,50 @@
+@model PublicVm
+@{
+    Layout = "_PublicLayout";
+    var baseToken = Model.UrlToken.Split('.')[0];
+    string Q(int i) => i < Model.Questions.Count ? (L.IsAr ? Model.Questions[i].ar : Model.Questions[i].en) : "";
+    void Rating(string name, string label, bool required)
+    {
+        <div class="mb-4">
+            <label class="form-label d-block">@label @if (required) { <span class="text-danger">*</span> } @if (!required) { <span class="text-muted fw-normal">(@L["Optional"])</span> }</label>
+            <div class="rating">
+                @for (int i = 1; i <= 5; i++)
+                {
+                    <input type="radio" name="@name" id="@name-@i" value="@i" required="@required" /><label for="@name-@i">@L.Num(i)</label>
+                }
+            </div>
+            <div class="rating-ends"><span>@L["Poor"]</span><span>@L["Excellent"]</span></div>
+        </div>
+    }
+    var done = Model.State == "done";
+}
+<div class="card mb-3"><div class="card-body pub-event"><h5 class="mb-0">@Model.Event.Name</h5></div></div>
+<div class="pub-steps">
+    <div class="s done"><i class="bi bi-check-circle-fill"></i> @L["CheckIn"]</div>
+    <div class="s @(done ? "done" : "on")"><i class="bi bi-@(done ? "check-circle-fill" : "2-circle")"></i> @L["Evaluate"]</div>
+</div>
+@switch (Model.State)
+{
+    case "form":
+        <form method="post" action="/p/@baseToken/evaluate" class="card"><div class="card-body">
+            <h5>@L["Evaluate"]</h5>
+            <p class="text-muted small"><i class="bi bi-incognito"></i> @L["Anonymous"] @L.T("Your name is not saved with your answers.", "لا يُحفظ اسمك مع إجاباتك.") @L.T("Fields marked * are required; the others are optional.", "الحقول المعلّمة بـ * مطلوبة والباقي اختياري.")</p>
+            @if (Model.Error == "Required") { <div class="alert alert-danger py-2"><i class="bi bi-exclamation-triangle"></i> @L["Required"]</div> }
+            @Html.AntiForgeryToken()
+            @{ Rating("overall", L["Overall"], true); Rating("presenter", Q(0), true); Rating("content", Q(1), true); Rating("venueOrg", Q(2), true); Rating("food", Q(3), false); }
+            <div class="mb-3"><label class="form-label">@L["Comments"] <span class="text-muted fw-normal">(@L["Optional"])</span></label><textarea name="comments" rows="3" maxlength="2000" class="form-control"></textarea></div>
+            <div class="hp" aria-hidden="true"><label>Website</label><input name="website" tabindex="-1" autocomplete="off" /></div>
+            <button class="btn btn-primary btn-lg w-100"><i class="bi bi-send"></i>@L["SubmitEval"]</button>
+        </div></form>
+        break;
+    case "done":
+        <div class="card"><div class="card-body text-center py-4"><div class="big-check"><i class="bi bi-heart-fill"></i></div><h5>@L["EvalThanks"]</h5></div></div>
+        break;
+    case "mustcheckin":
+        <div class="card"><div class="card-body text-center py-4"><div class="big-check warn"><i class="bi bi-person-exclamation"></i></div><h5>@L["MustCheckIn"]</h5>
+            <a class="btn btn-primary btn-lg w-100 mt-2" href="/p/@baseToken">@L["CheckIn"]</a></div></div>
+        break;
+    default:
+        <div class="card"><div class="card-body text-center py-4"><div class="big-check warn"><i class="bi bi-lock"></i></div><h5>@L["EvalClosed"]</h5></div></div>
+        break;
+}

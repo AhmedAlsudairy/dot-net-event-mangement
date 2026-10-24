@@ -1,0 +1,193 @@
+@{
+    ViewData["Title"] = L["Connections"];
+    var l = (LdapOpts)ViewBag.Ldap; var s = (SmtpOpts)ViewBag.Smtp;
+    bool dev = (string)ViewBag.Mode == "Dev";
+    bool ldapSet = !string.IsNullOrEmpty(l.Host) && !string.IsNullOrEmpty(l.BaseDn) && !string.IsNullOrEmpty(l.SvcDn);
+    bool smtpSet = !string.IsNullOrEmpty(s.Host);
+    void Pw(string name, bool saved)
+    {
+        <div class="input-group">
+            <input type="password" class="form-control" name="@name" autocomplete="new-password" placeholder="@(saved ? "•••••••• (saved - leave blank to keep)" : "")" />
+            <button type="button" class="btn btn-outline-secondary pw-toggle" tabindex="-1" aria-label="Show"><i class="bi bi-eye"></i></button>
+        </div>
+    }
+}
+<div class="page-head"><div><h3>@L["Connections"]</h3><div class="sub">Sign-in directory and outgoing email. Passwords are encrypted and never shown again.</div></div></div>
+<partial name="_Guide" model='"connections"' />
+@if (dev) { <div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> Auth mode is <b>Dev</b> - sign-in uses built-in test users. These LDAP values are saved but only used when Auth:Mode = Ldap.</div> }
+@if (TempData["Error"] != null) { <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @TempData["Error"]</div> }
+
+<form method="post" id="f">
+<div class="card mb-3" id="ldapBox">
+    <div class="card-header"><i class="bi bi-diagram-3"></i>Active Directory (LDAP)
+        <span class="badge ms-auto @(ldapSet ? "bg-success" : "bg-secondary")">@(ldapSet ? "Configured" : "Not set")</span></div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-7"><label class="form-label">Server(s)</label><input class="form-control" name="ldap[Host]" value="@l.Host" placeholder="dc1.company.local, dc2.company.local" />
+                <div class="field-help">One or more domain controllers, separated by commas - they are tried in order, so if the first is down the next one is used. Add <code>:port</code> to a server to override the port.</div></div>
+            <div class="col-6 col-md-2"><label class="form-label">Port</label><input class="form-control" id="ldPort" name="ldap[Port]" value="@l.Port" inputmode="numeric" /></div>
+            <div class="col-6 col-md-3"><label class="form-label">Encryption</label>
+                <select class="form-select" id="ldEnc" name="ldap[Encryption]">
+                    <option value="ldaps" selected="@l.UseSsl">LDAPS (port 636) - recommended</option>
+                    <option value="starttls" selected="@(!l.UseSsl && l.StartTls)">StartTLS (port 389)</option>
+                    <option value="none" selected="@(!l.UseSsl && !l.StartTls)">None - test only</option></select></div>
+            <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="ldGc" @(l.Port is 3268 or 3269 ? "checked" : "") />
+                <label class="form-check-label" for="ldGc">Search the whole forest (global catalog) - for users spread over several domains. Sets the port to 3269 (LDAPS) or 3268; leave the Base DN empty to search every domain.</label></div></div>
+            <div class="col-md-8"><label class="form-label">Base DN</label><input class="form-control" name="ldap[BaseDn]" value="@l.BaseDn" placeholder="DC=company,DC=local" />
+                <div class="field-help">Where users and groups are searched. Empty = whole forest (global catalog only).</div></div>
+            <div class="col-md-4"><label class="form-label">Groups inside groups</label>
+                <select class="form-select" name="ldap[Nested]"><option value="true" selected="@l.Nested">Count them (nested groups)</option><option value="false" selected="@(!l.Nested)">Direct members only</option></select></div>
+            <div class="col-md-5"><label class="form-label">Server certificate</label>
+                <select class="form-select" id="ldCert" name="ldap[CertMode]">
+                    <option value="verify" selected="@(!l.SkipCert && string.IsNullOrEmpty(l.CertThumbprint))">Verify normally (company CA) - recommended</option>
+                    <option value="pin" selected="@(!string.IsNullOrEmpty(l.CertThumbprint))">Trust this certificate only (pin thumbprint)</option>
+                    <option value="skip" selected="@(l.SkipCert && string.IsNullOrEmpty(l.CertThumbprint))">Accept any certificate - testing only</option></select></div>
+            <div class="col-md-7" id="ldPinWrap"><label class="form-label">Certificate thumbprint</label><input class="form-control font-monospace" name="ldap[CertThumbprint]" value="@l.CertThumbprint" placeholder="40 hex characters" autocomplete="off" />
+                <div class="field-help">Tip: press <b>Test LDAP</b> once - if the certificate is not trusted, the result shows the server's thumbprint to paste here.</div></div>
+            <div class="col-md-6"><label class="form-label">Service account DN <span class="text-muted fw-normal">(read-only account)</span></label><input class="form-control" name="ldap[ServiceAccountDn]" value="@l.SvcDn" placeholder="CN=svc-events,OU=Service,DC=company,DC=local" autocomplete="off" /></div>
+            <div class="col-md-6"><label class="form-label">Service account password</label>@{ Pw("ldap[ServiceAccountPassword]", !string.IsNullOrEmpty(l.SvcPassword)); }</div>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2 mt-4 mb-2">
+            <h6 class="mb-0">Role groups <span class="text-muted fw-normal small">- AD group name for each role (extra people can be added on the Roles page)</span></h6>
+            <button type="button" class="btn btn-sm btn-outline-primary ms-auto" id="fg"><i class="bi bi-cloud-download"></i><span>Fetch groups from LDAP</span></button>
+        </div>
+        <div class="row g-3">
+            <div class="col-6 col-md-3"><label class="form-label">Staff</label><input class="form-control" name="ldap[GroupStaff]" value="@l.GroupStaff" /></div>
+            <div class="col-6 col-md-3"><label class="form-label">HOD</label><input class="form-control" name="ldap[GroupHod]" value="@l.GroupHod" /></div>
+            <div class="col-6 col-md-3"><label class="form-label">Media Officer</label><input class="form-control" name="ldap[GroupMedia]" value="@l.GroupMedia" /></div>
+            <div class="col-6 col-md-3"><label class="form-label">Admin</label><input class="form-control" name="ldap[GroupAdmin]" value="@l.GroupAdmin" /></div>
+            <div class="col-6 col-md-3"><label class="form-label">Research in-charge</label><input class="form-control" name="ldap[GroupResearch]" value="@l.GroupResearch" /></div>
+        </div>
+        <div id="fgr" class="test-result mt-2 d-none"></div>
+        <div id="gpanel" class="border rounded p-2 mt-2 d-none">
+            <input id="gfilter" class="form-control form-control-sm mb-2" placeholder="Filter groups..." autocomplete="off" />
+            <div id="glist" style="max-height:240px;overflow:auto"></div>
+            <div class="field-help mt-1">Press a role button to put that group in the role box above, then Save. Role boxes turn green when the group exists in the directory and red when it does not.</div>
+        </div>
+        <div class="bg-light rounded p-3 mt-4">
+            <div class="fw-semibold mb-2"><i class="bi bi-plug"></i> Test this connection <span class="text-muted fw-normal small">(uses the values above, nothing is saved)</span></div>
+            <div class="row g-2">
+                <div class="col-md-4"><input class="form-control" id="tu" placeholder="Test username (optional)" autocomplete="off" /></div>
+                <div class="col-md-4"><input type="password" class="form-control" id="tp" placeholder="Test user password" autocomplete="new-password" /></div>
+                <div class="col-md-4"><button type="button" class="btn btn-outline-primary w-100" id="tl"><i class="bi bi-lightning-charge"></i><span>Test LDAP</span></button></div>
+            </div>
+            <div class="field-help">Leave the user empty to check the server and groups only. Add a user to test a full sign-in and see the roles.</div>
+            <div id="lr" class="test-result mt-2 d-none"></div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3" id="smtpBox">
+    <div class="card-header"><i class="bi bi-envelope-at"></i>Email (SMTP / Exchange)
+        <span class="badge ms-auto @(s.Enabled ? "bg-success" : smtpSet ? "bg-warning text-dark" : "bg-secondary")">@(s.Enabled ? "Sending" : smtpSet ? "Configured - sending off" : "Not set")</span></div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4"><label class="form-label">Sending</label>
+                <select class="form-select" name="smtp[Enabled]"><option value="true" selected="@s.Enabled">On - send real emails</option><option value="false" selected="@(!s.Enabled)">Off - only log them</option></select></div>
+            <div class="col-md-5"><label class="form-label">Server</label><input class="form-control" name="smtp[Host]" value="@s.Host" placeholder="smtp.company.local" /></div>
+            <div class="col-6 col-md-1"><label class="form-label">Port</label><input class="form-control" name="smtp[Port]" value="@s.Port" inputmode="numeric" /></div>
+            <div class="col-6 col-md-2"><label class="form-label">STARTTLS</label>
+                <select class="form-select" name="smtp[UseStartTls]"><option value="true" selected="@s.StartTls">On</option><option value="false" selected="@(!s.StartTls)">Off</option></select></div>
+            <div class="col-md-4"><label class="form-label">Username <span class="text-muted fw-normal">(blank = no login)</span></label><input class="form-control" name="smtp[User]" value="@s.User" autocomplete="off" /></div>
+            <div class="col-md-4"><label class="form-label">Password</label>@{ Pw("smtp[Password]", !string.IsNullOrEmpty(s.Password)); }</div>
+            <div class="col-md-4"><label class="form-label">From address</label><input type="email" class="form-control" name="smtp[From]" value="@s.From" /></div>
+        </div>
+        <div class="bg-light rounded p-3 mt-4">
+            <div class="fw-semibold mb-2"><i class="bi bi-send"></i> Send a test email</div>
+            <div class="row g-2">
+                <div class="col-md-8"><input type="email" class="form-control" id="to" placeholder="Send to..." /></div>
+                <div class="col-md-4"><button type="button" class="btn btn-outline-primary w-100" id="ts"><i class="bi bi-send"></i><span>Send test email</span></button></div>
+            </div>
+            <div id="sr" class="test-result mt-2 d-none"></div>
+        </div>
+    </div>
+</div>
+<div class="actionbar"><button class="btn btn-primary"><i class="bi bi-check2"></i>@L["Save"]</button><span class="text-muted small">Saving replaces the values from appsettings.json.</span></div>
+</form>
+
+@section Scripts {
+<script>
+    const token = document.querySelector('#f input[name=__RequestVerificationToken]')?.value;
+    // show the thumbprint box only when pinning; the global-catalog tick switches the port
+    (function () {
+        var cert = document.getElementById('ldCert'), wrap = document.getElementById('ldPinWrap'), gc = document.getElementById('ldGc'), port = document.getElementById('ldPort'), enc = document.getElementById('ldEnc');
+        function pin() { wrap.classList.toggle('d-none', cert.value !== 'pin'); }
+        cert.onchange = pin; pin();
+        function gcPort() { var ssl = enc.value === 'ldaps'; port.value = gc.checked ? (ssl ? 3269 : 3268) : (ssl ? 636 : 389); }
+        gc.onchange = gcPort;
+        enc.onchange = function () { var p = parseInt(port.value, 10); if ([389, 636, 3268, 3269].indexOf(p) >= 0) gcPort(); };
+    })();
+    document.querySelectorAll('.pw-toggle').forEach(function (b) {
+        b.onclick = function () {
+            var i = b.parentElement.querySelector('input'), show = i.type === 'password'; i.type = show ? 'text' : 'password';
+            b.innerHTML = '<i class="bi bi-eye' + (show ? '-slash' : '') + '"></i>';
+        };
+    });
+    async function run(btn, boxId, url, extra, out) {
+        const fd = new FormData();
+        document.querySelectorAll('#' + boxId + ' [name]').forEach(e => fd.append(e.name, e.value));
+        for (const k in extra) fd.append(k, extra[k]);
+        fd.append('__RequestVerificationToken', token);
+        const label = btn.querySelector('span'), old = label.textContent, icon = btn.querySelector('i'), oldIcon = icon.className;
+        btn.disabled = true; label.textContent = 'Testing...'; icon.className = 'spinner-border spinner-border-sm';
+        out.className = 'test-result mt-2 d-none';
+        try {
+            const r = await fetch(url, { method: 'POST', body: fd });
+            const j = await r.json();
+            out.className = 'test-result mt-2 ' + (j.ok ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis');
+            out.innerHTML = '<i class="bi bi-' + (j.ok ? 'check-circle-fill' : 'x-circle-fill') + '"></i> ';
+            out.appendChild(document.createTextNode(j.message));
+        } catch (e) {
+            out.className = 'test-result mt-2 bg-danger-subtle text-danger-emphasis'; out.textContent = String(e);
+        } finally { btn.disabled = false; label.textContent = old; icon.className = oldIcon; }
+    }
+    document.getElementById('tl').onclick = function () { run(this, 'ldapBox', '@Url.Action("TestLdap")', { testUser: document.getElementById('tu').value, testPassword: document.getElementById('tp').value }, document.getElementById('lr')); };
+    // Fetch the directory's groups and let the admin assign each one to a role
+    (function () {
+        var roles = [['Staff', 'GroupStaff'], ['HOD', 'GroupHod'], ['Media', 'GroupMedia'], ['Admin', 'GroupAdmin'], ['Research', 'GroupResearch']];
+        var all = [], panel = document.getElementById('gpanel'), list = document.getElementById('glist'), filter = document.getElementById('gfilter');
+        function box(key) { return document.querySelector('[name="ldap[' + key + ']"]'); }
+        function mark() {
+            var have = all.map(function (g) { return g.toLowerCase(); });
+            roles.forEach(function (r) {
+                var b = box(r[1]), v = b.value.trim().toLowerCase();
+                b.classList.toggle('is-valid', !!v && have.indexOf(v) >= 0); b.classList.toggle('is-invalid', !!v && have.indexOf(v) < 0);
+            });
+        }
+        function draw() {
+            var t = filter.value.trim().toLowerCase(), shown = 0;
+            list.textContent = '';
+            all.forEach(function (g) {
+                if (shown >= 100 || (t && g.toLowerCase().indexOf(t) < 0)) return;
+                shown++;
+                var row = document.createElement('div'); row.className = 'd-flex align-items-center gap-2 py-1 border-bottom';
+                var name = document.createElement('span'); name.className = 'flex-grow-1 text-break'; name.textContent = g; row.appendChild(name);
+                roles.forEach(function (r) {
+                    var b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-sm btn-outline-secondary py-0'; b.textContent = r[0];
+                    b.onclick = function () { box(r[1]).value = g; mark(); };
+                    row.appendChild(b);
+                });
+                list.appendChild(row);
+            });
+            if (!shown) list.textContent = 'No group matches.';
+        }
+        filter.oninput = draw;
+        document.querySelectorAll('[name^="ldap[Group"]').forEach(function (i) { i.addEventListener('input', mark); });
+        document.getElementById('fg').onclick = async function () {
+            var btn = this, out = document.getElementById('fgr'), label = btn.querySelector('span'), icon = btn.querySelector('i'), old = label.textContent, oldIcon = icon.className;
+            var fd = new FormData();
+            document.querySelectorAll('#ldapBox [name]').forEach(function (e) { fd.append(e.name, e.value); });
+            fd.append('__RequestVerificationToken', token);
+            btn.disabled = true; label.textContent = 'Fetching...'; icon.className = 'spinner-border spinner-border-sm'; out.className = 'test-result mt-2 d-none';
+            try {
+                var j = await (await fetch('@Url.Action("FetchGroups")', { method: 'POST', body: fd })).json();
+                out.className = 'test-result mt-2 ' + (j.ok ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis');
+                out.textContent = j.message;
+                if (j.ok) { all = j.groups; panel.classList.remove('d-none'); filter.value = ''; draw(); mark(); } else panel.classList.add('d-none');
+            } catch (e) { out.className = 'test-result mt-2 bg-danger-subtle text-danger-emphasis'; out.textContent = String(e); }
+            finally { btn.disabled = false; label.textContent = old; icon.className = oldIcon; }
+        };
+    })();
+    document.getElementById('ts').onclick = function () { run(this, 'smtpBox', '@Url.Action("TestSmtp")', { to: document.getElementById('to').value }, document.getElementById('sr')); };
+</script>
+}

@@ -1,0 +1,44 @@
+@{ ViewData["Title"] = L["Login"]; }
+<div class="login-shell">
+    <div class="login-art">
+        <span class="brand-mark"><i class="bi bi-calendar2-event"></i></span>
+        <h3 class="mb-0">@L["App"]</h3>
+        <p class="mb-0 text-white-50">@L["LoginTagline"]</p>
+        <ul>
+            <li><i class="bi bi-send-check"></i> @L["Feat1"]</li>
+            <li><i class="bi bi-image"></i> @L["Feat2"]</li>
+            <li><i class="bi bi-qr-code-scan"></i> @L["Feat3"]</li>
+        </ul>
+    </div>
+    <div class="login-form">
+        <h4 class="mb-1">@L["Login"]</h4>
+        <p class="text-muted">@L["LoginHint"]</p>
+        @if (ViewBag.ErrorKey is string ek) { <div class="alert alert-danger py-2" role="alert"><i class="bi bi-exclamation-triangle"></i> @L[ek]</div> }
+        <form method="post">
+            <input type="hidden" name="returnUrl" value="@ViewBag.ReturnUrl" />
+            <div class="mb-3"><label class="form-label">@L["Username"]</label>
+                <div class="input-group"><span class="input-group-text bg-white"><i class="bi bi-person"></i></span><input name="username" class="form-control" autocomplete="username" autofocus required /></div></div>
+            <div class="mb-4"><label class="form-label">@L["Password"]</label>
+                <div class="input-group"><span class="input-group-text bg-white"><i class="bi bi-lock"></i></span><input id="pw" name="password" type="password" class="form-control" autocomplete="current-password" required />
+                    <button type="button" class="btn btn-outline-secondary" id="pwt" tabindex="-1" aria-label="Show password"><i class="bi bi-eye"></i></button></div></div>
+            <button class="btn btn-primary btn-lg w-100">@L["Login"]</button>
+        </form>
+        @if (ViewBag.Sso == true)
+        {
+            <div class="text-center text-muted small my-3">- @L.T("or", "أو") -</div>
+            <a class="btn btn-outline-primary w-100" href="/Account/Sso?returnUrl=@Uri.EscapeDataString(ViewBag.ReturnUrl as string ?? "")"><i class="bi bi-windows"></i> @L.T("Sign in with Windows (no password)", "الدخول بحساب ويندوز (بدون كلمة مرور)")</a>
+        }
+        <div class="text-muted small mt-3">
+            <i class="bi bi-info-circle"></i> @L.T("Use the same username and password you use for your computer (no domain needed).", "استخدم اسم المستخدم وكلمة المرور نفسيهما اللذين تستخدمهما لجهازك (بدون النطاق).")<br />
+            <i class="bi bi-life-preserver"></i> @L.T("Cannot sign in? Your account may not have a role yet - ask the Admin to add you.", "لا تستطيع الدخول؟ قد لا يكون لحسابك دور بعد - اطلب من الإدارة إضافتك.")
+        </div>
+    </div>
+</div>
+@section Scripts {
+<script>
+    document.getElementById('pwt').onclick = function () {
+        var p = document.getElementById('pw'), show = p.type === 'password'; p.type = show ? 'text' : 'password';
+        this.innerHTML = '<i class="bi bi-eye' + (show ? '-slash' : '') + '"></i>';
+    };
+</script>
+}

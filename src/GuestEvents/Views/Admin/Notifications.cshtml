@@ -1,0 +1,8 @@
+@model List<Notification>
+@{ ViewData["Title"] = "Notifications"; }
+<div class="page-head"><h3>Notifications</h3><a asp-action="Audit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-clock-history"></i>@L["Audit"]</a></div>
+<partial name="_Guide" model='"notifications"' />
+<div class="card"><div class="table-responsive"><table class="table table-sm mb-0">
+    <thead><tr><th>@L["At"]</th><th>@L["Event"]</th><th>To</th><th>Subject</th><th>OK</th></tr></thead>
+    <tbody>@foreach (var n in Model) { <tr><td>@L.DateTimeStr(n.SentAt.ToLocalTime())</td><td>@n.EventRequestId</td><td>@n.Recipient</td><td>@n.Subject</td><td>@(n.Success ? "✔" : "✘ " + n.Error)</td></tr> }</tbody>
+</table></div></div>

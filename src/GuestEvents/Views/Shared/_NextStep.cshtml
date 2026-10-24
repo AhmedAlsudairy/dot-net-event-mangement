@@ -1,0 +1,63 @@
+@* "What to do next" box on the event page: depends on the status and on who is looking. *@
+@model EventRequest
+@{
+    var mine = Model.RequesterUsername == User.Identity!.Name;
+    var admin = User.IsInRole(Roles.Admin);
+    var hod = User.IsInRole(Roles.Hod);
+    var media = User.IsInRole(Roles.Media);
+    string tone = "primary"; string title = ""; var steps = new List<string>(); string? link = null, linkText = null;
+    var qr = Model.QR;
+    string Dt(DateTime d) => L.DateTimeStr(d);
+
+    switch (Model.Status)
+    {
+        case EventStatus.Draft when mine:
+            title = L.T("This request is a draft", "هذا الطلب مسودة"); tone = "secondary";
+            steps.Add(L.T("Check the details, then press **Submit for approval**. Nothing is sent until you do.", "راجع التفاصيل ثم اضغط **إرسال للموافقة**. لا يُرسل شيء قبل ذلك."));
+            break;
+        case EventStatus.Submitted when hod:
+            title = L.T("This request is waiting for your decision", "هذا الطلب بانتظار قرارك"); tone = "warning";
+            steps.Add(L.T("Review the details below, then approve or reject it on the **Pending approvals** page.", "راجع التفاصيل أدناه ثم وافق أو ارفض من صفحة **بانتظار الموافقة**."));
+            link = Url.Action("Index", "Approvals"); linkText = L.T("Go to pending approvals", "الانتقال إلى الطلبات المعلقة");
+            break;
+        case EventStatus.Submitted:
+            title = L.T("Waiting for the HOD", "بانتظار رئيس القسم"); tone = "warning";
+            steps.Add(L.T("Nothing to do now. You will get an email as soon as the HOD decides.", "لا يلزمك أي إجراء الآن. ستصلك رسالة بمجرد قرار رئيس القسم."));
+            steps.Add(L.T("If the HOD does not act within 2 working days a reminder is sent automatically.", "إذا لم يتصرف رئيس القسم خلال يومي عمل تُرسل رسالة تذكير تلقائياً."));
+            break;
+        case EventStatus.Rejected when mine:
+            title = L.T("The HOD asked for changes", "طلب رئيس القسم تعديلات"); tone = "danger";
+            steps.Add(L.T("Read the comment above.", "اقرأ التعليق أعلاه."));
+            steps.Add(L.T("Press **Edit & resubmit**, fix the request and send it again. The history is kept.", "اضغط **تعديل وإعادة الإرسال** وصحّح الطلب وأرسله مجدداً. يبقى السجل محفوظاً."));
+            break;
+        case EventStatus.Approved when mine || admin:
+            title = L.T("Approved - here is what to do", "تمت الموافقة - الخطوات التالية"); tone = "success";
+            steps.Add(L.T("The image was emailed automatically to Media and the company contact. **Download it** here if you need a copy.", "أُرسلت الصورة تلقائياً إلى الإعلام وجهة الاتصال. **حمّلها** من هنا إذا احتجت نسخة."));
+            steps.Add(L.T("Show the QR code to attendees: it is on the image, or **Print QR poster**, or use the **Venue screen**.", "اعرض رمز QR على الحضور: هو موجود على الصورة، أو **اطبع ملصق QR**، أو استخدم **شاشة القاعة**."));
+            steps.Add(L.T("Need food? Press **Food request** - it is sent to Admin.", "تحتاج طعاماً؟ اضغط **طلب طعام** - يُرسل إلى الإدارة."));
+            if (qr != null && Model.IsMultiDay) steps.Add(L.T($"This is a {Model.DayCount}-day event ({L.Range(Model)}). On each day attendees can check in from {L.Num(qr.CheckInOpen.ToString("HH:mm"))} to {L.Num(qr.CheckInClose.ToString("HH:mm"))}, once per day, and evaluate until {Dt(qr.EvaluationClose)}.",
+                $"الفعالية على مدى {Model.DayCount} أيام ({L.Range(Model)}). في كل يوم يمكن تسجيل الحضور من {L.Num(qr.CheckInOpen.ToString("HH:mm"))} إلى {L.Num(qr.CheckInClose.ToString("HH:mm"))} مرة واحدة يومياً، والتقييم حتى {Dt(qr.EvaluationClose)}."));
+            else if (qr != null) steps.Add(L.T($"Attendees can check in from {Dt(qr.CheckInOpen)} to {Dt(qr.CheckInClose)} and evaluate until {Dt(qr.EvaluationClose)}.", $"يمكن للحضور تسجيل الحضور من {Dt(qr.CheckInOpen)} إلى {Dt(qr.CheckInClose)} والتقييم حتى {Dt(qr.EvaluationClose)}."));
+            break;
+        case EventStatus.Approved when media:
+            title = L.T("Approved event", "فعالية معتمدة"); tone = "success";
+            steps.Add(L.T("Download the event image and publish it. The same image was emailed to you.", "حمّل صورة الفعالية وانشرها. أُرسلت لك الصورة نفسها بالبريد."));
+            break;
+        case EventStatus.EventDone when admin:
+        case EventStatus.EvaluationClosed when admin:
+            title = Model.Status == EventStatus.EventDone ? L.T("The event is over - evaluations are open", "انتهت الفعالية - التقييم مفتوح") : L.T("Evaluation is closed", "أُغلق التقييم"); tone = "info";
+            steps.Add(L.T("See attendance, scores and exports in **Reports**.", "اطّلع على الحضور والنتائج والتصدير في **التقارير**."));
+            link = Url.Action("Event", "Reports", new { id = Model.Id }); linkText = L.T("Open the report", "فتح التقرير");
+            break;
+    }
+}
+@if (steps.Count > 0)
+{
+    <div class="nextstep nextstep-@tone mb-3">
+        <div class="ns-title"><i class="bi bi-signpost-split-fill"></i> @L.T("What to do next", "ما التالي؟"): @title</div>
+        <ul class="mb-0">
+            @foreach (var s in steps) { <li>@Html.Raw(System.Text.RegularExpressions.Regex.Replace(System.Net.WebUtility.HtmlEncode(s), @"\*\*(.+?)\*\*", "<strong>$1</strong>"))</li> }
+        </ul>
+        @if (link != null) { <a class="btn btn-sm btn-primary mt-2" href="@link">@linkText</a> }
+    </div>
+}

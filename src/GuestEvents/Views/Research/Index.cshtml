@@ -1,0 +1,46 @@
+@model List<ResearchDoc>
+@{
+    var seesAll = ViewBag.SeesAll == true;
+    ViewData["Title"] = seesAll ? L.T("Research archive", "أرشيف الأبحاث") : L.T("My research uploads", "أبحاثي المرفوعة");
+    var canUpload = User.IsInRole(Roles.Staff) || User.IsInRole(Roles.Admin);
+    string Size(long b) => b >= 1048576 ? (b / 1048576.0).ToString("0.0") + " MB" : Math.Max(1, b / 1024) + " KB";
+}
+<div class="page-head">
+    <div><h3>@ViewData["Title"]</h3><div class="sub">@L.Num(Model.Count) @L.T("documents", "مستندات")</div></div>
+    @if (canUpload) { <a class="btn btn-primary" asp-action="Upload"><i class="bi bi-upload"></i>@L.T("Upload research", "رفع بحث")</a> }
+</div>
+@if (!Model.Any())
+{
+    <div class="card"><div class="empty"><i class="bi bi-journal-text"></i><h5>@L["None"]</h5>
+        @if (canUpload) { <p>@L.T("Upload a research paper or proposal. It is sent to the research in-charge and recorded here.", "ارفع بحثاً أو مقترحاً بحثياً. يُرسل إلى مسؤول البحث ويُسجّل هنا.")</p><a class="btn btn-primary" asp-action="Upload"><i class="bi bi-upload"></i>@L.T("Upload research", "رفع بحث")</a> }
+    </div></div>
+}
+else
+{
+    <div class="input-group mb-3"><span class="input-group-text bg-white"><i class="bi bi-search"></i></span><input id="q" class="form-control" placeholder="@L.T("Search title, author, uploader...", "ابحث بالعنوان أو المؤلف أو الرافع...")" autocomplete="off" /></div>
+    <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 align-middle" id="tbl">
+        <thead><tr><th>@L.T("Title", "العنوان")</th><th>@L["Type"]</th>@if (seesAll) { <th class="d-none d-md-table-cell">@L.T("Uploaded by", "رفع بواسطة")</th> }<th>@L["Date"]</th><th class="d-none d-lg-table-cell">@L.T("File", "الملف")</th><th>@L.T("Email", "البريد")</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var r in Model)
+        {
+            <tr data-text="@((r.Title + " " + r.Authors + " " + r.UploaderName + " " + r.UploaderDepartment + " " + r.OriginalFileName).ToLower())">
+                <td><div class="fw-semibold">@r.Title</div>@if (!string.IsNullOrWhiteSpace(r.Authors)) { <div class="small text-muted">@r.Authors</div> }@if (!string.IsNullOrWhiteSpace(r.Summary)) { <div class="small text-muted" style="max-width:420px">@r.Summary</div> }</td>
+                <td><span class="badge bg-light text-dark border">@(r.DocType == "proposal" ? L.T("Proposal", "مقترح") : L.T("Research", "بحث"))</span></td>
+                @if (seesAll) { <td class="d-none d-md-table-cell">@r.UploaderName<div class="small text-muted">@r.UploaderDepartment</div></td> }
+                <td class="text-nowrap">@L.DateTimeStr(r.UploadedAt.ToLocalTime())</td>
+                <td class="d-none d-lg-table-cell small">@r.OriginalFileName<div class="text-muted">@Size(r.FileSize)</div></td>
+                <td>@if (r.EmailSent) { <span class="badge bg-success status-dot">@L.T("Sent", "أُرسل")</span> } else { <span class="badge bg-warning text-dark status-dot">@L.T("Not sent", "لم يُرسل")</span> }</td>
+                <td class="text-end"><a class="btn btn-sm btn-outline-primary" asp-action="Download" asp-route-id="@r.Id" title="@L.T("Download", "تحميل")"><i class="bi bi-download"></i></a></td>
+            </tr>
+        }
+        </tbody></table></div></div>
+}
+@section Scripts {
+<script>
+    (function () {
+        var q = document.getElementById('q'); if (!q) return;
+        var rows = document.querySelectorAll('#tbl tbody tr');
+        q.addEventListener('input', function () { var t = q.value.trim().toLowerCase(); rows.forEach(function (r) { r.classList.toggle('d-none', t && r.dataset.text.indexOf(t) < 0); }); });
+    })();
+</script>
+}

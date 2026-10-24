@@ -1,0 +1,104 @@
+@model EventRequest
+@{
+    ViewData["Title"] = Model.Id == 0 ? L["NewEvent"] : L["Edit"];
+    var rejection = ViewBag.LastRejection as Approval;
+}
+<div class="page-head">
+    <div>
+        <a class="small text-decoration-none" href="@(Model.Id == 0 ? Url.Action("Index") : Url.Action("Details", new { id = Model.Id }))"><i class="bi bi-arrow-@(L.IsAr ? "right" : "left")"></i> @L["Back"]</a>
+        <h3 class="mt-1">@ViewData["Title"]</h3>
+        <div class="sub">@L["FormHint"]</div>
+    </div>
+</div>
+<partial name="_Guide" model='"create"' />
+@if (rejection != null)
+{
+    <div class="alert alert-danger d-flex gap-2"><i class="bi bi-exclamation-octagon-fill mt-1"></i><div><strong>@L["Rejected"]</strong> - @rejection.ApproverName<div>@rejection.Comment</div></div></div>
+}
+<form method="post" asp-action="Save" enctype="multipart/form-data" novalidate class="needs-validation">
+    <input type="hidden" asp-for="Id" />
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @L["Required"]<ul class="mb-0 mt-1 small">@foreach (var e in ViewData.ModelState.Values.SelectMany(v => v.Errors)) { <li>@e.ErrorMessage</li> }</ul></div>
+    }
+
+    <div class="card mb-3"><div class="card-header"><i class="bi bi-calendar2-event"></i>@L["SecEvent"]</div><div class="card-body row g-3">
+        <div class="col-md-8"><label class="form-label req">@L["Name"]</label><input class="form-control" asp-for="Name" required maxlength="200" /></div>
+        <div class="col-md-4"><label class="form-label">@L["Type"]</label>
+            <select class="form-select" asp-for="Type">
+                @foreach (var t in new[] { "workshop", "seminar", "training", "other" }) { <option value="@t">@L[t]</option> }
+            </select></div>
+        <div class="col-md-6"><label class="form-label req">@L["Presenter"]</label><input class="form-control" asp-for="Presenter" required maxlength="200" /></div>
+        <div class="col-md-6"><label class="form-label">@L["Expected"]<partial name="_Tip" model='L.T("Used to compare with the real check-in count in the reports and as the default for the food request.", "يُستخدم للمقارنة مع عدد الحضور الفعلي في التقارير ويُقترح في طلب الطعام.")' /></label><input type="number" min="1" class="form-control" asp-for="ExpectedAttendees" /></div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header"><i class="bi bi-building"></i>@L["SecCompany"]</div><div class="card-body row g-3">
+        <div class="col-md-6"><label class="form-label req">@L["Company"]<partial name="_Tip" model='L.T("Printed on the event image.", "يُطبع على صورة الفعالية.")' /></label><input class="form-control" asp-for="CompanyName" required maxlength="200" /></div>
+        <div class="col-md-6"><label class="form-label">@L["Logo"]<partial name="_Tip" model='L.T("Use a clear logo on a white or transparent background.", "استخدم شعاراً واضحاً بخلفية بيضاء أو شفافة.")' /></label><input type="file" name="logo" id="logo" accept=".png,.jpg,.jpeg" class="form-control" />
+            <div class="form-text" id="logoHint">@(string.IsNullOrEmpty(Model.CompanyLogoPath) ? L["LogoHint"] : L["LogoKeep"])</div>
+            <img id="logoPrev" class="mt-2 rounded border d-none" style="max-height:70px" alt="" /></div>
+        <div class="col-md-4"><label class="form-label req">@L["ContactName"]</label><input class="form-control" asp-for="ContactName" required maxlength="200" /></div>
+        <div class="col-md-4"><label class="form-label req">@L["ContactEmail"]<partial name="_Tip" model='L.T("This person receives the approval email with the event image attached.", "يستلم هذا الشخص رسالة الموافقة مع صورة الفعالية.")' /></label><input type="email" class="form-control" asp-for="ContactEmail" required maxlength="200" /></div>
+        <div class="col-md-4"><label class="form-label">@L["ContactPhone"]</label><input class="form-control" asp-for="ContactPhone" maxlength="50" /></div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header"><i class="bi bi-geo-alt"></i>@L["SecWhen"]</div><div class="card-body row g-3">
+        <div class="col-12">
+            <div class="btn-group" role="group" aria-label="@L["Date"]">
+                <input type="radio" class="btn-check" name="dur" id="dur1" value="one" @(Model.IsMultiDay ? "" : "checked") autocomplete="off" />
+                <label class="btn btn-outline-primary" for="dur1"><i class="bi bi-calendar-day"></i> @L["OneDay"]</label>
+                <input type="radio" class="btn-check" name="dur" id="durN" value="multi" @(Model.IsMultiDay ? "checked" : "") autocomplete="off" />
+                <label class="btn btn-outline-primary" for="durN"><i class="bi bi-calendar-range"></i> @L["MultiDay"]</label>
+            </div>
+        </div>
+        <div class="col-md-4"><label class="form-label req" id="lblDate">@L["Date"]</label><input type="date" class="form-control" name="Date" id="dStart" value="@Model.Date.ToString("yyyy-MM-dd")" required /></div>
+        <div class="col-md-4" id="endWrap"><label class="form-label req">@L["ToDate"]</label><input type="date" class="form-control" name="EndDate" id="dEnd" value="@Model.LastDate.ToString("yyyy-MM-dd")" /></div>
+        <div class="col-6 col-md-4"><label class="form-label req">@L["Start"]</label><input type="time" class="form-control" name="StartTime" value="@Model.StartTime.ToString(@"hh\:mm")" required /></div>
+        <div class="col-6 col-md-4"><label class="form-label req">@L["End"]</label><input type="time" class="form-control" name="EndTime" value="@Model.EndTime.ToString(@"hh\:mm")" required /></div>
+        <div class="col-12 form-text mt-0" id="dailyHint">@L["DailyHint"]</div>
+        <div class="col-12"><label class="form-label req">@L["Venue"]</label><input class="form-control" asp-for="Venue" required maxlength="200" /></div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header"><i class="bi bi-card-text"></i>@L["SecContent"]</div><div class="card-body">
+        <div class="form-text mb-2">@L["ContentHint"]</div>
+        <div class="row g-3">
+            <div class="col-md-6"><label class="form-label">@L["ContentEn"]</label><textarea rows="6" class="form-control" asp-for="ContentEn" dir="ltr"></textarea></div>
+            <div class="col-md-6"><label class="form-label">@L["ContentAr"]</label><textarea rows="6" class="form-control" asp-for="ContentAr" dir="rtl"></textarea></div>
+        </div>
+    </div></div>
+
+    <div class="actionbar">
+        <button class="btn btn-primary" name="submitAction" value="submit"><i class="bi bi-send"></i>@(Model.Status == EventStatus.Rejected ? L["Resubmit"] : L["Submit"])</button>
+        <button class="btn btn-outline-secondary" name="submitAction" value="draft" formnovalidate><i class="bi bi-save"></i>@L["SaveDraft"]</button>
+        <span class="text-muted small ms-auto">@L["SubmitHint"]</span>
+    </div>
+</form>
+@section Scripts {
+<script>
+    // required-field highlight only after the user tried to submit
+    document.querySelector('form.needs-validation').addEventListener('submit', function (e) {
+        var b = e.submitter;
+        if (b && b.value === 'submit' && !this.checkValidity()) { e.preventDefault(); e.stopPropagation(); this.classList.add('was-validated'); this.querySelector(':invalid').focus(); }
+    }, true);
+    // one day / multiple days switch
+    (function () {
+        var one = document.getElementById('dur1'), multi = document.getElementById('durN'), s = document.getElementById('dStart'), e = document.getElementById('dEnd');
+        var wrap = document.getElementById('endWrap'), hint = document.getElementById('dailyHint'), lbl = document.getElementById('lblDate');
+        function sync() {
+            var m = multi.checked;
+            wrap.classList.toggle('d-none', !m); hint.classList.toggle('d-none', !m); e.disabled = !m;
+            lbl.textContent = m ? '@L["FromDate"]' : '@L["Date"]';
+            if (m) { e.min = s.value; if (!e.value || e.value <= s.value) { var d = new Date(s.value + 'T00:00:00'); d.setDate(d.getDate() + 1); e.value = d.toISOString().slice(0, 10); } }
+        }
+        one.onchange = multi.onchange = sync;
+        s.addEventListener('change', function () { if (multi.checked) { e.min = s.value; if (e.value <= s.value) sync(); } });
+        sync();
+    })();
+    document.getElementById('logo').addEventListener('change', function () {
+        var f = this.files[0], img = document.getElementById('logoPrev');
+        if (!f) { img.classList.add('d-none'); return; }
+        if (f.size > 2000000) { document.getElementById('logoHint').textContent = '@L["LogoTooBig"]'; this.value = ''; img.classList.add('d-none'); return; }
+        img.src = URL.createObjectURL(f); img.classList.remove('d-none');
+    });
+</script>
+}

@@ -1,0 +1,31 @@
+@model List<RoleAssignment>
+@{ ViewData["Title"] = L["Roles"]; }
+<div class="page-head"><div><h3>@L["Roles"]</h3><div class="sub">Give an AD user a role inside the app.</div></div></div>
+<partial name="_Guide" model='"roles"' />
+@if (TempData["Error"] != null) { <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @TempData["Error"]</div> }
+<div class="alert alert-info d-flex gap-2 small">
+    <i class="bi bi-info-circle-fill mt-1"></i>
+    <div>A user's roles are their AD groups (Events-Staff / HOD / Media / Admin) <b>plus</b> the roles assigned here. Use this when a group does not exist yet or a person is not in it.
+    They still sign in with their normal AD password and must be enabled in AD. Roles apply from the next sign-in.
+    To create the very first Admin, put their username in <code>App:BootstrapAdmins</code> in appsettings.json.</div>
+</div>
+<form method="post" asp-action="AddRole" class="card mb-3"><div class="card-body row g-2 align-items-end">
+    <div class="col-md-5"><label class="form-label">AD username</label><input name="username" class="form-control" placeholder="sAMAccountName, e.g. jsmith" required maxlength="100" autocomplete="off" /></div>
+    <div class="col-md-4"><label class="form-label">Role</label><select name="role" class="form-select">
+        <option value="Staff">Staff - create requests</option><option value="HOD">HOD - approve requests</option>
+        <option value="Media">Media Officer - view approved events</option><option value="Research">Research in-charge - research archive</option><option value="Admin">Admin - everything</option></select></div>
+    <div class="col-md-3"><button class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i>Add role</button></div>
+</div></form>
+@if (!Model.Any()) { <div class="card"><div class="empty"><i class="bi bi-people"></i>No roles assigned in the app yet.</div></div> }
+else
+{
+<div class="card"><div class="table-responsive"><table class="table align-middle mb-0">
+    <thead><tr><th>@L["Username"]</th><th>Role</th><th>@L["By"]</th><th>@L["At"]</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var r in Model)
+    {
+        <tr><td class="fw-semibold">@r.Username</td><td><span class="badge bg-secondary">@r.Role</span></td><td>@r.AssignedBy</td><td class="text-nowrap">@L.DateTimeStr(r.AssignedAt.ToLocalTime())</td>
+            <td class="text-end"><form method="post" asp-action="RemoveRole" asp-route-id="@r.Id" onsubmit="return confirm('Remove this role?')" data-noload><button class="btn btn-sm btn-outline-danger" title="Remove"><i class="bi bi-trash"></i></button></form></td></tr>
+    }
+    </tbody></table></div></div>
+}

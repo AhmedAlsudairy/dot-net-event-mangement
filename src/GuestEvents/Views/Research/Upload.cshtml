@@ -1,0 +1,31 @@
+@model ResearchDoc
+@{ ViewData["Title"] = L.T("Upload research", "رفع بحث"); }
+<div class="page-head">
+    <div><a class="small text-decoration-none" asp-action="Index"><i class="bi bi-arrow-@(L.IsAr ? "right" : "left")"></i> @L["Back"]</a>
+        <h3 class="mt-1">@ViewData["Title"]</h3>
+        <div class="sub">@L.T("Upload a research paper or a research proposal. It is emailed to the research in-charge and saved in the archive. No approval is needed.", "ارفع بحثاً أو مقترحاً بحثياً. يُرسل بالبريد إلى مسؤول البحث ويُحفظ في الأرشيف. لا حاجة لموافقة.")</div></div>
+</div>
+<form method="post" enctype="multipart/form-data" novalidate class="card"><div class="card-body row g-3">
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="col-12"><div class="alert alert-danger mb-0"><i class="bi bi-exclamation-triangle"></i> @L["Required"]<ul class="mb-0 mt-1 small">@foreach (var e in ViewData.ModelState.Values.SelectMany(v => v.Errors)) { <li>@e.ErrorMessage</li> }</ul></div></div>
+    }
+    <div class="col-md-8"><label class="form-label req">@L.T("Title", "العنوان")</label><input class="form-control" asp-for="Title" required maxlength="300" /></div>
+    <div class="col-md-4"><label class="form-label">@L["Type"]</label>
+        <select class="form-select" asp-for="DocType"><option value="research">@L.T("Research paper", "بحث")</option><option value="proposal">@L.T("Research proposal", "مقترح بحثي")</option></select></div>
+    <div class="col-12"><label class="form-label">@L.T("Authors", "المؤلفون")</label><input class="form-control" asp-for="Authors" maxlength="300" /></div>
+    <div class="col-12"><label class="form-label">@L.T("Short summary", "ملخص قصير")</label><textarea rows="3" class="form-control" asp-for="Summary"></textarea></div>
+    <div class="col-12"><label class="form-label req">@L.T("File", "الملف")</label><input type="file" name="file" id="file" class="form-control" accept=".pdf,.doc,.docx" required />
+        <div class="form-text" id="fileHint">@L.T($"PDF, DOC or DOCX, up to {ViewBag.MaxMb} MB.", $"PDF أو DOC أو DOCX حتى {ViewBag.MaxMb} ميجابايت.")</div></div>
+    <div class="col-12 d-flex gap-2"><button class="btn btn-primary"><i class="bi bi-send"></i>@L.T("Upload and send", "رفع وإرسال")</button><a class="btn btn-outline-secondary" asp-action="Index">@L["Back"]</a></div>
+</div></form>
+@section Scripts {
+<script>
+    // stop an oversized file here instead of after a slow upload
+    document.getElementById('file').addEventListener('change', function () {
+        var f = this.files[0], max = @(ViewBag.MaxMb ?? 20) * 1048576;
+        if (f && f.size > max) { document.getElementById('fileHint').textContent = '@L.T("The file is too large.", "الملف كبير جداً.")'; this.value = ''; }
+    });
+    document.querySelector('form').addEventListener('submit', function (e) { if (!this.checkValidity()) { e.preventDefault(); this.classList.add('was-validated'); this.querySelector(':invalid').focus(); } });
+</script>
+}

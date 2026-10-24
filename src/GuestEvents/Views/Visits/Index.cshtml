@@ -1,0 +1,34 @@
+@model List<ExternalVisit>
+@{
+    ViewData["Title"] = L.T("External visits", "الزيارات الخارجية");
+    var canCreate = User.IsInRole(Roles.Staff) || User.IsInRole(Roles.Admin);
+}
+<div class="page-head">
+    <div><h3>@ViewData["Title"]</h3><div class="sub">@L.Num(Model.Count) @L.T("visits", "زيارات") &middot; @L.Num(Model.Count(v => v.Status == VisitStatus.Submitted)) @L["WaitingDecision"]</div></div>
+    @if (canCreate) { <a class="btn btn-primary" asp-action="Create"><i class="bi bi-plus-lg"></i>@L.T("New external visit", "زيارة خارجية جديدة")</a> }
+</div>
+@if (!Model.Any())
+{
+    <div class="card"><div class="empty"><i class="bi bi-bus-front"></i><h5>@L["None"]</h5>
+        @if (canCreate) { <p>@L.T("Request a bus for a student visit outside the school.", "اطلب حافلة لزيارة طلابية خارج المدرسة.")</p><a class="btn btn-primary" asp-action="Create"><i class="bi bi-plus-lg"></i>@L.T("New external visit", "زيارة خارجية جديدة")</a> }
+    </div></div>
+}
+else
+{
+    <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+        <thead><tr><th>@L["Name"]</th><th>@L.T("Destination", "الوجهة")</th><th>@L["Date"]</th><th class="d-none d-md-table-cell">@L.T("Students", "الطلاب")</th><th class="d-none d-lg-table-cell">@L["Requester"]</th><th>@L["Status"]</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var v in Model)
+        {
+            <tr style="cursor:pointer" onclick="location='@Url.Action("Details", new { id = v.Id })'">
+                <td class="fw-semibold">@v.Name</td>
+                <td>@v.Destination</td>
+                <td class="text-nowrap">@L.Date(v.Date)<div class="small text-muted">@L.Time(v.DepartureTime) - @L.Time(v.ReturnTime)</div></td>
+                <td class="d-none d-md-table-cell">@L.Num(v.StudentCount)</td>
+                <td class="d-none d-lg-table-cell">@v.RequesterName</td>
+                <td><partial name="_VisitStatus" model="v.Status" /></td>
+                <td class="text-end"><i class="bi bi-chevron-@(L.IsAr ? "left" : "right") text-muted"></i></td>
+            </tr>
+        }
+        </tbody></table></div></div>
+}

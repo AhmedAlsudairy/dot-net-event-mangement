@@ -1,0 +1,84 @@
+@model ExternalVisit
+@{
+    ViewData["Title"] = Model.Name;
+    bool canDecide = ViewBag.CanDecide == true;
+    bool mine = Model.RequesterUsername == User.Identity?.Name;
+    bool canEdit = mine && (Model.Status == VisitStatus.Draft || Model.Status == VisitStatus.Rejected);
+}
+<div class="page-head">
+    <div>
+        <a class="small text-decoration-none" asp-action="Index"><i class="bi bi-arrow-@(L.IsAr ? "right" : "left")"></i> @L["Back"]</a>
+        <h3 class="mt-1">@Model.Name <partial name="_VisitStatus" model="Model.Status" /></h3>
+        <div class="sub">@L["By"] @Model.RequesterName (@Model.RequesterDepartment)</div>
+    </div>
+    @if (canEdit)
+    {
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id"><i class="bi bi-pencil"></i>@(Model.Status == VisitStatus.Rejected ? L["Resubmit"] : L["Edit"])</a>
+            @if (Model.Status == VisitStatus.Draft)
+            {
+                <form method="post" asp-action="Submit" asp-route-id="@Model.Id"><button class="btn btn-primary"><i class="bi bi-send"></i>@L["Submit"]</button></form>
+            }
+        </div>
+    }
+</div>
+@if (TempData["Error"] != null) { <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @L[(string)TempData["Error"]!]</div> }
+@if (Model.Status == VisitStatus.Submitted && mine) { <div class="alert alert-info"><i class="bi bi-hourglass-split"></i> @L["WaitingHod"]</div> }
+@if (Model.Status == VisitStatus.Approved && mine) { <div class="alert alert-info"><i class="bi bi-bus-front"></i> @L.T("Approved. The admin will confirm the bus and you will get an email.", "تم الاعتماد. ستؤكد الإدارة الحافلة وستصلك رسالة بريد.")</div> }
+@if (Model.Status == VisitStatus.Rejected)
+{
+    <div class="alert alert-danger d-flex gap-2"><i class="bi bi-exclamation-octagon-fill mt-1"></i><div><strong>@L["Rejected"]</strong> - @Model.DecisionBy<div>@Model.DecisionComment</div></div></div>
+}
+@if (Model.Status == VisitStatus.BusConfirmed)
+{
+    <div class="alert alert-success d-flex gap-2"><i class="bi bi-bus-front-fill mt-1"></i><div><strong>@L.T("Bus confirmed", "تم تأكيد الحافلة")</strong><div style="white-space:pre-line">@Model.BusDetails</div></div></div>
+}
+
+<div class="card mb-3"><div class="card-body">
+    <div class="facts mb-3">
+        <span><i class="bi bi-geo-alt"></i>@Model.Destination@(string.IsNullOrWhiteSpace(Model.DestinationAddress) ? "" : " - " + Model.DestinationAddress)</span>
+        <span><i class="bi bi-calendar3"></i>@L.Date(Model.Date)</span>
+        <span><i class="bi bi-clock"></i>@L.Time(Model.DepartureTime) - @L.Time(Model.ReturnTime)</span>
+        <span><i class="bi bi-pin-map"></i>@L.T("Pick-up", "الانطلاق"): @Model.PickupLocation</span>
+        <span><i class="bi bi-people"></i>@L.Num(Model.StudentCount) @L.T("students", "طالب")@(string.IsNullOrWhiteSpace(Model.Grade) ? "" : " (" + Model.Grade + ")") + @L.Num(Model.StaffCount) @L.T("staff", "موظف")</span>
+        <span><i class="bi bi-person-badge"></i>@Model.SupervisorName &middot; @Model.SupervisorPhone</span>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.Purpose)) { <h6>@L.T("Purpose", "الغرض من الزيارة")</h6><p style="white-space:pre-line">@Model.Purpose</p> }
+    @if (!string.IsNullOrWhiteSpace(Model.Notes)) { <h6>@L["Comments"]</h6><p class="mb-0" style="white-space:pre-line">@Model.Notes</p> }
+</div></div>
+
+@if (canDecide)
+{
+    <div class="card mb-3"><div class="card-body">
+        <form method="post" asp-action="Decide" asp-route-id="@Model.Id" class="row g-2 align-items-start decide">
+            <div class="col-lg-7"><input name="comment" class="form-control" placeholder="@L["Comment"] (@L["RejectNeeds"])" maxlength="1000" /></div>
+            <div class="col-lg-5 d-flex gap-2">
+                <button class="btn btn-success flex-fill" name="decision" value="approve"><i class="bi bi-check-lg"></i>@L["Approve"]</button>
+                <button class="btn btn-outline-danger flex-fill" name="decision" value="reject"><i class="bi bi-x-lg"></i>@L["Reject"]</button>
+            </div>
+        </form>
+    </div></div>
+}
+@if (ViewBag.CanConfirm == true)
+{
+    <div class="card mb-3"><div class="card-header"><i class="bi bi-bus-front"></i>@L.T("Confirm the bus", "تأكيد الحافلة")</div><div class="card-body">
+        <form method="post" asp-action="ConfirmBus" asp-route-id="@Model.Id" class="row g-2">
+            <div class="col-12"><textarea name="busDetails" rows="2" class="form-control" placeholder="@L.T("Bus number, driver, phone, pick-up time...", "رقم الحافلة، السائق، الهاتف، وقت الانطلاق...")"></textarea></div>
+            <div class="col-12"><button class="btn btn-success"><i class="bi bi-check-lg"></i>@L["Confirm"]</button></div>
+        </form>
+    </div></div>
+}
+@if (Model.DecidedAt != null && Model.Status != VisitStatus.Rejected)
+{
+    <div class="text-muted small">@L.T("Approved by", "اعتمده") @Model.DecisionBy &middot; @L.DateTimeStr(Model.DecidedAt.Value.ToLocalTime())@(string.IsNullOrWhiteSpace(Model.DecisionComment) ? "" : " - " + Model.DecisionComment)</div>
+}
+@section Scripts {
+<script>
+    document.querySelectorAll('form.decide').forEach(function (f) {
+        f.addEventListener('submit', function (e) {
+            var c = f.querySelector('input[name=comment]');
+            if (e.submitter && e.submitter.value === 'reject' && !c.value.trim()) { e.preventDefault(); e.stopImmediatePropagation(); c.classList.add('is-invalid'); c.focus(); }
+        }, true);
+    });
+</script>
+}

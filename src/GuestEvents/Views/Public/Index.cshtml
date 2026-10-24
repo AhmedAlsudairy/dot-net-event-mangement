@@ -1,0 +1,67 @@
+@model PublicVm
+@{
+    Layout = "_PublicLayout";
+    var baseToken = Model.UrlToken.Split('.')[0];
+    var e = Model.Event;
+    var done = Model.State is "checkedin" or "already";
+}
+<div class="card mb-3"><div class="card-body pub-event">
+    <h5>@e.Name</h5>
+    <div class="pub-meta">
+        <span><i class="bi bi-person-video3"></i> @e.Presenter</span>
+        <span><i class="bi bi-calendar3"></i> @L.Range(e)</span>
+        <span><i class="bi bi-clock"></i> @L.Times(e)</span>
+        <span><i class="bi bi-geo-alt"></i> @e.Venue</span>
+    </div>
+</div></div>
+
+<div class="text-center text-muted small mb-1">@L.T("Two quick steps: check in now, evaluate after the event.", "خطوتان سريعتان: سجّل حضورك الآن وقيّم بعد الفعالية.")</div>
+<div class="pub-steps">
+    <div class="s @(done ? "done" : "on")"><i class="bi bi-@(done ? "check-circle-fill" : "1-circle")"></i> @L["CheckIn"]</div>
+    <div class="s @(done ? "on" : "")"><i class="bi bi-2-circle"></i> @L["Evaluate"]</div>
+</div>
+
+@switch (Model.State)
+{
+    case "form":
+        <form method="post" action="/p/@Model.UrlToken/checkin" class="card"><div class="card-body">
+            <h5 class="mb-3">@L["CheckIn"]</h5>
+            @if (Model.Error == "Required") { <div class="alert alert-danger py-2"><i class="bi bi-exclamation-triangle"></i> @L["Required"]</div> }
+            @Html.AntiForgeryToken()
+            <div class="mb-3"><label class="form-label req">@L["FullName"]</label><input name="fullName" class="form-control form-control-lg" maxlength="200" required autocomplete="name" /></div>
+            <div class="mb-3"><label class="form-label req">@L["Org"]</label><input name="organization" class="form-control form-control-lg" maxlength="200" required autocomplete="organization" /></div>
+            <div class="mb-3"><label class="form-label @(Model.RequireEmail ? "req" : "")">@L["Email"] @if (!Model.RequireEmail) { <span class="text-muted fw-normal">(@L["Optional"])</span> }</label><input name="email" type="email" inputmode="email" class="form-control form-control-lg" maxlength="200" autocomplete="email" @(Model.RequireEmail ? "required" : "") /></div>
+            <div class="mb-3"><label class="form-label @(Model.RequirePhone ? "req" : "")">@L["Phone"] @if (!Model.RequirePhone) { <span class="text-muted fw-normal">(@L["Optional"])</span> }</label><input name="phone" type="tel" inputmode="tel" class="form-control form-control-lg" maxlength="50" autocomplete="tel" @(Model.RequirePhone ? "required" : "") /></div>
+            <div class="hp" aria-hidden="true"><label>Website</label><input name="website" tabindex="-1" autocomplete="off" /></div>
+            <button class="btn btn-primary btn-lg w-100"><i class="bi bi-box-arrow-in-right"></i>@L["CheckIn"]</button>
+            <div class="text-muted small text-center mt-3"><i class="bi bi-shield-check"></i> @L.T("Your details are only used for the attendance list of this event.", "تُستخدم بياناتك فقط لقائمة حضور هذه الفعالية.")</div>
+        </div></form>
+        break;
+    case "checkedin":
+        <div class="card"><div class="card-body text-center py-4">
+            <div class="big-check"><i class="bi bi-check-lg"></i></div>
+            <h5>@L["CheckedIn"]</h5>
+            <p class="text-muted">@L["EvalInvite"]</p>
+            <a class="btn btn-primary btn-lg w-100" href="/p/@baseToken/evaluate"><i class="bi bi-star"></i>@L["Evaluate"]</a>
+        </div></div>
+        break;
+    case "already":
+        <div class="card"><div class="card-body text-center py-4">
+            <div class="big-check info"><i class="bi bi-person-check"></i></div>
+            <h5>@L["AlreadyCheckedIn"]</h5>
+            <a class="btn btn-primary btn-lg w-100 mt-2" href="/p/@baseToken/evaluate"><i class="bi bi-star"></i>@L["Evaluate"]</a>
+        </div></div>
+        break;
+    case "notopen":
+        <div class="card"><div class="card-body text-center py-4"><div class="big-check warn"><i class="bi bi-hourglass-split"></i></div><h5>@L["CheckInNotOpen"]</h5>
+            <p class="text-muted mb-0">@L["OpensAt"] @L.DateTimeStr(Model.OpensAt ?? Model.Qr.CheckInOpen)</p>
+            @if (Model.HasAnyCheckIn) { <a class="btn btn-outline-primary w-100 mt-3" href="/p/@baseToken/evaluate"><i class="bi bi-star"></i> @L["Evaluate"]</a> }</div></div>
+        break;
+    case "closed":
+        <div class="card"><div class="card-body text-center py-4"><div class="big-check warn"><i class="bi bi-@(Model.Error == "OutsideVenue" ? "wifi-off" : "lock")"></i></div><h5>@L[Model.Error ?? "CheckInClosed"]</h5>
+            @if (Model.HasAnyCheckIn) { <a class="btn btn-outline-primary w-100 mt-3" href="/p/@baseToken/evaluate"><i class="bi bi-star"></i> @L["Evaluate"]</a> }</div></div>
+        break;
+    default:
+        <div class="card"><div class="card-body text-center py-4"><div class="big-check bad"><i class="bi bi-x-lg"></i></div><h5>@L["LinkInvalid"]</h5></div></div>
+        break;
+}

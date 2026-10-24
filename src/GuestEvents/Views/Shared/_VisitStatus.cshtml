@@ -1,0 +1,14 @@
+@model VisitStatus
+@{
+    var cls = Model switch
+    {
+        VisitStatus.BusConfirmed => "success", VisitStatus.Approved => "primary", VisitStatus.Rejected => "danger",
+        VisitStatus.Submitted => "warning text-dark", _ => "secondary"
+    };
+    var label = Model switch
+    {
+        VisitStatus.Draft => L["Draft"], VisitStatus.Submitted => L["Submitted"], VisitStatus.Rejected => L["Rejected"],
+        VisitStatus.Approved => L.T("Approved - bus pending", "معتمد - بانتظار الحافلة"), _ => L.T("Bus confirmed", "تم تأكيد الحافلة")
+    };
+}
+<span class="badge bg-@cls status-dot">@label</span>

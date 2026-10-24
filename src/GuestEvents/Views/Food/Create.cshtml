@@ -1,0 +1,20 @@
+@model FoodRequest
+@{ ViewData["Title"] = L["FoodRequest"]; }
+<div class="page-head">
+    <div><a class="small text-decoration-none" asp-controller="Events" asp-action="Details" asp-route-id="@Model.EventRequestId"><i class="bi bi-arrow-@(L.IsAr ? "right" : "left")"></i> @L["Back"]</a>
+        <h3 class="mt-1">@L["FoodRequest"]</h3><div class="sub">@L["FoodHint"]</div></div>
+</div>
+<partial name="_Guide" model='"food-create"' />
+<form method="post" class="card"><div class="card-body row g-3">
+    <input type="hidden" asp-for="EventRequestId" />
+    <div asp-validation-summary="All" class="text-danger"></div>
+    <div class="col-md-4"><label class="form-label req">@L["People"]</label><input type="number" min="1" class="form-control" asp-for="People" required /></div>
+    <div class="col-md-4"><label class="form-label">@L["Meal"]</label>
+        <select class="form-select" asp-for="Meal">
+            @foreach (var m in Enum.GetValues<MealType>()) { <option value="@m">@L[m.ToString()]</option> }
+        </select></div>
+    <div class="col-md-4"><label class="form-label req">@L["DeliveryTime"]<partial name="_Tip" model='L.T("When the food should arrive - usually a little before the event starts.", "وقت وصول الطعام - عادةً قبل بدء الفعالية بقليل.")' /></label><input type="time" class="form-control" name="DeliveryTime" value="@Model.DeliveryTime.ToString(@"hh\:mm")" required /></div>
+    <div class="col-12"><label class="form-label req">@L["Location"]</label><input class="form-control" asp-for="Location" required /></div>
+    <div class="col-12"><label class="form-label">@L["Notes"]</label><textarea rows="3" class="form-control" asp-for="Notes" placeholder="@L["NotesHint"]"></textarea></div>
+    <div class="col-12 d-flex gap-2"><button class="btn btn-primary"><i class="bi bi-send"></i>@L["Submit"]</button><a class="btn btn-outline-secondary" asp-controller="Events" asp-action="Details" asp-route-id="@Model.EventRequestId">@L["Back"]</a></div>
+</div></form>

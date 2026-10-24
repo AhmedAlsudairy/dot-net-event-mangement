@@ -1,0 +1,55 @@
+@model List<EventRequest>
+@{ ViewData["Title"] = L["Pending"]; bool allowed = ViewBag.Allowed == true; }
+<div class="page-head">
+    <div><h3>@L["Pending"]</h3><div class="sub">@L.Num(Model.Count) @L["WaitingDecision"]</div></div>
+</div>
+<partial name="_Guide" model='"approvals"' />
+@if (!allowed) { <div class="alert alert-warning"><i class="bi bi-lock"></i> @L["NotAssignedHod"]</div> }
+@if (TempData["Error"] != null) { <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @L[(string)TempData["Error"]!]</div> }
+@if (!Model.Any())
+{
+    <div class="card"><div class="empty"><i class="bi bi-inbox"></i><h5>@L["AllCaughtUp"]</h5><p class="mb-0">@L["NoPending"]</p></div></div>
+}
+@foreach (var e in Model)
+{
+    var waited = WorkingDays.Between((e.SubmittedAt ?? e.CreatedAt).ToLocalTime(), DateTime.Now);
+    <div class="card req-card mb-3"><div class="card-body">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+            <div>
+                <h5 class="mb-1"><a class="text-decoration-none" asp-controller="Events" asp-action="Details" asp-route-id="@e.Id">@e.Name</a> <span class="badge bg-light text-dark border">@L[e.Type]</span></h5>
+                <div class="text-muted small">@L["By"] @e.RequesterName (@e.RequesterDepartment) &middot; @L.DateTimeStr((e.SubmittedAt ?? e.CreatedAt).ToLocalTime())</div>
+            </div>
+            <span class="badge @(waited >= 2 ? "bg-danger" : "bg-warning text-dark") wait-pill"><i class="bi bi-hourglass-split"></i> @(waited == 0 ? L["NewTag"] : L.Num(waited) + " " + L["WorkingDaysWaiting"])</span>
+        </div>
+        <div class="facts mb-3">
+            <span><i class="bi bi-person-video3"></i>@e.Presenter - @e.CompanyName</span>
+            <span><i class="bi bi-calendar3"></i>@L.Range(e) @if (e.IsMultiDay) { <span class="badge bg-light text-dark border">@L.Num(e.DayCount) @L["DayWord"]</span> }</span>
+            <span><i class="bi bi-clock"></i>@L.Times(e)</span>
+            <span><i class="bi bi-geo-alt"></i>@e.Venue</span>
+            <span><i class="bi bi-people"></i>@L.Num(e.ExpectedAttendees)</span>
+        </div>
+        @if (allowed)
+        {
+        <form method="post" asp-action="Decide" asp-route-id="@e.Id" class="row g-2 align-items-start decide">
+            <div class="col-lg-7"><input name="comment" class="form-control" placeholder="@L["Comment"] (@L["RejectNeeds"])" maxlength="1000" /></div>
+            <div class="col-lg-5 d-flex gap-2">
+                <button class="btn btn-success flex-fill" name="decision" value="approve"><i class="bi bi-check-lg"></i>@L["Approve"]</button>
+                <button class="btn btn-outline-danger flex-fill" name="decision" value="reject"><i class="bi bi-x-lg"></i>@L["Reject"]</button>
+            </div>
+        </form>
+        }
+    </div></div>
+}
+@section Scripts {
+<script>
+    // reject needs a comment: stop here instead of bouncing off the server
+    document.querySelectorAll('form.decide').forEach(function (f) {
+        f.addEventListener('submit', function (e) {
+            var c = f.querySelector('input[name=comment]');
+            if (e.submitter && e.submitter.value === 'reject' && !c.value.trim()) {
+                e.preventDefault(); e.stopImmediatePropagation(); c.classList.add('is-invalid'); c.focus();
+            }
+        }, true);
+    });
+</script>
+}

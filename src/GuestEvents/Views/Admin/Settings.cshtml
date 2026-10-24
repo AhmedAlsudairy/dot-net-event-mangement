@@ -1,0 +1,117 @@
+@model Dictionary<string, string>
+@{
+    ViewData["Title"] = L["Settings"];
+    // tab id, title, icon, description, keys
+    var tabs = new (string id, string title, string icon, string desc, string[] keys)[]
+    {
+        ("mail", "Recipients", "bi-envelope-at", "Who receives the automatic emails.", new[] { "AdminMailbox", "AdminExtraTo", "AdminCc", "MediaOfficerEmail", "HodUsername", "HodEmail" }),
+        ("visit", "External visits (bus)", "bi-bus-front", "Approval of student visits and bus requests is separate from event approval. Choose who approves, who confirms the bus and who gets the emails.",
+            new[] { "VisitApprovalRequired", "VisitApprovers", "VisitApproverEmail", "VisitBusUsers", "VisitBusEmail", "VisitBusCc", "VisitNotifyRequester", "VisitMinDaysAhead" }),
+        ("research", "Research", "bi-journal-text", "Staff upload research papers or proposals. Each upload is emailed to the research in-charge and saved in the archive. There is no approval step.",
+            new[] { "ResearchEmail", "ResearchCc", "ResearchNotifySubmitter", "ResearchMaxMb" }),
+        ("flow", "Approval & check-in", "bi-sliders2", "Reminder timing and the check-in / evaluation windows.", new[] { "ReminderWorkingDays", "CheckInOpenMinutesBefore", "CheckInCloseMinutesAfterEnd", "EvaluationOpenDays", "RequireEmail", "RequirePhone" }),
+        ("qr", "QR & public page", "bi-qr-code", "Protection for the page anyone can open.", new[] { "RotatingQr", "BlockOutsideVenue", "VenueNetworkPrefixes" }),
+        ("img", "Event image", "bi-image", "Colours and titles of the locked image template.", new[] { "ImgTitleEn", "ImgTitleAr", "ImgPrimary", "ImgAccent", "ImgFont" }),
+        ("eval", "Evaluation", "bi-star", "Labels of the optional questions on the evaluation form.", new[] { "Questions" }),
+        ("tpl", "Email templates", "bi-card-text", "Placeholders: {event_name} {presenter} {company} {contact_name} {date} {start} {end} {venue} {requester} {approver} {link}",
+            new[] { "TplMediaSubject", "TplMediaBody", "TplContactSubject", "TplContactBody", "TplAdminSubject", "TplAdminBody", "TplRequesterSubject", "TplRequesterBody" }),
+        ("disp", "Display", "bi-translate", "Digits and date format.", new[] { "UseArabicDigits", "DateFormat" }),
+    };
+    var meta = new Dictionary<string, (string label, string help)>
+    {
+        ["AdminMailbox"] = ("Admin mailbox", "Main address that gets approval notices, food requests and evaluation results."),
+        ["AdminExtraTo"] = ("Extra admin recipients (To)", "More addresses, separated by commas."),
+        ["AdminCc"] = ("Admin CC", "Addresses copied on admin emails."),
+        ["MediaOfficerEmail"] = ("Media Officer email", "Receives the approved event details with the image."),
+        ["HodUsername"] = ("HOD username (optional)", "If set, only this person can approve. Leave empty to allow anyone with the HOD role."),
+        ["HodEmail"] = ("HOD email", "Receives the pending-approval reminder."),
+        ["VisitApprovalRequired"] = ("Visits need approval", "No = a submitted visit goes straight to the bus step."),
+        ["VisitApprovers"] = ("Visit approvers (usernames)", "Comma separated. Only these people (and Admin) can approve or reject visits. Leave empty to allow anyone with the HOD role. They must have a role in the system to sign in."),
+        ["VisitApproverEmail"] = ("Approver email(s)", "Receive the 'awaiting approval' mail. Comma separated. Empty = HOD email, then admin mailbox."),
+        ["VisitBusUsers"] = ("Bus coordinators (usernames)", "Comma separated. These people (and Admin) can confirm the bus and enter bus details."),
+        ["VisitBusEmail"] = ("Bus request email(s)", "Receive approved bus requests, for example the transport office. Empty = admin mailbox and extra admin recipients."),
+        ["VisitBusCc"] = ("Bus request CC", "Addresses copied on bus request emails."),
+        ["VisitNotifyRequester"] = ("Email the requester on every decision", ""),
+        ["VisitMinDaysAhead"] = ("Minimum notice (days)", "A visit must be submitted at least this many days before the trip. 0 = no limit."),
+        ["ResearchEmail"] = ("Research in-charge email(s)", "Receives every upload with the file attached. Comma separated. Empty = admin mailbox."),
+        ["ResearchCc"] = ("Research CC", "Addresses copied on research emails."),
+        ["ResearchNotifySubmitter"] = ("Email the uploader a receipt", "Tells the uploader the file was recorded and sent."),
+        ["ResearchMaxMb"] = ("Maximum file size (MB)", "1 to 25. Files above 10 MB are not attached to the email; the in-charge downloads them from the archive."),
+        ["ReminderWorkingDays"] = ("Reminder after (working days)", "Working week is Sunday to Thursday."),
+        ["CheckInOpenMinutesBefore"] = ("Check-in opens (minutes before start)", ""),
+        ["CheckInCloseMinutesAfterEnd"] = ("Check-in closes (minutes after end)", "0 = at the end of the event."),
+        ["EvaluationOpenDays"] = ("Evaluation stays open (days)", "After this the QR link stops working."),
+        ["RequireEmail"] = ("Require email at check-in", ""), ["RequirePhone"] = ("Require phone at check-in", ""),
+        ["RotatingQr"] = ("Rotating QR on the venue screen", "Refreshes every 60 seconds. The printed image then carries no QR."),
+        ["BlockOutsideVenue"] = ("Allow check-in only on venue Wi-Fi", "Ignored while the rotating QR is on."),
+        ["VenueNetworkPrefixes"] = ("Venue IP prefixes", "Comma separated, for example 10.1.5., 192.168.20."),
+        ["ImgTitleEn"] = ("Title (English)", ""), ["ImgTitleAr"] = ("Title (Arabic)", ""),
+        ["ImgPrimary"] = ("Primary colour", "Hex, for example #0B3D5C"), ["ImgAccent"] = ("Accent colour", "Hex, for example #E0A526"),
+        ["ImgFont"] = ("Font", "Must be installed on the server and support Arabic, for example Tahoma."),
+        ["Questions"] = ("Optional question labels", "Format: English|Arabic;English|Arabic - four slots in this order: presenter, content, venue, food."),
+        ["TplMediaSubject"] = ("Media Officer - subject", ""), ["TplMediaBody"] = ("Media Officer - body", ""),
+        ["TplContactSubject"] = ("Company contact - subject", ""), ["TplContactBody"] = ("Company contact - body (bilingual)", ""),
+        ["TplAdminSubject"] = ("Admin - subject", ""), ["TplAdminBody"] = ("Admin - body", ""),
+        ["TplRequesterSubject"] = ("Requester - subject", ""), ["TplRequesterBody"] = ("Requester - body", ""),
+        ["UseArabicDigits"] = ("Use Arabic digits (٠١٢)", ""), ["DateFormat"] = ("Date format", "For example yyyy-MM-dd or dd/MM/yyyy."),
+    };
+    string[] bools = { "RequireEmail", "RequirePhone", "RotatingQr", "BlockOutsideVenue", "UseArabicDigits", "VisitApprovalRequired", "VisitNotifyRequester", "ResearchNotifySubmitter" };
+}
+<div class="page-head"><div><h3>@L["Settings"]</h3><div class="sub">Changes apply to new events and emails immediately.</div></div></div>
+<partial name="_Guide" model='"settings"' />
+@if (TempData["Error"] != null) { <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @TempData["Error"]</div> }
+
+<form method="post">
+<div class="row g-3">
+    <div class="col-lg-3">
+        <div class="card"><div class="card-body p-2">
+            <div class="nav flex-column nav-pills settings-nav" role="tablist">
+                @for (int i = 0; i < tabs.Length; i++)
+                {
+                    <button type="button" class="nav-link @(i == 0 ? "active" : "")" data-bs-toggle="pill" data-bs-target="#t-@tabs[i].id" role="tab"><i class="bi @tabs[i].icon"></i>@tabs[i].title</button>
+                }
+            </div>
+        </div></div>
+    </div>
+    <div class="col-lg-9">
+        <div class="tab-content">
+        @for (int i = 0; i < tabs.Length; i++)
+        {
+            var t = tabs[i];
+            <div class="tab-pane fade @(i == 0 ? "show active" : "")" id="t-@t.id" role="tabpanel">
+                <div class="card"><div class="card-header"><i class="bi @t.icon"></i>@t.title</div><div class="card-body">
+                    <p class="text-muted small">@t.desc</p>
+                    <div class="row g-3">
+                    @foreach (var k in t.keys)
+                    {
+                        var m = meta.TryGetValue(k, out var mm) ? mm : (label: k, help: "");
+                        <div class="@(k.StartsWith("Tpl") && k.EndsWith("Body") || k == "Questions" ? "col-12" : "col-md-6")">
+                            <label class="form-label">@m.label</label>
+                            @if (bools.Contains(k))
+                            {
+                                <select class="form-select" name="values[@k]"><option value="true" selected="@(Model[k] == "true")">Yes</option><option value="false" selected="@(Model[k] != "true")">No</option></select>
+                            }
+                            else if (k.StartsWith("Tpl") && k.EndsWith("Body") || k == "Questions")
+                            {
+                                <textarea class="form-control" rows="@(k == "Questions" ? 3 : 7)" name="values[@k]">@Model[k]</textarea>
+                            }
+                            else if (k is "ImgPrimary" or "ImgAccent")
+                            {
+                                <div class="input-group"><input type="color" class="form-control form-control-color" value="@Model[k]" oninput="this.nextElementSibling.value=this.value" style="max-width:56px" /><input class="form-control" name="values[@k]" value="@Model[k]" onchange="this.previousElementSibling.value=this.value" /></div>
+                            }
+                            else
+                            {
+                                <input class="form-control" name="values[@k]" value="@Model[k]" />
+                            }
+                            @if (!string.IsNullOrEmpty(m.help)) { <div class="field-help">@m.help</div> }
+                        </div>
+                    }
+                    </div>
+                </div></div>
+            </div>
+        }
+        </div>
+    </div>
+</div>
+<div class="actionbar"><button class="btn btn-primary"><i class="bi bi-check2"></i>@L["Save"]</button><span class="text-muted small">All tabs are saved together.</span></div>
+</form>

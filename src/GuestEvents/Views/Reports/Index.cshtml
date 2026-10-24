@@ -1,0 +1,33 @@
+@model List<EventStat>
+@{ ViewData["Title"] = L["Reports"]; var pres = (List<PresenterStat>)ViewBag.Presenters; }
+<div class="page-head"><div><h3>@L["Reports"]</h3><div class="sub">@L.Num(Model.Count) @L["Events"]</div></div><a class="btn btn-outline-success" asp-action="ExportEvaluations"><i class="bi bi-file-earmark-excel"></i>@L["ExportExcel"]</a></div>
+<partial name="_Guide" model='"reports"' />
+<div class="card mb-3"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+    <thead><tr><th>@L["Event"]</th><th>@L["Date"]</th><th>@L["Attendees"]</th><th>@L["Responses"]</th><th>@L["ResponseRate"]</th><th>@L["Overall"]</th></tr></thead>
+    <tbody>
+    @foreach (var s in Model)
+    {
+        <tr>
+            <td><a asp-action="Event" asp-route-id="@s.Event.Id">@s.Event.Name</a></td><td class="text-nowrap">@L.Range(s.Event)</td>
+            <td>@L.Num(s.Attendees) / @L.Num(s.Event.ExpectedAttendees)</td><td>@L.Num(s.Evaluations)</td><td>@L.Num(s.Rate)%</td><td>@(s.Overall?.ToString("0.00") ?? "-")</td>
+        </tr>
+    }
+    </tbody></table></div></div>
+
+<div class="row g-3">
+<div class="col-lg-6"><div class="card"><div class="card-body"><h6>@L["ByPresenter"]</h6><canvas id="presChart" height="180"></canvas></div></div></div>
+<div class="col-lg-6"><div class="card"><div class="card-body"><h6>@L["ResponseRate"]</h6><canvas id="rateChart" height="180"></canvas></div></div></div>
+</div>
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+    new Chart(document.getElementById('presChart'), { type: 'bar',
+        data: { labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(pres.Select(p => p.Presenter))),
+                datasets: [{ label: '@L["Average"]', data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(pres.Select(p => p.Overall))), backgroundColor: '#0B3D5C' }] },
+        options: { scales: { y: { min: 0, max: 5 } }, plugins: { legend: { display: false } } } });
+    new Chart(document.getElementById('rateChart'), { type: 'bar',
+        data: { labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Select(s => s.Event.Name))),
+                datasets: [{ label: '%', data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Select(s => s.Rate))), backgroundColor: '#E0A526' }] },
+        options: { scales: { y: { min: 0, max: 100 } }, plugins: { legend: { display: false } } } });
+</script>
+}

@@ -1,0 +1,27 @@
+@model List<FoodRequest>
+@{ ViewData["Title"] = L["FoodRequest"]; }
+<div class="page-head"><div><h3>@L["FoodRequest"]</h3><div class="sub">@L.Num(Model.Count(f => f.Status == FoodStatus.Submitted)) @L["AwaitingConfirm"]</div></div></div>
+<partial name="_Guide" model='"food-admin"' />
+@if (!Model.Any()) { <div class="card"><div class="empty"><i class="bi bi-cup-hot"></i>@L["None"]</div></div> }
+else
+{
+<div class="card"><div class="table-responsive"><table class="table align-middle mb-0">
+    <thead><tr><th>@L["Event"]</th><th>@L["Date"]</th><th>@L["People"]</th><th>@L["Meal"]</th><th>@L["DeliveryTime"]</th><th>@L["Location"]</th><th>@L["Notes"]</th><th>@L["Status"]</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var f in Model)
+    {
+        <tr>
+            <td><a class="fw-semibold text-decoration-none" asp-controller="Events" asp-action="Details" asp-route-id="@f.EventRequestId">@f.EventRequest?.Name</a></td>
+            <td class="text-nowrap">@(f.EventRequest != null ? L.Range(f.EventRequest) : "")</td><td>@L.Num(f.People)</td><td>@L[f.Meal.ToString()]</td><td>@L.Time(f.DeliveryTime)</td>
+            <td>@f.Location</td><td class="small">@f.Notes</td>
+            <td><span class="badge status-dot bg-@(f.Status == FoodStatus.Confirmed ? "success" : f.Status == FoodStatus.Rejected ? "danger" : "warning text-dark")">@L[f.Status.ToString()]</span></td>
+            <td>
+                <form method="post" asp-action="SetStatus" asp-route-id="@f.Id" class="d-flex gap-1">
+                    <button class="btn btn-sm btn-success" name="status" value="Confirmed" title="@L["Confirm"]"><i class="bi bi-check-lg"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" name="status" value="Rejected" title="@L["Reject"]"><i class="bi bi-x-lg"></i></button>
+                </form>
+            </td>
+        </tr>
+    }
+    </tbody></table></div></div>
+}

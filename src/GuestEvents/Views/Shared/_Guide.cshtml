@@ -1,0 +1,25 @@
+@* Collapsible "how this page works" panel. Model = guide key. Open the first time, then folds into a small "?" link (remembered per browser). *@
+@model string
+@{
+    var g = GuideContent.Get(Model, L.IsAr);
+    string Md(string s) => System.Text.RegularExpressions.Regex.Replace(System.Net.WebUtility.HtmlEncode(s).Replace("\\*", "*"), @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+}
+@if (g != null)
+{
+    <div class="guide" data-guide="@Model">
+        <button type="button" class="guide-toggle btn btn-sm btn-link text-decoration-none d-none"><i class="bi bi-question-circle"></i> @L["HowThisWorks"]</button>
+        <div class="guide-box">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+                <div class="guide-title"><i class="bi bi-lightbulb-fill"></i> @g.Title</div>
+                <button type="button" class="btn-close guide-close" aria-label="@L["GotIt"]"></button>
+            </div>
+            <ol class="guide-steps">
+                @foreach (var s in g.Steps) { <li>@Html.Raw(Md(s))</li> }
+            </ol>
+            <div class="d-flex justify-content-between align-items-center">
+                <a class="small text-decoration-none" asp-controller="Help" asp-action="Index"><i class="bi bi-book"></i> @L["FullGuide"]</a>
+                <button type="button" class="btn btn-sm btn-primary guide-close">@L["GotIt"]</button>
+            </div>
+        </div>
+    </div>
+}

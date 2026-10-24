@@ -1,0 +1,96 @@
+@model List<EventRequest>
+@{
+    ViewData["Title"] = L["MyEvents"];
+    var canCreate = User.IsInRole(Roles.Staff) || User.IsInRole(Roles.Admin);
+    int C(params EventStatus[] s) => Model.Count(e => s.Contains(e.Status));
+    var chips = new (string key, string label, int n)[]
+    {
+        ("all", L["All"], Model.Count),
+        ("Draft", L["Draft"], C(EventStatus.Draft)),
+        ("Submitted", L["Submitted"], C(EventStatus.Submitted)),
+        ("Approved", L["Approved"], C(EventStatus.Approved)),
+        ("Rejected", L["Rejected"], C(EventStatus.Rejected)),
+        ("Done", L["EventDone"], C(EventStatus.EventDone, EventStatus.EvaluationClosed)),
+    };
+    string Group(EventStatus s) => s is EventStatus.EventDone or EventStatus.EvaluationClosed ? "Done" : s.ToString();
+}
+<div class="page-head">
+    <div><h3>@L["MyEvents"]</h3><div class="sub">@L.Num(Model.Count) @L["Events"]</div></div>
+    @if (canCreate) { <a class="btn btn-primary" asp-action="Create"><i class="bi bi-plus-lg"></i>@L["NewEvent"]</a> }
+</div>
+
+@if (ViewBag.Setup is List<SetupItem> setup && setup.Any(x => !x.Done))
+{
+    <div class="card mb-3 border-warning"><div class="card-header"><i class="bi bi-rocket-takeoff"></i>@L.T("Finish the setup", "أكمل الإعداد")<span class="badge bg-warning text-dark ms-auto">@setup.Count(x => x.Done) / @setup.Count</span></div>
+    <div class="card-body"><p class="text-muted small mb-2">@L.T("Admin only: these steps make sure sign-in and emails work for everyone.", "للإدارة فقط: هذه الخطوات تضمن عمل تسجيل الدخول والبريد للجميع.")</p>
+        <ul class="setup-list">
+        @foreach (var it in setup)
+        {
+            <li><i class="bi @(it.Done ? "bi-check-circle-fill ok" : "bi-circle todo") fs-5"></i><div class="flex-grow-1"><div class="@(it.Done ? "done-text" : "fw-semibold")">@it.Label</div>@if (!it.Done) { <div class="small text-muted">@it.Hint</div> }</div>
+                @if (!it.Done) { <a class="btn btn-sm btn-outline-primary" href="@it.Url">@L.T("Do it", "نفّذ")</a> }</li>
+        }
+        </ul></div></div>
+}
+<partial name="_Guide" model='"events"' />
+@if (!Model.Any())
+{
+    <div class="card"><div class="empty">
+        <i class="bi bi-calendar2-plus"></i>
+        <h5>@L["None"]</h5>
+        @if (canCreate) { <p>@L["EmptyHint"]</p><a class="btn btn-primary" asp-action="Create"><i class="bi bi-plus-lg"></i>@L["NewEvent"]</a> }
+    </div></div>
+}
+else
+{
+    <div class="row g-2 mb-3" id="chips">
+        @foreach (var c in chips)
+        {
+            <div class="col-4 col-md-2"><button type="button" class="stat @(c.key == "all" ? "active" : "")" data-filter="@c.key"><div class="n">@L.Num(c.n)</div><div class="l">@c.label</div></button></div>
+        }
+    </div>
+    <div class="input-group mb-3">
+        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+        <input id="q" class="form-control" placeholder="@L["Search"]" autocomplete="off" />
+    </div>
+    <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 align-middle" id="tbl">
+        <thead><tr><th>@L["Name"]</th><th class="d-none d-md-table-cell">@L["Presenter"]</th><th>@L["Date"]</th><th class="d-none d-lg-table-cell">@L["Venue"]</th><th class="d-none d-lg-table-cell">@L["Requester"]</th><th>@L["Status"]</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var e in Model)
+        {
+            <tr data-status="@Group(e.Status)" data-text="@((e.Name + " " + e.Presenter + " " + e.Venue + " " + e.CompanyName + " " + e.RequesterName).ToLower())" style="cursor:pointer" onclick="location='@Url.Action("Details", new { id = e.Id })'">
+                <td><div class="fw-semibold">@e.Name</div><div class="small text-muted d-md-none">@e.Presenter</div></td>
+                <td class="d-none d-md-table-cell">@e.Presenter<div class="small text-muted">@e.CompanyName</div></td>
+                <td class="text-nowrap">@L.Range(e)<div class="small text-muted">@L.Times(e)</div></td>
+                <td class="d-none d-lg-table-cell">@e.Venue</td>
+                <td class="d-none d-lg-table-cell">@e.RequesterName</td>
+                <td><partial name="_Status" model="e.Status" /></td>
+                <td class="text-end"><i class="bi bi-chevron-@(L.IsAr ? "left" : "right") text-muted"></i></td>
+            </tr>
+        }
+        </tbody></table></div>
+        <div class="empty d-none" id="noRes"><i class="bi bi-search"></i>@L["NoResults"]</div>
+    </div>
+}
+@section Scripts {
+<script>
+    (function () {
+        var filter = 'all', q = document.getElementById('q'), rows = document.querySelectorAll('#tbl tbody tr');
+        if (!q) return;
+        function apply() {
+            var t = q.value.trim().toLowerCase(), shown = 0;
+            rows.forEach(function (r) {
+                var ok = (filter === 'all' || r.dataset.status === filter) && (!t || r.dataset.text.indexOf(t) >= 0);
+                r.classList.toggle('d-none', !ok); if (ok) shown++;
+            });
+            document.getElementById('noRes').classList.toggle('d-none', shown > 0);
+        }
+        q.addEventListener('input', apply);
+        document.querySelectorAll('#chips .stat').forEach(function (b) {
+            b.addEventListener('click', function () {
+                document.querySelectorAll('#chips .stat').forEach(function (x) { x.classList.remove('active'); });
+                b.classList.add('active'); filter = b.dataset.filter; apply();
+            });
+        });
+    })();
+</script>
+}

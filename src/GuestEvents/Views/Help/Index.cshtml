@@ -1,0 +1,211 @@
+@{
+    ViewData["Title"] = L["Help"];
+    string tab = ViewBag.Tab;
+    string B(string s) => System.Text.RegularExpressions.Regex.Replace(System.Net.WebUtility.HtmlEncode(s), @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+    var tabs = new (string id, string icon, string label)[]
+    {
+        ("overview", "bi-diagram-3", L.T("How it works", "كيف يعمل النظام")),
+        ("staff", "bi-person-workspace", L.T("Staff", "الموظف")),
+        ("hod", "bi-check2-square", L.T("HOD", "رئيس القسم")),
+        ("media", "bi-megaphone", L.T("Media Officer", "مسؤول الإعلام")),
+        ("visits", "bi-bus-front", L.T("External visits", "الزيارات الخارجية")),
+        ("research", "bi-journal-text", L.T("Research", "الأبحاث")),
+        ("admin", "bi-gear", L.T("Admin", "الإدارة")),
+        ("attendee", "bi-qr-code-scan", L.T("Attendees", "الحضور")),
+        ("faq", "bi-question-circle", L.T("Questions & fixes", "أسئلة وحلول")),
+    };
+    void Steps(params string[] items)
+    {
+        <ol class="help-steps">@foreach (var i in items) { <li>@Html.Raw(B(i))</li> }</ol>
+    }
+}
+<div class="page-head">
+    <div><h3>@L["Help"]</h3><div class="sub">@L.T("Short guides for every role. Pick your role below.", "أدلة قصيرة لكل دور. اختر دورك من الأسفل.")</div></div>
+    <button type="button" class="btn btn-outline-secondary" onclick="resetGuides()"><i class="bi bi-arrow-counterclockwise"></i> @L.T("Show the page tips again", "إظهار نصائح الصفحات مرة أخرى")</button>
+</div>
+
+<ul class="nav nav-pills help-tabs mb-3" role="tablist">
+    @foreach (var t in tabs)
+    {
+        <li class="nav-item"><button type="button" class="nav-link @(t.id == tab ? "active" : "")" data-bs-toggle="pill" data-bs-target="#h-@t.id"><i class="bi @t.icon"></i> @t.label</button></li>
+    }
+</ul>
+
+<div class="tab-content">
+<div class="tab-pane fade @(tab == "overview" ? "show active" : "")" id="h-overview">
+    <div class="card mb-3"><div class="card-body">
+        <h5>@L.T("From request to evaluation", "من الطلب إلى التقييم")</h5>
+        <p class="text-muted">@L.T("One approval starts everything. Nobody has to forward emails by hand.", "موافقة واحدة تبدأ كل شيء. لا حاجة لإعادة توجيه الرسائل يدوياً.")</p>
+        <div class="flow">
+            <div class="flow-step"><span class="n">1</span><i class="bi bi-pencil-square"></i><b>@L.T("Staff request", "طلب الموظف")</b><small>@L.T("Fill in one form for the guest presenter.", "نموذج واحد لتفاصيل المقدّم الضيف.")</small></div>
+            <div class="flow-step"><span class="n">2</span><i class="bi bi-person-check"></i><b>@L.T("HOD decides", "قرار رئيس القسم")</b><small>@L.T("Approve, or reject with a comment.", "موافقة أو رفض مع تعليق.")</small></div>
+            <div class="flow-step"><span class="n">3</span><i class="bi bi-lightning-charge"></i><b>@L.T("Automatic", "تلقائياً")</b><small>@L.T("Image + QR created. Emails go to Media, the company contact and Admin.", "إنشاء الصورة ورمز QR وإرسال الرسائل للإعلام وجهة الاتصال والإدارة.")</small></div>
+            <div class="flow-step"><span class="n">4</span><i class="bi bi-qr-code-scan"></i><b>@L.T("Event day", "يوم الفعالية")</b><small>@L.T("Food request. Attendees scan the QR to check in and evaluate.", "طلب الطعام. يمسح الحضور الرمز لتسجيل الحضور والتقييم.")</small></div>
+            <div class="flow-step"><span class="n">5</span><i class="bi bi-bar-chart-line"></i><b>@L.T("Reports", "التقارير")</b><small>@L.T("Admin sees attendance and scores.", "تعرض الإدارة الحضور والنتائج.")</small></div>
+        </div>
+    </div></div>
+    <div class="row g-3">
+        <div class="col-md-6"><div class="card h-100"><div class="card-body"><h6><i class="bi bi-people"></i> @L.T("Who does what", "من يفعل ماذا")</h6>
+            <ul class="mb-0">
+                <li>@Html.Raw(B(L.T("**Staff** create requests, order food, download the image and QR.", "**الموظف** ينشئ الطلبات ويطلب الطعام ويحمّل الصورة والرمز.")))</li>
+                <li>@Html.Raw(B(L.T("**HOD** approves or rejects every request.", "**رئيس القسم** يوافق أو يرفض كل طلب.")))</li>
+                <li>@Html.Raw(B(L.T("**Media Officer** receives the approved image by email.", "**مسؤول الإعلام** يستلم الصورة المعتمدة بالبريد.")))</li>
+                <li>@Html.Raw(B(L.T("**Research in-charge** receives uploaded research papers and proposals and keeps the archive.", "**مسؤول الأبحاث** يستلم الأبحاث والمقترحات المرفوعة ويحتفظ بالأرشيف.")))</li>
+                <li>@Html.Raw(B(L.T("**Admin** manages settings, food requests and reports.", "**الإدارة** تدير الإعدادات وطلبات الطعام والتقارير.")))</li>
+                <li>@Html.Raw(B(L.T("**Attendees** need no account - they scan the QR code.", "**الحضور** لا يحتاجون حساباً - يمسحون رمز QR فقط.")))</li>
+            </ul></div></div></div>
+        <div class="col-md-6"><div class="card h-100"><div class="card-body"><h6><i class="bi bi-lightbulb"></i> @L.T("Good to know", "معلومات مفيدة")</h6>
+            <ul class="mb-0">
+                <li>@L.T("The whole system works in Arabic and English - use the language button at the top.", "النظام كله بالعربية والإنجليزية - استخدم زر اللغة في الأعلى.")</li>
+                <li>@L.T("Every page has a \"How does this page work?\" tip. Press \"Got it\" to fold it away.", "كل صفحة فيها نصيحة \"كيف تعمل هذه الصفحة؟\". اضغط \"فهمت\" لطيّها.")</li>
+                <li>@L.T("You are signed out after 30 minutes of inactivity.", "يُسجَّل خروجك بعد 30 دقيقة من عدم النشاط.")</li>
+                <li>@L.T("The working week is Sunday to Thursday.", "أسبوع العمل من الأحد إلى الخميس.")</li>
+            </ul></div></div></div>
+    </div>
+</div>
+
+<div class="tab-pane fade @(tab == "staff" ? "show active" : "")" id="h-staff">
+    <div class="card"><div class="card-body">
+        <h5>@L.T("Staff: asking for a guest presenter", "الموظف: طلب مقدّم ضيف")</h5>
+        @{ Steps(
+            L.T("Press **New event request** (yellow button at the top).", "اضغط **طلب فعالية جديد** (الزر الأصفر في الأعلى)."),
+            L.T("Fill in the event, company and contact details. Upload the company logo (PNG or JPG, up to 2 MB). Your name and department are filled in for you.", "املأ بيانات الفعالية والشركة وجهة الاتصال. ارفع شعار الشركة (PNG أو JPG حتى 2 ميجابايت). اسمك وقسمك يُملآن تلقائياً."),
+            L.T("Write the event content in **English and Arabic**. It is printed on the event image.", "اكتب محتوى الفعالية **بالعربية والإنجليزية**. يُطبع على صورة الفعالية."),
+            L.T("Press **Save draft** to finish later, or **Submit for approval** when ready.", "اضغط **حفظ كمسودة** للإكمال لاحقاً، أو **إرسال للموافقة** عند الجاهزية."),
+            L.T("Wait for the HOD. You get an email when it is approved or rejected. If rejected, read the comment, press **Edit & resubmit** and send it again.", "انتظر رئيس القسم. ستصلك رسالة عند الموافقة أو الرفض. عند الرفض اقرأ التعليق واضغط **تعديل وإعادة الإرسال**."),
+            L.T("After approval open the event: **Download image**, **Download QR** or **Print QR poster**, and press **Food request** if you need food.", "بعد الموافقة افتح الفعالية: **حمّل الصورة** و**رمز QR** أو **اطبع ملصق QR**، واضغط **طلب طعام** إذا لزم."),
+            L.T("On the day, attendees scan the QR code. You can follow the count live (ask Admin for the report).", "في يوم الفعالية يمسح الحضور الرمز. يمكن متابعة العدد مباشرة (اطلب التقرير من الإدارة).")
+        ); }
+        <div class="alert alert-info mb-0"><i class="bi bi-info-circle"></i> @L.T("You can only edit a request while it is a Draft or Rejected. Once submitted it is locked until the HOD decides.", "يمكنك تعديل الطلب فقط وهو مسودة أو مرفوض. بعد الإرسال يُقفل حتى يقرر رئيس القسم.")</div>
+    </div></div>
+</div>
+
+<div class="tab-pane fade @(tab == "hod" ? "show active" : "")" id="h-hod">
+    <div class="card"><div class="card-body">
+        <h5>@L.T("HOD: approving requests", "رئيس القسم: الموافقة على الطلبات")</h5>
+        @{ Steps(
+            L.T("Open **Pending approvals**. The number on the menu shows how many are waiting.", "افتح **بانتظار الموافقة**. الرقم في القائمة يوضح عدد الطلبات المنتظرة."),
+            L.T("Read each card. Click the event name to see the full details and content text.", "اقرأ كل بطاقة. اضغط على اسم الفعالية لعرض التفاصيل ونص المحتوى."),
+            L.T("Press **Approve** (a comment is optional). The system creates the image and QR code and sends all emails automatically.", "اضغط **موافقة** (التعليق اختياري). ينشئ النظام الصورة ورمز QR ويرسل كل الرسائل تلقائياً."),
+            L.T("Or write a comment and press **Reject**. A comment is required. The requester can fix and resubmit.", "أو اكتب تعليقاً واضغط **رفض**. التعليق مطلوب. يمكن لمقدّم الطلب التعديل وإعادة الإرسال.")
+        ); }
+        <div class="alert alert-info mb-0"><i class="bi bi-info-circle"></i> @L.T("There is no deputy. If you are away the request waits, and you receive a reminder email after 2 working days (Sunday to Thursday).", "لا يوجد نائب. إذا كنت غائباً ينتظر الطلب وتصلك رسالة تذكير بعد يومي عمل (من الأحد إلى الخميس).")</div>
+    </div></div>
+</div>
+
+<div class="tab-pane fade @(tab == "media" ? "show active" : "")" id="h-media">
+    <div class="card"><div class="card-body">
+        <h5>@L.T("Media Officer: using the event image", "مسؤول الإعلام: استخدام صورة الفعالية")</h5>
+        @{ Steps(
+            L.T("When a request is approved you receive an **email** with the event details and the **image attached**.", "عند الموافقة على طلب تصلك **رسالة** بتفاصيل الفعالية و**الصورة مرفقة**."),
+            L.T("You can also open **My events**, click the event and press **Download image**.", "ويمكنك فتح **فعالياتي** واختيار الفعالية والضغط على **تحميل الصورة**."),
+            L.T("The image layout is fixed - nobody can change it. It already contains the company logo, presenter, date, venue and the QR code.", "تصميم الصورة ثابت ولا يمكن تغييره. وهي تحتوي على شعار الشركة والمقدّم والتاريخ والمكان ورمز QR.")
+        ); }
+    </div></div>
+</div>
+
+<div class="tab-pane fade @(tab == "visits" ? "show active" : "")" id="h-visits">
+    <div class="card"><div class="card-body">
+        <h5>@L.T("External visits: asking for a bus", "الزيارات الخارجية: طلب حافلة")</h5>
+        @{ Steps(
+            L.T("Press **New request > External visit (bus)** at the top.", "اضغط **طلب جديد > زيارة خارجية (حافلة)** في الأعلى."),
+            L.T("Enter the destination, date, departure and return time, pick-up point, number of students and staff, and the supervisor's phone.", "أدخل الوجهة والتاريخ ووقت المغادرة والعودة ومكان الانطلاق وعدد الطلاب والموظفين وهاتف المشرف."),
+            L.T("Press **Submit for approval**. The approver chosen by Admin gets an email. A visit for today is allowed unless Admin set a minimum notice.", "اضغط **إرسال للموافقة**. يصل بريد إلى المعتمد الذي حدده المسؤول. الزيارة في نفس اليوم مسموحة ما لم يحدد المسؤول مهلة دنيا."),
+            L.T("After approval, the bus coordinator confirms the bus and you get an email with the bus details.", "بعد الموافقة يؤكد منسق الحافلات الحافلة وتصلك رسالة بتفاصيلها."),
+            L.T("If it is rejected, read the comment, press **Edit & resubmit** and send it again.", "عند الرفض اقرأ التعليق واضغط **تعديل وإعادة الإرسال**.")
+        ); }
+        <div class="alert alert-info mb-0"><i class="bi bi-info-circle"></i> @L.T("Approvers and bus coordinators are chosen in Settings > External visits (bus). They see every submitted visit and a badge for what waits for them.", "يُحدَّد المعتمدون ومنسقو الحافلات في الإعدادات > الزيارات الخارجية. يرون كل الزيارات المرسلة وشارة بما ينتظرهم.")</div>
+    </div></div>
+</div>
+
+<div class="tab-pane fade @(tab == "research" ? "show active" : "")" id="h-research">
+    <div class="card"><div class="card-body">
+        <h5>@L.T("Research: uploading a paper or proposal", "الأبحاث: رفع بحث أو مقترح")</h5>
+        @{ Steps(
+            L.T("Staff: press **New request > Upload research** (or open **Research** and press **Upload research**).", "الموظف: اضغط **طلب جديد > رفع بحث** (أو افتح **الأبحاث** واضغط **رفع بحث**)."),
+            L.T("Enter the title, choose **Research paper** or **Research proposal**, add the authors and a short summary, and choose the file (PDF, DOC or DOCX).", "أدخل العنوان واختر **بحث** أو **مقترح بحثي** وأضف المؤلفين وملخصاً قصيراً واختر الملف (PDF أو DOC أو DOCX)."),
+            L.T("Press **Upload and send**. The file is emailed to the research in-charge and recorded. Nobody has to approve it.", "اضغط **رفع وإرسال**. يُرسل الملف بالبريد إلى مسؤول الأبحاث ويُسجَّل. لا حاجة لموافقة."),
+            L.T("Research in-charge: open **Research archive** to search every upload and download the files.", "مسؤول الأبحاث: افتح **أرشيف الأبحاث** للبحث في كل المرفوعات وتحميل الملفات.")
+        ); }
+        <div class="alert alert-info mb-0"><i class="bi bi-info-circle"></i> @L.T("Staff see only their own uploads. The column Email shows Sent when the mail went out. Admin sets the in-charge email in Settings > Research.", "يرى الموظف مرفوعاته فقط. عمود البريد يظهر أُرسل عند نجاح الإرسال. يحدد المسؤول بريد مسؤول الأبحاث من الإعدادات > الأبحاث.")</div>
+    </div></div>
+</div>
+
+<div class="tab-pane fade @(tab == "admin" ? "show active" : "")" id="h-admin">
+    <div class="card mb-3"><div class="card-body">
+        <h5>@L.T("Admin: first-time setup (about 10 minutes)", "الإدارة: الإعداد لأول مرة (حوالي 10 دقائق)")</h5>
+        @{ Steps(
+            L.T("**Admin > LDAP & Email**: enter the Active Directory server, base DN, service account and group names. Press **Test LDAP** (add a test user to try a full sign-in). Enter the SMTP server and press **Send test email**. Press **Fetch groups from LDAP** and press a role button next to a group to assign it (the research in-charge group too). Then **Save**.", "**الإدارة > LDAP والبريد**: أدخل خادم Active Directory والـ Base DN وحساب الخدمة. اضغط **اختبار LDAP** (أضف مستخدماً للتجربة). أدخل خادم SMTP واضغط **إرسال بريد تجريبي**. اضغط **جلب المجموعات من LDAP** ثم زر الدور بجانب المجموعة لتعيينها (ومنها مجموعة مسؤول الأبحاث). ثم **حفظ**."),
+            L.T("**Admin > Settings > External visits (bus)** and **Research**: choose the visit approvers, the bus coordinators and the research in-charge email.", "**الإدارة > الإعدادات > الزيارات الخارجية** و**الأبحاث**: حدّد المعتمدين ومنسقي الحافلات وبريد مسؤول الأبحاث."),
+            L.T("**Admin > Settings > Recipients**: set the admin mailbox, the Media Officer email and the HOD (username and email).", "**الإدارة > الإعدادات > المستلمون**: حدّد بريد الإدارة وبريد مسؤول الإعلام ورئيس القسم (اسم المستخدم والبريد)."),
+            L.T("**Admin > Roles**: add people who are not in the AD groups yet.", "**الإدارة > الأدوار**: أضف الأشخاص غير الموجودين في مجموعات AD بعد."),
+            L.T("Check the **Event image** and **Email templates** tabs in Settings and adjust the wording and colours.", "راجع تبويبي **صورة الفعالية** و**قوالب البريد** في الإعدادات وعدّل النصوص والألوان."),
+            L.T("Do a test: create a request as Staff, approve it as HOD, and check the emails and the image.", "جرّب: أنشئ طلباً كموظف ووافق عليه كرئيس قسم وتحقق من الرسائل والصورة.")
+        ); }
+        <div class="alert alert-info mb-0"><i class="bi bi-info-circle"></i> @L.T("The home page shows a setup checklist until everything above is done.", "تعرض الصفحة الرئيسية قائمة تحقق للإعداد حتى يكتمل كل ما سبق.")</div>
+    </div></div>
+    <div class="row g-3">
+        <div class="col-md-6"><div class="card h-100"><div class="card-body"><h6>@L.T("Everyday tasks", "المهام اليومية")</h6>
+            <ul class="mb-0">
+                <li>@Html.Raw(B(L.T("**Food request**: confirm or reject each request.", "**طلب طعام**: أكّد أو ارفض كل طلب.")))</li>
+                <li>@Html.Raw(B(L.T("**Reports**: live attendance, scores per event and presenter, Excel export.", "**التقارير**: الحضور المباشر والنتائج لكل فعالية ومقدّم وتصدير Excel.")))</li>
+                <li>@Html.Raw(B(L.T("**Notifications**: check that every automatic email was sent.", "**الرسائل**: تأكد من إرسال كل رسالة تلقائية.")))</li>
+                <li>@Html.Raw(B(L.T("**Audit log**: who approved, changed settings or exported data.", "**سجل التدقيق**: من وافق أو غيّر الإعدادات أو صدّر البيانات.")))</li>
+            </ul></div></div></div>
+        <div class="col-md-6"><div class="card h-100"><div class="card-body"><h6>@L.T("Protecting the public QR page", "حماية صفحة QR العامة")</h6>
+            <ul class="mb-0">
+                <li>@L.T("Check-in is open from 30 minutes before the start until the end (change in Settings).", "تسجيل الحضور مفتوح من 30 دقيقة قبل البدء حتى الانتهاء (يمكن تغييره في الإعدادات).")</li>
+                <li>@L.T("One check-in per device, a limit per IP address and a hidden trap field stop bots.", "تسجيل واحد لكل جهاز وحد لكل عنوان IP وحقل مخفي لمنع الروبوتات.")</li>
+                <li>@L.T("Optional: turn on the rotating QR (Settings > QR) and show it on the venue screen.", "اختياري: فعّل الرمز المتغيّر (الإعدادات > QR) واعرضه على شاشة القاعة.")</li>
+            </ul></div></div></div>
+    </div>
+</div>
+
+<div class="tab-pane fade @(tab == "attendee" ? "show active" : "")" id="h-attendee">
+    <div class="card"><div class="card-body">
+        <h5>@L.T("Attendees: check in and evaluate", "الحضور: تسجيل الحضور والتقييم")</h5>
+        <p class="text-muted">@L.T("No account and no app needed. Works on any phone, also on mobile data.", "لا حاجة لحساب أو تطبيق. يعمل على أي هاتف وحتى ببيانات الجوال.")</p>
+        @{ Steps(
+            L.T("Open the phone **camera** and point it at the QR code on the screen or poster.", "افتح **كاميرا** الهاتف ووجّهها إلى رمز QR على الشاشة أو الملصق."),
+            L.T("Type your **full name** and **organization / department**, then press **Check in**.", "اكتب **اسمك الكامل** و**الجهة / القسم** ثم اضغط **تسجيل الحضور**."),
+            L.T("Press **Evaluate this event** and rate the event from 1 to 5. Your evaluation is **anonymous**.", "اضغط **قيّم هذه الفعالية** وقيّم من 1 إلى 5. تقييمك **مجهول الهوية**.")
+        ); }
+        <a class="btn btn-outline-primary" asp-controller="Events" asp-action="Index"><i class="bi bi-printer"></i> @L.T("Tip: print the QR poster from the event page - it has these steps in both languages.", "نصيحة: اطبع ملصق QR من صفحة الفعالية - يحتوي هذه الخطوات بلغتين.")</a>
+    </div></div>
+</div>
+
+<div class="tab-pane fade @(tab == "faq" ? "show active" : "")" id="h-faq">
+    @{
+        var faq = new (string q, string a)[]
+        {
+            (L.T("I cannot sign in.", "لا أستطيع تسجيل الدخول."), L.T("Use your normal company username (without the domain) and password. If it still fails, your account may be disabled, or you have no role yet - ask Admin to add you on the Roles page.", "استخدم اسم مستخدم الشركة وكلمة المرور المعتادة (بدون النطاق). إذا استمر الفشل فقد يكون حسابك معطلاً أو لا يوجد لك دور - اطلب من الإدارة إضافتك في صفحة الأدوار.")),
+            (L.T("A menu item is missing.", "عنصر ناقص في القائمة."), L.T("Menus depend on your role. Staff see their events, the HOD sees Pending approvals, Admin sees Reports, Settings and more. Roles change at your next sign-in.", "القوائم حسب دورك. الموظف يرى فعالياته، ورئيس القسم يرى الطلبات المعلقة، والإدارة ترى التقارير والإعدادات. تتغير الأدوار عند تسجيل الدخول التالي.")),
+            (L.T("Why can I not edit my request?", "لماذا لا أستطيع تعديل طلبي؟"), L.T("Only drafts and rejected requests can be edited. A submitted request is locked while the HOD decides.", "يمكن تعديل المسودات والطلبات المرفوضة فقط. الطلب المرسل مقفل حتى يقرر رئيس القسم.")),
+            (L.T("The HOD is away. What now?", "رئيس القسم غائب. ما الحل؟"), L.T("The request waits and a reminder is sent after 2 working days. Admin can change who the HOD is in Settings > Recipients, or add a role on the Roles page.", "ينتظر الطلب وتُرسل رسالة تذكير بعد يومي عمل. يمكن للإدارة تغيير رئيس القسم من الإعدادات > المستلمون أو إضافة دور من صفحة الأدوار.")),
+            (L.T("I do not see the Food request button.", "لا يظهر زر طلب الطعام."), L.T("Food requests are only available for approved events, for the person who made the request (and Admin).", "طلبات الطعام متاحة فقط للفعاليات المعتمدة، لمقدّم الطلب (وللإدارة).")),
+            (L.T("An attendee sees \"Check-in is not open yet\" or \"closed\".", "يرى أحد الحضور \"تسجيل الحضور لم يفتح بعد\" أو \"مغلق\"."), L.T("Check-in opens 30 minutes before the start and closes at the end of the event. Admin can change this in Settings > Approval & check-in.", "يفتح التسجيل قبل البدء بـ 30 دقيقة ويغلق عند نهاية الفعالية. يمكن للإدارة تغيير ذلك من الإعدادات > الموافقة والتسجيل.")),
+            (L.T("An attendee sees \"Already checked in\".", "يرى أحد الحضور \"تم تسجيل الحضور مسبقاً\"."), L.T("Each phone can check in once per event. He or she can go straight to the evaluation.", "كل هاتف يسجّل مرة واحدة لكل فعالية. يمكنه الانتقال مباشرة إلى التقييم.")),
+            (L.T("Can the evaluation be traced to a person?", "هل يمكن ربط التقييم بشخص؟"), L.T("No. Names are stored in the attendance list only. Evaluations are stored separately with no link to a name.", "لا. الأسماء في قائمة الحضور فقط. التقييمات مخزّنة منفصلة بدون أي ربط بالاسم.")),
+            (L.T("Emails are not arriving.", "الرسائل لا تصل."), L.T("Admin: open Admin > Notifications to see the result of each email. If sending is off or the server refuses, fix it on Admin > LDAP & Email and press Send test email.", "الإدارة: افتح الإدارة > الرسائل لرؤية نتيجة كل رسالة. إذا كان الإرسال متوقفاً أو رفض الخادم فعالج ذلك من الإدارة > LDAP والبريد ثم اضغط إرسال بريد تجريبي.")),
+            (L.T("Can I change the layout of the event image?", "هل يمكن تغيير تصميم صورة الفعالية؟"), L.T("The layout is locked on purpose. Admin can change the titles, colours and font in Settings > Event image. Only the company name, logo and content change per event.", "التصميم مقفل عمداً. يمكن للإدارة تغيير العناوين والألوان والخط من الإعدادات > صورة الفعالية. يتغير فقط اسم الشركة والشعار والمحتوى لكل فعالية.")),
+        };
+    }
+    <div class="accordion" id="faqAcc">
+        @for (int i = 0; i < faq.Length; i++)
+        {
+            <div class="accordion-item">
+                <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#q@(i)">@faq[i].q</button></h2>
+                <div id="q@(i)" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body">@faq[i].a</div></div>
+            </div>
+        }
+    </div>
+</div>
+</div>
+@section Scripts {
+<script>
+    function resetGuides() {
+        try { Object.keys(localStorage).filter(function (k) { return k.indexOf('guide:') === 0; }).forEach(function (k) { localStorage.removeItem(k); }); } catch (e) { }
+        alert('@L.T("Done. The tips will show again on each page.", "تم. ستظهر النصائح مرة أخرى في كل صفحة.")');
+    }
+</script>
+}

@@ -1,0 +1,144 @@
+@inject GuestEvents.Data.AppDb Db
+@{
+    var ctl = (ViewContext.RouteData.Values["controller"] as string) ?? "";
+    var act = (ViewContext.RouteData.Values["action"] as string) ?? "";
+    string Active(bool on) => on ? "active" : "";
+    var authed = User.Identity?.IsAuthenticated == true;
+    int pending = 0, pendingVisits = 0;
+    if (authed && User.IsInRole(Roles.Hod))
+        pending = Db.Events.Count(e => e.Status == EventStatus.Submitted);
+    if (authed)
+    {
+        // visits waiting for this person: approvals for approvers, approved ones for bus coordinators
+        var vs = await new GuestEvents.Services.SettingsService(Db).AllAsync();
+        bool appr = GuestEvents.Services.SettingsService.IsVisitApprover(vs, User), bus = GuestEvents.Services.SettingsService.IsVisitBusUser(vs, User);
+        if (appr || bus) pendingVisits = Db.Visits.Count(v => (appr && v.Status == VisitStatus.Submitted) || (bus && v.Status == VisitStatus.Approved));
+    }
+    var name = User.FindFirst("display")?.Value ?? User.Identity?.Name ?? "";
+    var initial = name.Length > 0 ? name.Substring(0, 1).ToUpper() : "?";
+    var adminActive = ctl == "Admin" || ctl == "Food" || ctl == "Reports";
+}
+<!DOCTYPE html>
+<html lang="@L.Lang" dir="@L.Dir">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@(ViewData["Title"] ?? L["App"]) - @L["App"]</title>
+    @if (L.IsAr) { <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" /> }
+    else { <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" /> }
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark topbar sticky-top mb-4">
+    <div class="container">
+        <a class="navbar-brand" href="/"><span class="brand-mark"><i class="bi bi-calendar2-event"></i></span>@L["App"]</a>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#nav" aria-label="Menu"><span class="navbar-toggler-icon"></span></button>
+        <div class="collapse navbar-collapse" id="nav">
+            @if (authed)
+            {
+                <ul class="navbar-nav me-auto gap-lg-1">
+                    <li class="nav-item"><a class="nav-link @Active(ctl == "Events" && act != "Create")" asp-controller="Events" asp-action="Index"><i class="bi bi-calendar3"></i>@L["MyEvents"]</a></li>
+                    <li class="nav-item"><a class="nav-link @Active(ctl == "Visits")" asp-controller="Visits" asp-action="Index"><i class="bi bi-bus-front"></i>@L.T("External visits", "الزيارات الخارجية")@if (pendingVisits > 0) { <span class="nav-badge">@pendingVisits</span> }</a></li>
+                    @if (User.IsInRole(Roles.Staff) || User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Research))
+                    {
+                        <li class="nav-item"><a class="nav-link @Active(ctl == "Research")" asp-controller="Research" asp-action="Index"><i class="bi bi-journal-text"></i>@(User.IsInRole(Roles.Research) || User.IsInRole(Roles.Admin) ? L.T("Research archive", "أرشيف الأبحاث") : L.T("Research", "الأبحاث"))</a></li>
+                    }
+                    @if (User.IsInRole(Roles.Hod))
+                    {
+                        <li class="nav-item"><a class="nav-link @Active(ctl == "Approvals")" asp-controller="Approvals" asp-action="Index"><i class="bi bi-check2-square"></i>@L["Pending"]@if (pending > 0) { <span class="nav-badge">@pending</span> }</a></li>
+                    }
+                    @if (User.IsInRole(Roles.Admin))
+                    {
+                        <li class="nav-item"><a class="nav-link @Active(ctl == "Reports")" asp-controller="Reports" asp-action="Index"><i class="bi bi-bar-chart-line"></i>@L["Reports"]</a></li>
+                        <li class="nav-item"><a class="nav-link @Active(ctl == "Food")" asp-controller="Food" asp-action="Index"><i class="bi bi-cup-hot"></i>@L["FoodRequest"]</a></li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle @Active(ctl == "Admin")" href="#" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-gear"></i>@L["Admin"]</a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" asp-controller="Admin" asp-action="Settings"><i class="bi bi-sliders"></i>@L["Settings"]</a></li>
+                                <li><a class="dropdown-item" asp-controller="Admin" asp-action="RolesPage"><i class="bi bi-people"></i>@L["Roles"]</a></li>
+                                <li><a class="dropdown-item" asp-controller="Admin" asp-action="Connections"><i class="bi bi-plug"></i>@L["Connections"]</a></li>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li><a class="dropdown-item" asp-controller="Admin" asp-action="Audit"><i class="bi bi-clock-history"></i>@L["Audit"]</a></li>
+                                <li><a class="dropdown-item" asp-controller="Admin" asp-action="Notifications"><i class="bi bi-envelope-paper"></i>Notifications</a></li>
+                            </ul>
+                        </li>
+                    }
+                </ul>
+                @if (User.IsInRole(Roles.Staff) || User.IsInRole(Roles.Admin))
+                {
+                    <div class="dropdown me-lg-2 mb-2 mb-lg-0">
+                        <button class="btn btn-warning btn-sm fw-semibold dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-plus-lg"></i>@L.T("New request", "طلب جديد")</button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" asp-controller="Events" asp-action="Create"><i class="bi bi-calendar2-event"></i>@L["NewEvent"]</a></li>
+                            <li><a class="dropdown-item" asp-controller="Visits" asp-action="Create"><i class="bi bi-bus-front"></i>@L.T("External visit (bus)", "زيارة خارجية (حافلة)")</a></li>
+                            <li><a class="dropdown-item" asp-controller="Research" asp-action="Upload"><i class="bi bi-upload"></i>@L.T("Upload research", "رفع بحث")</a></li>
+                        </ul>
+                    </div>
+                }
+            }
+            else { <ul class="navbar-nav me-auto"></ul> }
+            <div class="d-flex align-items-center gap-2">
+                @if (authed) { <a class="btn btn-sm btn-outline-light" asp-controller="Help" asp-action="Index" title="@L["Help"]"><i class="bi bi-question-circle"></i><span class="d-none d-xxl-inline"> @L["Help"]</span></a> }
+                <form method="post" action="/lang">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+                    <button class="btn btn-sm btn-outline-light" name="lang" value="@(L.IsAr ? "en" : "ar")" title="Language"><i class="bi bi-translate"></i> @(L.IsAr ? "English" : "العربية")</button>
+                </form>
+                @if (authed)
+                {
+                    <div class="dropdown">
+                        <a href="#" class="d-flex align-items-center gap-2 text-decoration-none text-white" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span class="avatar">@initial</span><span class="d-none d-xl-inline small">@name</span><i class="bi bi-chevron-down small"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end p-2" style="min-width:230px">
+                            <div class="px-2 pb-2 border-bottom mb-2">
+                                <div class="fw-semibold">@name</div>
+                                <div class="small text-muted">@User.Identity!.Name</div>
+                                <div class="mt-1">@foreach (var r in new[] { Roles.Staff, Roles.Hod, Roles.Media, Roles.Research, Roles.Admin }.Where(r => User.IsInRole(r))) { <span class="badge bg-light text-dark border me-1">@r</span> }</div>
+                            </div>
+                            <form method="post" asp-controller="Account" asp-action="Logout"><button class="dropdown-item text-danger"><i class="bi bi-box-arrow-right"></i>@L["Logout"]</button></form>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</nav>
+
+@* flash messages from any page (TempData Saved / Error / Info) *@
+<div class="toast-wrap" id="toasts" aria-live="polite">
+    @if (TempData["Saved"] != null) { <div class="toast-msg"><i class="bi bi-check-circle-fill text-success"></i> <span>@L["SavedOk"]</span></div> }
+    @if (TempData["Info"] != null) { <div class="toast-msg"><i class="bi bi-info-circle-fill text-primary"></i> <span>@TempData["Info"]</span></div> }
+</div>
+
+<main class="container pb-4">
+    @RenderBody()
+</main>
+<div class="footer-note">@L["App"]</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // toasts fade out; submit buttons show a spinner so a click is never ignored silently
+    setTimeout(function () { document.querySelectorAll('#toasts .toast-msg').forEach(function (t) { t.style.transition = 'opacity .5s'; t.style.opacity = 0; setTimeout(function () { t.remove(); }, 600); }); }, 3500);
+    document.addEventListener('submit', function (e) {
+        var f = e.target; if (f.dataset.noload !== undefined || !f.checkValidity()) return;
+        var b = e.submitter; if (!b || b.type === 'button') return;
+        setTimeout(function () { b.classList.add('is-loading'); b.insertAdjacentHTML('afterbegin', '<span class="spinner-border spinner-border-sm"></span>'); }, 0);
+    });
+</script>
+<script>
+    // tooltips
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) { new bootstrap.Tooltip(el); });
+    // guide panels: open the first time, then fold into a small link (remembered in this browser)
+    document.querySelectorAll('.guide').forEach(function (g) {
+        var key = 'guide:' + g.dataset.guide, tog = g.querySelector('.guide-toggle');
+        function set(c) { g.classList.toggle('collapsed', c); tog.classList.toggle('d-none', !c); }
+        var seen = false; try { seen = localStorage.getItem(key) === '1'; } catch (e) { }
+        set(seen);
+        g.querySelectorAll('.guide-close').forEach(function (b) { b.onclick = function () { try { localStorage.setItem(key, '1'); } catch (e) { } set(true); }; });
+        tog.onclick = function () { set(false); };
+    });
+</script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

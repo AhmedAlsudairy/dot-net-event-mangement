@@ -1,0 +1,9 @@
+@model EventStatus
+@{
+    var cls = Model switch
+    {
+        EventStatus.Approved => "success", EventStatus.Rejected => "danger", EventStatus.Submitted => "warning text-dark",
+        EventStatus.Draft => "secondary", _ => "info text-dark"
+    };
+}
+<span class="badge bg-@cls status-dot">@L[Model.ToString()]</span>
