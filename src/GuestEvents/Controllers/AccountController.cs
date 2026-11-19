@@ -63,7 +63,7 @@ public class AccountController : AppController
     }
 
     [AllowAnonymous, HttpGet]
-    public IActionResult Login(string? returnUrl) { ViewBag.ReturnUrl = returnUrl; ViewBag.Sso = _cfg.GetValue("Auth:Sso", false); return View(); }
+    public IActionResult Login(string? returnUrl) { ViewBag.ReturnUrl = returnUrl; ViewBag.Sso = _cfg.GetValue("Auth:Sso", false); ViewBag.Dev = (_cfg["Auth:Mode"] ?? "Ldap") == "Dev"; return View(); }
 
     // After 5 wrong passwords for one name the app stops asking AD for 10 minutes (protects the AD account from being locked out by guessing).
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (int n, DateTime since)> Fails = new();
@@ -106,6 +106,7 @@ public class AccountController : AppController
     private async Task<IActionResult> Complete(AuthResult res, string who, string? returnUrl)
     {
         var u = res.User;
+        int? kpiEntity = null;
         if (u != null)
         {
             // Roles = AD groups + roles assigned in the app (Admin > Roles) + bootstrap admins from configuration.
@@ -117,10 +118,16 @@ public class AccountController : AppController
             var boot = (_cfg["App:BootstrapAdmins"] ?? "").Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (boot.Contains(u.Username, StringComparer.OrdinalIgnoreCase) || (mail != "" && boot.Contains(mail, StringComparer.OrdinalIgnoreCase))) extra.Add(GuestEvents.Models.Roles.Admin);
             u = u with { Roles = u.Roles.Concat(extra).Distinct().ToList() };
+            kpiEntity = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+                _db.RoleAssignments.Where(r => r.Role == GuestEvents.Models.Roles.KpiOfficer && r.EntityId != null && (r.Username.ToLower() == lower || (mail != "" && r.Username.ToLower() == mail))).Select(r => r.EntityId));
             if (u.Roles.Count == 0) return await Failed(who, AuthFail.NoRole, returnUrl, u.Username);
         }
         else return await Failed(who, res.Fail, returnUrl, null);
 
+        // Test mode: the built-in department officer has no assignment row, so give them the first department.
+        if (kpiEntity == null && (_cfg["Auth:Mode"] ?? "Ldap") == "Dev" && u.Roles.Contains(GuestEvents.Models.Roles.KpiOfficer))
+            kpiEntity = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+                HttpContext.RequestServices.GetRequiredService<Kpi.Dashboard.Web.Data.AppDbContext>().Entities.Where(e => e.IsActive).OrderBy(e => e.Id).Select(e => (int?)e.Id));
         Fails.TryRemove(Key(who), out _);
         var claims = new List<Claim>
         {
@@ -128,6 +135,7 @@ public class AccountController : AppController
             new(ClaimTypes.Email, u.Email ?? ""), new("department", u.Department ?? ""),
         };
         claims.AddRange(u.Roles.Select(r => new Claim(ClaimTypes.Role, r)));
+        if (kpiEntity != null) claims.Add(new Claim("kpi_entity", kpiEntity.Value.ToString()));
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
             new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)));
         await _wf.Audit(u.Username, "Login");
@@ -137,7 +145,7 @@ public class AccountController : AppController
     private async Task<IActionResult> Failed(string who, AuthFail fail, string? returnUrl, string? known)
     {
         await _wf.Audit(known ?? (who.Length > 100 ? who[..100] : who), "LoginFailed", fail.ToString());
-        ViewBag.ErrorKey = ReasonKey(fail); ViewBag.ReturnUrl = returnUrl; ViewBag.Sso = _cfg.GetValue("Auth:Sso", false);
+        ViewBag.ErrorKey = ReasonKey(fail); ViewBag.ReturnUrl = returnUrl; ViewBag.Sso = _cfg.GetValue("Auth:Sso", false); ViewBag.Dev = (_cfg["Auth:Mode"] ?? "Ldap") == "Dev";
         return View("Login");
     }
 
@@ -150,6 +158,10 @@ public class AccountController : AppController
 
     [AllowAnonymous]
     public IActionResult Denied() => View();
+
+    /// <summary>"My access": the signed-in person's roles in plain words, what they can open and what they cannot.</summary>
+    [Authorize]
+    public IActionResult Me() => View();
 
     // Language toggle, remembered in a cookie (also used by the public pages).
     [AllowAnonymous, HttpPost("/lang")]

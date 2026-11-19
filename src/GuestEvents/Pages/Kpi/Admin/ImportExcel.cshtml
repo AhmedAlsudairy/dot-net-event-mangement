@@ -1,0 +1,62 @@
+@page
+@model ImportExcelModel
+@{
+    ViewData["Title"] = L.T("Import and export KPIs", "استيراد وتصدير المؤشرات");
+    ViewData["Active"] = "import";
+}
+
+<div class="page-head">
+    <div>
+        <h3>@ViewData["Title"]</h3>
+        <div class="sub">@L.T("Load the KPI workbook from Excel, or download the full execution report.", "حمّل ملف المؤشرات من Excel، أو نزّل تقرير التنفيذ الكامل.")</div>
+    </div>
+    <a class="btn btn-outline-success" href="/Kpi/Reports/Export"><i class="bi bi-file-earmark-excel"></i>@L.T("Export full report", "تصدير تقرير شامل")</a>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @Model.Error</div>
+}
+
+@if (Model.Result is not null)
+{
+    <div class="alert alert-success">
+        <div class="fw-semibold mb-1"><i class="bi bi-check-circle"></i> @L.T($"Imported {Model.Result.Sheets.Count} sheet(s):", $"تم استيراد {Model.Result.Sheets.Count} أوراق من الملف:")</div>
+        <ul class="mb-0">
+            @foreach (var s in Model.Result.Sheets)
+            {
+                <li>
+                    <strong>@s.SheetName</strong>
+                    (@(s.Kind switch { "KPI" => L.T("plan KPIs and unmatched projects", "مؤشرات الخطة + مشاريع/مؤشرات بلا مقابل"), "OutsidePlan" => L.T("outside the branch plan, reference only", "خارج خطة الفرع، للمرجعية فقط"), _ => L.T("review items", "بنود المراجعة") }))
+                    — @L.T("added", "مُضاف"): <strong>@s.Inserted</strong>,
+                    @L.T("updated", "مُحدَّث"): <strong>@s.Updated</strong>,
+                    @L.T("skipped", "متجاوَز"): <strong>@s.Skipped</strong>
+                </li>
+            }
+        </ul>
+        <hr class="my-2" />
+        <div class="small">@L.T("Next:", "الخطوة التالية:") <a href="/Kpi/Admin/Review">@L.T("check the review items", "راجع بنود المراجعة")</a> · <a href="/Kpi/Tracking">@L.T("assign KPIs to departments", "أسند المؤشرات للجهات")</a></div>
+    </div>
+}
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card h-100"><div class="card-header"><i class="bi bi-upload"></i>@L.T("Import from Excel", "استيراد من Excel")</div><div class="card-body">
+            <form method="post" enctype="multipart/form-data" onsubmit="setLoading(document.getElementById('importSubmitBtn'), KT('Importing...', 'جارٍ الاستيراد...'))">
+                <label class="form-label">@L.T("Excel file (.xlsx)", "ملف Excel (.xlsx)")</label>
+                <div class="d-flex gap-2 flex-wrap">
+                    <input type="file" name="file" class="form-control flex-grow-1" style="min-width:240px;width:auto" accept=".xlsx,.xls" required />
+                    <button type="submit" id="importSubmitBtn" class="btn btn-primary"><i class="bi bi-upload"></i>@L.T("Import", "استيراد")</button>
+                </div>
+                <div class="form-text mt-2">@L.T("Read from the file by column name: classification, domain, goal, KPI, each plan's text and accreditation. Existing KPIs with the same number are updated.", "يُقرأ من الملف حسب اسم العمود: التصنيف، المجال، الهدف، المؤشر، ونص كل خطة والاعتماد. المؤشرات الموجودة بنفس الرقم تُحدَّث.")</div>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100"><div class="card-header"><i class="bi bi-lightbulb"></i>@L.T("First time?", "أول مرة؟")</div><div class="card-body">
+            <p class="small text-muted">@L.T("Start from the template: it has the exact columns, two worked examples and a notes sheet.", "ابدأ من النموذج: فيه الأعمدة الصحيحة، ومثالان موضَّحان، وورقة ملاحظات.")</p>
+            <a class="btn btn-outline-primary w-100" href="/Kpi/Admin/ImportExcel?handler=Template"><i class="bi bi-file-earmark-arrow-down"></i>@L.T("Download template", "تحميل النموذج")</a>
+            <div class="small text-muted mt-3"><i class="bi bi-database"></i> @L.T("KPIs stored now:", "عدد المؤشرات المخزّنة حاليًا:") <strong>@L.Num(Model.CurrentKpiCount)</strong></div>
+        </div></div>
+    </div>
+</div>

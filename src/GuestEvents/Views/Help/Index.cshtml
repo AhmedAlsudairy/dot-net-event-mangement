@@ -82,11 +82,11 @@
 
 <div class="tab-pane fade @(tab == "hod" ? "show active" : "")" id="h-hod">
     <div class="card"><div class="card-body">
-        <h5>@L.T("HOD: approving requests", "رئيس القسم: الموافقة على الطلبات")</h5>
+        <h5>@L.T("Approvers (HOD, Dean...): approving requests", "المعتمدون (رئيس القسم، العميد...): الموافقة على الطلبات")</h5>
         @{ Steps(
             L.T("Open **Pending approvals**. The number on the menu shows how many are waiting.", "افتح **بانتظار الموافقة**. الرقم في القائمة يوضح عدد الطلبات المنتظرة."),
             L.T("Read each card. Click the event name to see the full details and content text.", "اقرأ كل بطاقة. اضغط على اسم الفعالية لعرض التفاصيل ونص المحتوى."),
-            L.T("Press **Approve** (a comment is optional). The system creates the image and QR code and sends all emails automatically.", "اضغط **موافقة** (التعليق اختياري). ينشئ النظام الصورة ورمز QR ويرسل كل الرسائل تلقائياً."),
+            L.T("Press **Approve** (a comment is optional). The request then moves to the next approval step (by default the **Dean**), whose people are emailed automatically. The event is confirmed, and the image, QR code and other emails are sent, only after the last step approves. Admin sets the steps, who decides and how many approvals each needs at **Admin > Approval flow**.", "اضغط **موافقة** (التعليق اختياري). ينتقل الطلب بعدها إلى خطوة الاعتماد التالية (افتراضياً **العميد**) ويصل أصحابها بريد تلقائي. لا تُعتمد الفعالية وتُرسل الصورة ورمز QR وبقية الرسائل إلا بعد موافقة الخطوة الأخيرة. تحدد الإدارة الخطوات ومن يقرر وعدد الموافقات في **الإدارة > مسار الموافقات**."),
             L.T("Or write a comment and press **Reject**. A comment is required. The requester can fix and resubmit.", "أو اكتب تعليقاً واضغط **رفض**. التعليق مطلوب. يمكن لمقدّم الطلب التعديل وإعادة الإرسال.")
         ); }
         <div class="alert alert-info mb-0"><i class="bi bi-info-circle"></i> @L.T("There is no deputy. If you are away the request waits, and you receive a reminder email after 2 working days (Sunday to Thursday).", "لا يوجد نائب. إذا كنت غائباً ينتظر الطلب وتصلك رسالة تذكير بعد يومي عمل (من الأحد إلى الخميس).")</div>

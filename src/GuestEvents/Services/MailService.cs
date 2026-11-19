@@ -37,7 +37,7 @@ public class MailService
     {
         try
         {
-            await DeliverAsync(o, new[] { to }, null, "Guest Events - SMTP test", "This is a test message from the Guest Events system. SMTP is configured correctly.", null);
+            await DeliverAsync(o, new[] { to }, null, $"{Loc.BrandEn} - SMTP test", $"This is a test message from {Loc.BrandEn}. SMTP is configured correctly.", null);
             return (true, $"Test email sent to {to}.");
         }
         catch (Exception ex) { return (false, ex.Message); }

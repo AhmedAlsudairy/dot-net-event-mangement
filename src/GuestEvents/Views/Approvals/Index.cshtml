@@ -1,10 +1,9 @@
 @model List<EventRequest>
-@{ ViewData["Title"] = L["Pending"]; bool allowed = ViewBag.Allowed == true; }
+@{ ViewData["Title"] = L["Pending"]; var steps = (List<ApprovalStep>)ViewBag.Steps; }
 <div class="page-head">
     <div><h3>@L["Pending"]</h3><div class="sub">@L.Num(Model.Count) @L["WaitingDecision"]</div></div>
 </div>
 <partial name="_Guide" model='"approvals"' />
-@if (!allowed) { <div class="alert alert-warning"><i class="bi bi-lock"></i> @L["NotAssignedHod"]</div> }
 @if (TempData["Error"] != null) { <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @L[(string)TempData["Error"]!]</div> }
 @if (!Model.Any())
 {
@@ -12,12 +11,17 @@
 }
 @foreach (var e in Model)
 {
-    var waited = WorkingDays.Between((e.SubmittedAt ?? e.CreatedAt).ToLocalTime(), DateTime.Now);
+    var cur = GuestEvents.Services.ApprovalChain.Current(e, steps)!;
+    int idx = steps.FindIndex(x => x.Id == cur.Id) + 1;
+    var given = GuestEvents.Services.ApprovalChain.Given(e, cur).GroupBy(x => x.ApproverUsername.ToLowerInvariant()).Select(g => g.First()).ToList();
+    var prev = e.Approvals.Where(x => x.Approved && x.StepId != cur.Id && x.DecidedAt >= (e.SubmittedAt ?? DateTime.MinValue)).OrderBy(x => x.DecidedAt).ToList();
+    var since = (e.StepStartedAt ?? e.SubmittedAt ?? e.CreatedAt).ToLocalTime();
+    var waited = WorkingDays.Between(since, DateTime.Now);
     <div class="card req-card mb-3"><div class="card-body">
         <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
             <div>
-                <h5 class="mb-1"><a class="text-decoration-none" asp-controller="Events" asp-action="Details" asp-route-id="@e.Id">@e.Name</a> <span class="badge bg-light text-dark border">@L[e.Type]</span></h5>
-                <div class="text-muted small">@L["By"] @e.RequesterName (@e.RequesterDepartment) &middot; @L.DateTimeStr((e.SubmittedAt ?? e.CreatedAt).ToLocalTime())</div>
+                <h5 class="mb-1"><a class="text-decoration-none" asp-controller="Events" asp-action="Details" asp-route-id="@e.Id">@e.Name</a> <span class="badge bg-light text-dark border">@L[e.Type]</span> <span class="badge @(idx > 1 ? "bg-primary" : "bg-warning text-dark")">@L.T($"Step {idx} of {steps.Count}: {cur.Name}", $"الخطوة {idx} من {steps.Count}: {cur.Name}")</span> @if (cur.RequiredApprovals > 1) { <span class="badge bg-light text-dark border">@L.T("approvals", "الموافقات") @L.Num(given.Count) / @L.Num(cur.RequiredApprovals)</span> }</h5>
+                <div class="text-muted small">@L["By"] @e.RequesterName (@e.RequesterDepartment) &middot; @L.DateTimeStr((e.SubmittedAt ?? e.CreatedAt).ToLocalTime())@if (prev.Any()) { <span> &middot; @L.T("Already approved by", "وافق عليه سابقاً"): @string.Join(", ", prev.Select(x => x.StepName + " - " + x.ApproverName))</span> }@if (given.Any()) { <span> &middot; @L.T("Approved at this step by", "وافق في هذه الخطوة"): @string.Join(", ", given.Select(x => x.ApproverName))</span> }</div>
             </div>
             <span class="badge @(waited >= 2 ? "bg-danger" : "bg-warning text-dark") wait-pill"><i class="bi bi-hourglass-split"></i> @(waited == 0 ? L["NewTag"] : L.Num(waited) + " " + L["WorkingDaysWaiting"])</span>
         </div>
@@ -28,7 +32,6 @@
             <span><i class="bi bi-geo-alt"></i>@e.Venue</span>
             <span><i class="bi bi-people"></i>@L.Num(e.ExpectedAttendees)</span>
         </div>
-        @if (allowed)
         {
         <form method="post" asp-action="Decide" asp-route-id="@e.Id" class="row g-2 align-items-start decide">
             <div class="col-lg-7"><input name="comment" class="form-control" placeholder="@L["Comment"] (@L["RejectNeeds"])" maxlength="1000" /></div>

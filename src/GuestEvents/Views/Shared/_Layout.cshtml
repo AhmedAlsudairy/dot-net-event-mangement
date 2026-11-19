@@ -1,12 +1,21 @@
 @inject GuestEvents.Data.AppDb Db
+@inject Kpi.Dashboard.Web.Services.PermissionService KPerms
 @{
     var ctl = (ViewContext.RouteData.Values["controller"] as string) ?? "";
     var act = (ViewContext.RouteData.Values["action"] as string) ?? "";
     string Active(bool on) => on ? "active" : "";
     var authed = User.Identity?.IsAuthenticated == true;
+    // What this person works in: the events side (events, visits, research, approvals) and/or the KPI pages.
+    bool eventsUser = authed && new[] { Roles.Staff, Roles.Hod, Roles.Dean, Roles.Media, Roles.Research, Roles.Admin }.Any(User.IsInRole);
+    bool kpiUser = authed && KPerms.For(User).Contains(Kpi.Dashboard.Web.Models.Permissions.DashboardView);
     int pending = 0, pendingVisits = 0;
-    if (authed && User.IsInRole(Roles.Hod))
-        pending = Db.Events.Count(e => e.Status == EventStatus.Submitted);
+    bool isApprover = false;
+    if (authed)
+    {
+        var chain = new GuestEvents.Services.ApprovalChain(Db);
+        isApprover = await chain.IsApproverAsync(User);
+        if (isApprover) pending = (await chain.PendingForAsync(User)).Count;
+    }
     if (authed)
     {
         // visits waiting for this person: approvals for approvers, approved ones for bus coordinators
@@ -28,36 +37,50 @@
     else { <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" /> }
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+    @await RenderSectionAsync("Head", required: false)
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark topbar sticky-top mb-4">
-    <div class="container">
+<nav class="navbar navbar-expand-xxl navbar-dark topbar sticky-top mb-4">
+    <div class="container-fluid px-lg-4">
         <a class="navbar-brand" href="/"><span class="brand-mark"><i class="bi bi-calendar2-event"></i></span>@L["App"]</a>
         <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#nav" aria-label="Menu"><span class="navbar-toggler-icon"></span></button>
         <div class="collapse navbar-collapse" id="nav">
             @if (authed)
             {
-                <ul class="navbar-nav me-auto gap-lg-1">
+                <ul class="navbar-nav me-auto">
+                    @if (eventsUser)
+                    {
+                    <li class="nav-item"><a class="nav-link @Active(ctl == "Home")" asp-controller="Home" asp-action="Index"><i class="bi bi-house"></i>@L.T("Home", "الرئيسية")</a></li>
                     <li class="nav-item"><a class="nav-link @Active(ctl == "Events" && act != "Create")" asp-controller="Events" asp-action="Index"><i class="bi bi-calendar3"></i>@L["MyEvents"]</a></li>
                     <li class="nav-item"><a class="nav-link @Active(ctl == "Visits")" asp-controller="Visits" asp-action="Index"><i class="bi bi-bus-front"></i>@L.T("External visits", "الزيارات الخارجية")@if (pendingVisits > 0) { <span class="nav-badge">@pendingVisits</span> }</a></li>
+                    }
                     @if (User.IsInRole(Roles.Staff) || User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Research))
                     {
                         <li class="nav-item"><a class="nav-link @Active(ctl == "Research")" asp-controller="Research" asp-action="Index"><i class="bi bi-journal-text"></i>@(User.IsInRole(Roles.Research) || User.IsInRole(Roles.Admin) ? L.T("Research archive", "أرشيف الأبحاث") : L.T("Research", "الأبحاث"))</a></li>
                     }
-                    @if (User.IsInRole(Roles.Hod))
+                    @if (kpiUser)
                     {
-                        <li class="nav-item"><a class="nav-link @Active(ctl == "Approvals")" asp-controller="Approvals" asp-action="Index"><i class="bi bi-check2-square"></i>@L["Pending"]@if (pending > 0) { <span class="nav-badge">@pending</span> }</a></li>
+                    <li class="nav-item"><a class="nav-link @Active(Context.Request.Path.StartsWithSegments("/Kpi"))" href="/Kpi/Dashboard"><i class="bi bi-bullseye"></i>@L.T("KPIs", "المؤشرات")</a></li>
+                    }
+                    @if (isApprover)
+                    {
+                        <li class="nav-item"><a class="nav-link @Active(ctl == "Approvals")" asp-controller="Approvals" asp-action="Index"><i class="bi bi-check2-square"></i>@L.T("Approvals", "الموافقات")@if (pending > 0) { <span class="nav-badge">@pending</span> }</a></li>
                     }
                     @if (User.IsInRole(Roles.Admin))
                     {
-                        <li class="nav-item"><a class="nav-link @Active(ctl == "Reports")" asp-controller="Reports" asp-action="Index"><i class="bi bi-bar-chart-line"></i>@L["Reports"]</a></li>
-                        <li class="nav-item"><a class="nav-link @Active(ctl == "Food")" asp-controller="Food" asp-action="Index"><i class="bi bi-cup-hot"></i>@L["FoodRequest"]</a></li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle @Active(ctl == "Admin")" href="#" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-gear"></i>@L["Admin"]</a>
+                            <a class="nav-link dropdown-toggle @Active(adminActive)" href="#" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-gear"></i>@L["Admin"]</a>
                             <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" asp-controller="Reports" asp-action="Index"><i class="bi bi-bar-chart-line"></i>@L.T("Reports & Excel", "التقارير وExcel")</a></li>
+                                <li><a class="dropdown-item" asp-controller="Food" asp-action="Index"><i class="bi bi-cup-hot"></i>@L["FoodRequest"]</a></li>
+                                <li><hr class="dropdown-divider" /></li>
                                 <li><a class="dropdown-item" asp-controller="Admin" asp-action="Settings"><i class="bi bi-sliders"></i>@L["Settings"]</a></li>
-                                <li><a class="dropdown-item" asp-controller="Admin" asp-action="RolesPage"><i class="bi bi-people"></i>@L["Roles"]</a></li>
+                                <li><a class="dropdown-item" asp-controller="Admin" asp-action="ApprovalFlow"><i class="bi bi-diagram-3"></i>@L.T("Approval flow", "مسار الموافقات")</a></li>
+                                <li><a class="dropdown-item" asp-controller="Admin" asp-action="RolesPage"><i class="bi bi-people"></i>@L.T("Access & roles", "الصلاحيات والأدوار")</a></li>
                                 <li><a class="dropdown-item" asp-controller="Admin" asp-action="Connections"><i class="bi bi-plug"></i>@L["Connections"]</a></li>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li><a class="dropdown-item" href="/Kpi/Admin/Entities"><i class="bi bi-building"></i>@L.T("KPI entities", "جهات المؤشرات")</a></li>
+                                <li><a class="dropdown-item" href="/Kpi/Admin/ImportExcel"><i class="bi bi-file-earmark-excel"></i>@L.T("Import KPIs (Excel)", "استيراد المؤشرات (Excel)")</a></li>
                                 <li><hr class="dropdown-divider" /></li>
                                 <li><a class="dropdown-item" asp-controller="Admin" asp-action="Audit"><i class="bi bi-clock-history"></i>@L["Audit"]</a></li>
                                 <li><a class="dropdown-item" asp-controller="Admin" asp-action="Notifications"><i class="bi bi-envelope-paper"></i>Notifications</a></li>
@@ -79,7 +102,7 @@
             }
             else { <ul class="navbar-nav me-auto"></ul> }
             <div class="d-flex align-items-center gap-2">
-                @if (authed) { <a class="btn btn-sm btn-outline-light" asp-controller="Help" asp-action="Index" title="@L["Help"]"><i class="bi bi-question-circle"></i><span class="d-none d-xxl-inline"> @L["Help"]</span></a> }
+                @if (authed) { <a class="btn btn-sm btn-outline-light" href="@(eventsUser ? Url.Action("Index", "Help") : "/Kpi/Help/SiteMap")" title="@L["Help"]"><i class="bi bi-question-circle"></i></a> }
                 <form method="post" action="/lang">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
@@ -89,14 +112,15 @@
                 {
                     <div class="dropdown">
                         <a href="#" class="d-flex align-items-center gap-2 text-decoration-none text-white" data-bs-toggle="dropdown" aria-expanded="false">
-                            <span class="avatar">@initial</span><span class="d-none d-xl-inline small">@name</span><i class="bi bi-chevron-down small"></i>
+                            <span class="avatar">@initial</span><span class="d-none d-xxl-inline small">@name</span><i class="bi bi-chevron-down small"></i>
                         </a>
                         <div class="dropdown-menu dropdown-menu-end p-2" style="min-width:230px">
                             <div class="px-2 pb-2 border-bottom mb-2">
                                 <div class="fw-semibold">@name</div>
                                 <div class="small text-muted">@User.Identity!.Name</div>
-                                <div class="mt-1">@foreach (var r in new[] { Roles.Staff, Roles.Hod, Roles.Media, Roles.Research, Roles.Admin }.Where(r => User.IsInRole(r))) { <span class="badge bg-light text-dark border me-1">@r</span> }</div>
+                                <div class="mt-1">@foreach (var r in RoleInfo.All.Where(r => User.IsInRole(r.Key))) { <span class="badge bg-light text-dark border me-1 mb-1" title="@L.T(r.DescEn, r.DescAr)">@L.T(r.En, r.Ar)</span> }</div>
                             </div>
+                            <a class="dropdown-item" asp-controller="Account" asp-action="Me"><i class="bi bi-person-badge"></i>@L.T("My access", "صلاحياتي")</a>
                             <form method="post" asp-controller="Account" asp-action="Logout"><button class="dropdown-item text-danger"><i class="bi bi-box-arrow-right"></i>@L["Logout"]</button></form>
                         </div>
                     </div>

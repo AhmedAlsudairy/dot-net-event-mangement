@@ -7,7 +7,7 @@ namespace GuestEvents.Services;
 
 public record LdapOpts(string Host, int Port, bool UseSsl, bool SkipCert, string BaseDn, string SvcDn, string SvcPassword,
     string GroupStaff, string GroupHod, string GroupMedia, string GroupAdmin,
-    bool StartTls = false, string CertThumbprint = "", bool Nested = true, string GroupResearch = "Research-InCharge");
+    bool StartTls = false, string CertThumbprint = "", bool Nested = true, string GroupResearch = "Research-InCharge", string GroupDean = "Events-Dean");
 
 public record SmtpOpts(bool Enabled, string Host, int Port, bool StartTls, string User, string Password, string From);
 
@@ -46,7 +46,7 @@ public class ConnectionConfig
         return new LdapOpts(Get(st, "Ldap:Host"), I(Get(st, "Ldap:Port", "636"), 636), B(Get(st, "Ldap:UseSsl", "true"), true), B(Get(st, "Ldap:SkipCertValidation", "false"), false),
             Get(st, "Ldap:BaseDn"), Get(st, "Ldap:ServiceAccountDn"), Get(st, "Ldap:ServiceAccountPassword"),
             Get(st, "Ldap:GroupStaff", "Events-Staff"), Get(st, "Ldap:GroupHod", "Events-HOD"), Get(st, "Ldap:GroupMedia", "Events-Media"), Get(st, "Ldap:GroupAdmin", "Events-Admin"),
-            B(Get(st, "Ldap:StartTls", "false"), false), Get(st, "Ldap:CertThumbprint"), B(Get(st, "Ldap:Nested", "true"), true), Get(st, "Ldap:GroupResearch", "Research-InCharge"));
+            B(Get(st, "Ldap:StartTls", "false"), false), Get(st, "Ldap:CertThumbprint"), B(Get(st, "Ldap:Nested", "true"), true), Get(st, "Ldap:GroupResearch", "Research-InCharge"), Get(st, "Ldap:GroupDean", "Events-Dean"));
     }
 
     public async Task<SmtpOpts> SmtpAsync()

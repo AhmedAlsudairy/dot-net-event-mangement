@@ -1,2 +1,16 @@
-@{ ViewData["Title"] = "403"; }
-<div class="alert alert-warning">403 - @L["BadLogin"]</div>
+@inject Kpi.Dashboard.Web.Services.PermissionService KPerms
+@{
+    ViewData["Title"] = L.T("No access", "لا توجد صلاحية");
+    bool eventsUser = new[] { Roles.Staff, Roles.Hod, Roles.Dean, Roles.Media, Roles.Research, Roles.Admin }.Any(User.IsInRole);
+    bool kpiUser = User.Identity?.IsAuthenticated == true && KPerms.For(User).Contains(Kpi.Dashboard.Web.Models.Permissions.DashboardView);
+}
+<div class="card mx-auto mt-4" style="max-width:600px"><div class="empty">
+    <i class="bi bi-shield-lock text-warning"></i>
+    <h5>@L.T("Your role cannot open this page", "دورك لا يسمح بفتح هذه الصفحة")</h5>
+    <p>@L.T("This part of the app is for other roles. Use the menu to go to the areas you can work in. If you think you should have access, ask the Admin to change your role.", "هذا الجزء من التطبيق لأدوار أخرى. استخدم القائمة للانتقال إلى الأقسام المتاحة لك. إذا كنت تعتقد أن لديك حق الوصول فاطلب من الإدارة تعديل دورك.")</p>
+    <div class="d-flex gap-2 justify-content-center flex-wrap">
+        <a class="btn btn-outline-secondary" asp-action="Me"><i class="bi bi-person-badge"></i>@L.T("What can I open?", "ماذا يمكنني فتحه؟")</a>
+        @if (eventsUser) { <a class="btn btn-primary" href="/"><i class="bi bi-house"></i>@L.T("Go to Home", "الرئيسية")</a> }
+        @if (kpiUser) { <a class="btn @(eventsUser ? "btn-outline-primary" : "btn-primary")" href="/Kpi/Dashboard"><i class="bi bi-bullseye"></i>@L.T("Go to KPIs", "لوحة المؤشرات")</a> }
+    </div>
+</div></div>

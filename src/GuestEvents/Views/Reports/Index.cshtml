@@ -1,6 +1,6 @@
 @model List<EventStat>
 @{ ViewData["Title"] = L["Reports"]; var pres = (List<PresenterStat>)ViewBag.Presenters; }
-<div class="page-head"><div><h3>@L["Reports"]</h3><div class="sub">@L.Num(Model.Count) @L["Events"]</div></div><a class="btn btn-outline-success" asp-action="ExportEvaluations"><i class="bi bi-file-earmark-excel"></i>@L["ExportExcel"]</a></div>
+<div class="page-head"><div><h3>@L["Reports"]</h3><div class="sub">@L.Num(Model.Count) @L["Events"]</div></div><div class="d-flex gap-2 flex-wrap"><a class="btn btn-outline-success" asp-action="ExportEvents"><i class="bi bi-file-earmark-excel"></i>@L.T("Events", "الفعاليات")</a><a class="btn btn-outline-success" asp-action="ExportVisits"><i class="bi bi-file-earmark-excel"></i>@L.T("Visits", "الزيارات")</a><a class="btn btn-outline-success" asp-action="ExportEvaluations"><i class="bi bi-file-earmark-excel"></i>@L["ExportExcel"]</a><a class="btn btn-outline-success" href="/Kpi/Reports/Export"><i class="bi bi-file-earmark-excel"></i>KPI</a></div></div>
 <partial name="_Guide" model='"reports"' />
 <div class="card mb-3"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
     <thead><tr><th>@L["Event"]</th><th>@L["Date"]</th><th>@L["Attendees"]</th><th>@L["Responses"]</th><th>@L["ResponseRate"]</th><th>@L["Overall"]</th></tr></thead>

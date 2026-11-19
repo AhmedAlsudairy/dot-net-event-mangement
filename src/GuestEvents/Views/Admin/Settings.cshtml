@@ -4,7 +4,8 @@
     // tab id, title, icon, description, keys
     var tabs = new (string id, string title, string icon, string desc, string[] keys)[]
     {
-        ("mail", "Recipients", "bi-envelope-at", "Who receives the automatic emails.", new[] { "AdminMailbox", "AdminExtraTo", "AdminCc", "MediaOfficerEmail", "HodUsername", "HodEmail" }),
+        ("brand", "Name", "bi-fonts", "The name of the app, shown in the top bar, the login page, page titles and emails.", new[] { "AppNameEn", "AppNameAr" }),
+        ("mail", "Recipients", "bi-envelope-at", "Who receives the automatic emails.", new[] { "AdminMailbox", "AdminExtraTo", "AdminCc", "MediaOfficerEmail", "HodEmail" }),
         ("visit", "External visits (bus)", "bi-bus-front", "Approval of student visits and bus requests is separate from event approval. Choose who approves, who confirms the bus and who gets the emails.",
             new[] { "VisitApprovalRequired", "VisitApprovers", "VisitApproverEmail", "VisitBusUsers", "VisitBusEmail", "VisitBusCc", "VisitNotifyRequester", "VisitMinDaysAhead" }),
         ("research", "Research", "bi-journal-text", "Staff upload research papers or proposals. Each upload is emailed to the research in-charge and saved in the archive. There is no approval step.",
@@ -21,12 +22,15 @@
     };
     var meta = new Dictionary<string, (string label, string help)>
     {
+        ["AppNameEn"] = ("App name (English)", "Shown when the language is English."), ["AppNameAr"] = ("App name (Arabic)", "Shown when the language is Arabic."),
         ["AdminMailbox"] = ("Admin mailbox", "Main address that gets approval notices, food requests and evaluation results."),
         ["AdminExtraTo"] = ("Extra admin recipients (To)", "More addresses, separated by commas."),
         ["AdminCc"] = ("Admin CC", "Addresses copied on admin emails."),
         ["MediaOfficerEmail"] = ("Media Officer email", "Receives the approved event details with the image."),
         ["HodUsername"] = ("HOD username (optional)", "If set, only this person can approve. Leave empty to allow anyone with the HOD role."),
-        ["HodEmail"] = ("HOD email", "Receives the pending-approval reminder."),
+        ["HodEmail"] = ("HOD email (visits fallback)", "Used for external visits when no visit approver email is set. Event approvers and their emails are set at Admin > Approval flow."),
+        ["DeanUsername"] = ("Dean email or username (optional)", "The Dean gives the final approval after the HOD. If set, only this person can approve; leave empty to allow anyone with the Dean role."),
+        ["DeanEmail"] = ("Dean email", "Receives the 'waiting for your approval' mail and the reminder. Empty = admin mailbox."),
         ["VisitApprovalRequired"] = ("Visits need approval", "No = a submitted visit goes straight to the bus step."),
         ["VisitApprovers"] = ("Visit approvers (usernames)", "Comma separated. Only these people (and Admin) can approve or reject visits. Leave empty to allow anyone with the HOD role. They must have a role in the system to sign in."),
         ["VisitApproverEmail"] = ("Approver email(s)", "Receive the 'awaiting approval' mail. Comma separated. Empty = HOD email, then admin mailbox."),

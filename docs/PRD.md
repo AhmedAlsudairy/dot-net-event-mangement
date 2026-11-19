@@ -1,16 +1,16 @@
-# Guest Events, External Visits & Research - Product Requirements
+# Campus Hub (events, external visits, research and KPIs) - Product Requirements
 
 Last updated: 2026-10-24. See also [SETUP.md](SETUP.md), [USER-GUIDE.md](USER-GUIDE.md) and [SITEMAP.md](SITEMAP.md).
 
 ## 1. Overview
 
-Guest Events is an internal web app that takes a guest workshop or a student bus trip from request to approval, notification and (for events) attendance and evaluation, and records research papers and proposals sent to the research in-charge, with one audit trail and full Arabic/English support.
+Campus Hub is an internal web app that takes a guest workshop or a student bus trip from request to approval, notification and (for events) attendance and evaluation, and records research papers and proposals sent to the research in-charge, with one audit trail and full Arabic/English support.
 
 **Problem.** Guest events and student trips are arranged by email and phone. Approvals are slow and untracked, the media team gets no image, attendance is on paper, and the transport office hears about trips too late.
 
 **Product.** Three areas share one login, role model, settings page, mail engine and audit log:
 
-- **Guest event request** - staff request an event with a company guest; the HOD approves; the system creates the event image and a QR code, emails the media officer, contact and admin, collects check-ins from the public QR page, and gathers anonymous evaluations. Staff can also request food for an approved event.
+- **Guest event request** - staff request an event with a company guest; the request goes through an **approval chain the Admin configures** (by default HOD, then Dean); only after the last step approves does the system create the event image and a QR code, emails the media officer, contact and admin, collects check-ins from the public QR page, and gathers anonymous evaluations. Staff can also request food for an approved event.
 - **External visit (bus) request** - staff request a bus to take students off campus; a separately configured approver decides; a bus coordinator confirms the bus and enters bus details.
 - **Research upload** - staff upload a research paper or proposal (PDF or Word); it is emailed to the research in-charge and kept in an archive. There is nothing to approve.
 
@@ -37,7 +37,8 @@ Five roles cover everyone who signs in; guests never sign in and only see the pu
 | Role | AD group (default) | Who | Can do |
 |---|---|---|---|
 | Staff | Events-Staff | Teachers and coordinators | Create, edit and submit event requests and external visits; request food for their approved events; upload research papers and proposals; see their own items |
-| HOD | Events-HOD | Head of department | Approve or reject event requests; approve visits when no visit approvers are listed in Settings |
+| HOD | Events-HOD | Head of department | Default first approval step for events (approve, which moves it to the next step, or reject); approve visits when no visit approvers are listed in Settings |
+| Dean | Events-Dean | Dean | Default second and final approval step for events: nothing is confirmed until the last step approves |
 | Media | Events-Media | Media officer | View approved events and download the event image and QR |
 | Research | Research-InCharge | Research in-charge | Receives every research upload by email; browses, searches and downloads the research archive. Nothing to approve or reject |
 | Admin | Events-Admin | Administration / IT | Everything: reports, food confirmation, settings, roles, connections, audit log; can always approve visits, confirm buses and see the research archive |
@@ -71,9 +72,12 @@ A role can come from **several** AD groups, and any person can also be given a r
 | EV-1 | Staff create an event with name, type (workshop, seminar, training, other), presenter, company, company logo (PNG/JPG up to 2 MB), contact name, email and phone, venue, expected attendees and bilingual content. |
 | EV-2 | An event can be one day or up to 60 days; start and end times apply to every day. |
 | EV-3 | Staff can save a draft and submit later; a rejected event can be edited and resubmitted. |
-| EV-4 | The HOD sees pending requests, approves, or rejects with a mandatory comment. Only the HOD named in Settings can decide when one is set. |
-| EV-5 | A reminder email goes to the HOD after a configurable number of working days (Sunday to Thursday). |
-| EV-6 | On approval the system generates the event image (locked template, bilingual) and a QR code, then emails the media officer (image), the company contact (image), the admin mailbox and the requester. |
+| EV-4 | **Configurable approval chain.** Admin > **Approval flow** defines the steps, their order, who may decide at each step and how many approvals each step needs. The default is two steps: HOD, then Dean. |
+| EV-4a | **Who decides.** A step lists either a role (everyone with it may decide) or named people (emails or usernames; then only they may decide). Each step has *Approvals needed* (1-20): that many different people must approve before the request moves on, e.g. 2 of 3 committee members. A step may be switched off. |
+| EV-4b | **Sequence.** Steps run strictly one after the other. When a step has enough approvals the next step's people are emailed and the requester is told; after the last step the event is Approved (image, QR and the final emails). A rejection by any eligible person at any step needs a comment and returns the request to the requester, who can edit and resubmit; it then starts again at step 1. |
+| EV-4c | **Rules.** Each person can approve once per step. A requester can never approve their own request. A person sees only the requests waiting at a step they may decide. A step with requests waiting cannot be switched off or deleted and at least one step must stay active. Every decision is stored with the step name and shown in the decision history. |
+| EV-5 | A reminder email goes to the people of the current step after a configurable number of working days (Sunday to Thursday). |
+| EV-6 | When the **Dean** approves, the system generates the event image (locked template, bilingual) and a QR code, then emails the media officer (image), the company contact (image), the admin mailbox and the requester. |
 | EV-7 | Status rolls over automatically: Approved, Event done, Evaluation closed. |
 
 ### B. Attendance and evaluation (public QR pages)
@@ -107,6 +111,15 @@ A role can come from **several** AD groups, and any person can also be given a r
 | XV-8 | A bus coordinator (listed people, or Admin) confirms the bus and records bus details such as bus number, driver and phone. |
 | XV-9 | The requester is emailed on approval, rejection and bus confirmation when that setting is on. |
 | XV-10 | Approvers and bus coordinators see a badge on the External visits menu counting what waits for them. |
+
+### G. KPI link and KPI dashboard
+
+| ID | Requirement |
+|---|---|
+| G1 | The event form and the external-visit form have an optional drop-down **Which KPI does this help?** listing the KPIs from the KPI dashboard, grouped by domain. One KPI can be chosen. |
+| G2 | The chosen KPI (number and text) is shown on the event and visit detail pages and is kept even if the KPI list changes later. |
+| G3 | Everyone signed in can open the KPI dashboard and tracking table; only roles with the matching KPI permission can add or edit KPIs, assign entities, import, export, manage entities or roles. |
+| G4 | KPI saves from the tracking table are refused with a real 401/403 (not a redirect) when the user is signed out or has no permission. |
 
 ### E. Reports, sign-in and administration
 
@@ -143,8 +156,9 @@ stateDiagram-v2
     state "Guest event" as EV {
         [*] --> E_Draft: save
         E_Draft --> E_Submitted: submit
-        E_Submitted --> E_Approved: HOD approves (image, QR, 4 emails)
-        E_Submitted --> E_Rejected: HOD rejects (comment)
+        E_Submitted --> E_Submitted: a step approves, next step starts (emails)
+        E_Submitted --> E_Approved: last step approves (image, QR, 4 emails)
+        E_Submitted --> E_Rejected: any step rejects (comment)
         E_Rejected --> E_Draft: edit and resubmit
         E_Approved --> E_Done: event ends
         E_Done --> E_Closed: evaluation window ends
@@ -167,25 +181,28 @@ Research uploads have no lifecycle: one upload is saved, emailed to the research
 
 See [SITEMAP.md](SITEMAP.md) for the diagram and every route.
 
-The top bar shows My events, External visits, Research, Pending approvals (HOD only), Reports and Food requests (Admin only) and an Admin menu. A yellow New request button lets Staff and Admin start an event, an external visit or a research upload. The External visits link carries a badge for approvers and bus coordinators. The Research link opens the archive for the research in-charge and Admin, and a person's own uploads for staff.
+The top bar shows My events, **KPI dashboard** (everyone signed in), External visits, Research, Pending approvals (anyone who may decide at a step), Reports and Food requests (Admin only) and an Admin menu. A yellow New request button lets Staff and Admin start an event, an external visit or a research upload. The External visits link carries a badge for approvers and bus coordinators. The Research link opens the archive for the research in-charge and Admin, and a person's own uploads for staff.
 
 ## 6. Architecture
 
 ```mermaid
 flowchart TD
-    IB["Internal browsers<br/>Staff, HOD, Media, Admin"] --> PX
+    IB["Internal browsers<br/>Staff, HOD, Dean, Media, Admin"] --> PX
     GP["Guest phones<br/>scan the QR, no sign-in"] --> PX
     PX["Reverse proxy<br/>TLS, two hostnames;<br/>the public host reaches only /p"]
     PX --> APP
 
     subgraph APP["GuestEvents web app (ASP.NET Core 8 MVC, one process)"]
         CT["Controllers and views<br/>Events, Visits, Research, Approvals,<br/>Food, Reports, Admin, Account, Public QR"]
+        KP["KPI dashboard (Razor Pages, /Kpi)<br/>Dashboard, Tracking, KPIs, Import/Export,<br/>Entities, KPI roles"]
+        KP --> SV
         SV["Services<br/>Workflow, Settings, language,<br/>Mail, QR, Image (SkiaSharp), LDAP, device hash"]
         PR["Protection and jobs<br/>cookie sign-in, role checks,<br/>anti-forgery, rate limits,<br/>public host filter, 10-minute tick job"]
         CT --> SV
     end
 
     APP -- "EF Core" --> DB[("Database<br/>SQLite or SQL Server")]
+    APP -- "EF Core (migrations)" --> KDB[("KPI database<br/>App_Data/kpi_dashboard.db (SQLite)")]
     APP -- "read and write" --> FS[("App_Data folder<br/>images, logos, research uploads, keys")]
     APP -- "LDAPS 636" --> AD["Active Directory<br/>sign-in and groups"]
     APP -- "SMTP" --> SM["Mail server"]
@@ -200,8 +217,11 @@ A single ASP.NET Core 8 MVC application serves both the internal site and the pu
 | Auth | LDAP via the Novell LDAP library, cookie authentication, optional Negotiate (Windows SSO) |
 | Mail | MailKit over SMTP, every send logged in Notifications |
 | Image and QR | SkiaSharp for the event image; a QR generator for the code |
-| Excel | ClosedXML for report exports |
+| Excel | ClosedXML for report exports and the KPI Excel import/export |
+| KPI dashboard | ASP.NET Core Razor Pages under `/Kpi`, its own EF Core context and SQLite file, Chart.js charts |
 | Background | A hosted service that ticks every 10 minutes |
+
+**KPI dashboard (merged in).** The former stand-alone KPI Alignment & Execution Dashboard is part of this app. It has no accounts of its own: the events sign-in is the only one, and the `/Kpi` pages sit behind the same cookie. Permissions are looked up per request from the directory roles in the cookie: each role (Admin, HOD, Dean, Staff, Media, Research) maps to the KPI role of the **same name** (Admin = every permission; a role without a KPI role of its own = read-only Viewer). An Admin can add a KPI role named like a directory role at `/Kpi/Admin/Roles` to widen it. The KPI data lives in a separate SQLite file (`ConnectionStrings:Kpi`, default `App_Data/kpi_dashboard.db`) migrated automatically at start, so it can stay SQLite even when the events database is SQL Server. Events and visits point at a KPI by id (`KpiId`) and keep a text snapshot (`KpiLabel`); there is no database link between the two files.
 
 **Request flow for an external visit.** A staff member submits a visit; the app saves it, writes an audit row and emails the approver. The approver opens the link, decides, and the app emails the requester and the bus recipients; the bus coordinator confirms the bus and the requester gets the final email.
 
@@ -211,18 +231,19 @@ A single ASP.NET Core 8 MVC application serves both the internal site and the pu
 
 ## 7. Data model
 
-The database holds 13 tables managed by Entity Framework Core. External visits and research uploads are standalone tables, so they do not touch the event tables.
+The events database holds 14 tables managed by Entity Framework Core. The separate KPI database (Kpis, Entities, TrackingItems, ReviewItems, Roles, RolePermissions and a few unused legacy tables) is described in the KPI dashboard's own model and is migrated with EF Core migrations. External visits and research uploads are standalone tables, so they do not touch the event tables.
 
 | Table | Purpose | Key fields |
 |---|---|---|
-| Events | Guest event request | Name, Type, Presenter, CompanyName, ContactName/Email/Phone, Date, EndDate, StartTime, EndTime, Venue, ExpectedAttendees, ContentAr/En, Status, requester fields, SubmittedAt |
-| Approvals | One row per HOD decision on an event | EventRequestId, ApproverUsername, Approved, Comment, DecidedAt |
+| Events | Guest event request | CurrentStepId, StepStartedAt, KpiId, KpiLabel, Name, Type, Presenter, CompanyName, ContactName/Email/Phone, Date, EndDate, StartTime, EndTime, Venue, ExpectedAttendees, ContentAr/En, Status, requester fields, SubmittedAt |
+| Approvals | One row per decision on an event | EventRequestId, ApproverUsername, Approved, StepId, StepName (snapshot), Comment, DecidedAt |
+| ApprovalSteps | The configurable approval chain | Order, Name, Role, Approvers (emails/usernames), RequiredApprovals, NotifyEmail, Enabled |
 | Images | Generated event image | EventRequestId (1:1), FilePath |
 | QRCodes | QR token and time windows | EventRequestId (1:1), Token (unique), CheckInOpen, CheckInClose, EvaluationClose |
 | Attendances | Check-ins | EventRequestId, FullName, Organization, Day, DeviceHash (salt A) |
 | Evaluations | Anonymous ratings | EventRequestId, Overall, Presenter, Content, VenueOrg, Food, Comments, DeviceHash (salt B) |
 | FoodRequests | Food order for an event | EventRequestId, People, Meal, DeliveryTime, Location, Status |
-| Visits | External visit (bus request) | Name, Destination, Date, DepartureTime, ReturnTime, PickupLocation, StudentCount, StaffCount, SupervisorName/Phone, Status, DecisionBy, DecisionComment, BusDetails |
+| Visits | External visit (bus request) | KpiId, KpiLabel, Name, Destination, Date, DepartureTime, ReturnTime, PickupLocation, StudentCount, StaffCount, SupervisorName/Phone, Status, DecisionBy, DecisionComment, BusDetails |
 | Settings | Key/value configuration | Key, Value |
 | Notifications | Log of every email | Recipient, Subject, Success, Error |
 | RoleAssignments | In-app roles for people, by email or username | Username, Role (unique together) |
@@ -231,12 +252,12 @@ The database holds 13 tables managed by Entity Framework Core. External visits a
 
 | Entity | Statuses |
 |---|---|
-| Event | Draft, Submitted, Approved, Rejected, Event done, Evaluation closed |
+| Event | Draft, Submitted (in approval; the event stores which step it waits at), Approved, Rejected, Event done, Evaluation closed |
 | Food request | Submitted, Confirmed, Rejected |
 | External visit | Draft, Submitted, Approved (bus pending), Bus confirmed, Rejected |
 | Research upload | None: recorded and emailed on upload, with an EmailSent flag |
 
-SQLite is the default database. SQL Server is supported by setting one configuration value. On start, the app creates missing tables, so existing databases pick up the Visits and ResearchDocs tables without a manual migration.
+SQLite is the default database. SQL Server is supported by setting one configuration value. On start, the app creates missing tables, so existing databases pick up the Visits and ResearchDocs tables and the KpiId/KpiLabel columns without a manual migration.
 
 ## 8. Security, privacy and non-functional requirements
 

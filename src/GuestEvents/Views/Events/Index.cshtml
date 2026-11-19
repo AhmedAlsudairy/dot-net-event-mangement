@@ -7,7 +7,7 @@
     {
         ("all", L["All"], Model.Count),
         ("Draft", L["Draft"], C(EventStatus.Draft)),
-        ("Submitted", L["Submitted"], C(EventStatus.Submitted)),
+        ("Submitted", L.T("In approval", "قيد الموافقة"), C(EventStatus.Submitted)),
         ("Approved", L["Approved"], C(EventStatus.Approved)),
         ("Rejected", L["Rejected"], C(EventStatus.Rejected)),
         ("Done", L["EventDone"], C(EventStatus.EventDone, EventStatus.EvaluationClosed)),

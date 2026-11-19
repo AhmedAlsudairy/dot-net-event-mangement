@@ -1,0 +1,64 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
+@inject global::Kpi.Dashboard.Web.Services.PermissionService Perms
+@{
+    Layout = "/Views/Shared/_Layout.cshtml";
+    var perms = User.Identity?.IsAuthenticated == true ? Perms.For(User) : new HashSet<string>();
+    bool Can(string p) => perms.Contains(p);
+    var active = ViewData["Active"] as string;
+    // Everyday pages first, then the management pages (shown only to people who may use them).
+    var main = new List<(string key, string href, string icon, string perm, string en, string ar)>
+    {
+        ("dashboard", "/Kpi/Dashboard", "speedometer2", "dashboard.view", "Dashboard", "لوحة المتابعة"),
+        ("tracking", "/Kpi/Tracking", "table", "tracking.view", "Tracking", "جدول التتبع"),
+    };
+    var manage = new List<(string key, string href, string icon, string perm, string en, string ar)>
+    {
+        ("kpis", "/Kpi/Admin/Kpis", "list-check", "kpi.manage", "KPI list", "قائمة المؤشرات"),
+        ("review", "/Kpi/Admin/Review", "clipboard-check", "kpi.manage", "Review items", "بنود المراجعة"),
+        ("import", "/Kpi/Admin/ImportExcel", "file-earmark-excel", "kpi.import", "Import / export", "استيراد وتصدير"),
+        ("entities", "/Kpi/Admin/Entities", "building", "entity.manage", "Departments", "الجهات"),
+        ("roles", "/Kpi/Admin/Roles", "shield-lock", "role.manage", "Permissions", "الصلاحيات"),
+    }.Where(i => Can(i.perm)).ToList();
+}
+@section Head {
+    <meta name="csrf-token" content="@Xsrf.GetAndStoreTokens(Context).RequestToken" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="~/kpi/css/theme.css" asp-append-version="true" />
+}
+@if (!new[] { GuestEvents.Models.Roles.Staff, GuestEvents.Models.Roles.Hod, GuestEvents.Models.Roles.Dean, GuestEvents.Models.Roles.Media, GuestEvents.Models.Roles.Research, GuestEvents.Models.Roles.Admin }.Any(User.IsInRole))
+{
+    <div class="access-strip">
+        <i class="bi bi-person-badge"></i>
+        <span>@L.T("You are signed in as", "سجّلت الدخول بصفة") @foreach (var r in GuestEvents.Services.RoleInfo.All.Where(r => User.IsInRole(r.Key))) { <span class="role-chip" title="@L.T(r.DescEn, r.DescAr)">@L.T(r.En, r.Ar)</span> } <span class="text-muted">@(Perms.For(User).Contains("tracking.edit.own") && !Perms.For(User).Contains("tracking.edit.all") ? L.T("- you see your department only", "- ترى جهتك فقط") : "")</span></span>
+        <a class="ms-auto small text-nowrap" asp-controller="Account" asp-action="Me">@L.T("What can I open?", "ماذا يمكنني فتحه؟") <i class="bi bi-chevron-@(L.IsAr ? "left" : "right")"></i></a>
+    </div>
+}
+<nav class="kpi-tabs" aria-label="@L.T("KPI pages", "صفحات المؤشرات")">
+    @foreach (var i in main.Where(i => Can(i.perm)))
+    {
+        <a class="@(active == i.key ? "active" : "")" href="@i.href"><i class="bi bi-@i.icon"></i>@L.T(i.en, i.ar)</a>
+    }
+    @if (manage.Count > 0)
+    {
+        <span class="sep"></span>
+        @foreach (var i in manage)
+        {
+            <a class="@(active == i.key ? "active" : "")" href="@i.href"><i class="bi bi-@i.icon"></i>@L.T(i.en, i.ar)</a>
+        }
+    }
+    <a class="ms-auto @(active == "sitemap" ? "active" : "")" href="/Kpi/Help/SiteMap" title="@L.T("Which KPI pages you can open", "صفحات المؤشرات المتاحة لك")"><i class="bi bi-diagram-3"></i><span class="d-none d-md-inline">@L.T("Site map", "خريطة الموقع")</span></a>
+</nav>
+@RenderBody()
+
+<div id="flashMessage" hidden>@TempData["Toast"]</div>
+<div class="toast align-items-center text-bg-dark border-0 position-fixed bottom-0 start-50 translate-middle-x mb-4" id="toast" role="status" aria-live="polite" aria-atomic="true" style="z-index:1080">
+    <div class="d-flex">
+        <div class="toast-body" id="toastBody"></div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+</div>
+@section Scripts {
+    <script>window.KPI_AR = @(L.IsAr ? "true" : "false"); window.KT = function (en, ar) { return window.KPI_AR ? ar : en; };</script>
+    <script src="~/kpi/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+}

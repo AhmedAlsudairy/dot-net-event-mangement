@@ -1,0 +1,38 @@
+@page
+@model EntitiesModel
+@{
+    ViewData["Title"] = L.T("Departments", "الجهات");
+    ViewData["Active"] = "entities";
+}
+
+<div class="page-head">
+    <div>
+        <h3>@ViewData["Title"]</h3>
+        <div class="sub">@L.T("The departments that KPI targets can be assigned to. A switched-off department keeps its history but cannot get new assignments.", "الجهات التي تُسند إليها مستهدفات المؤشرات. الجهة الموقوفة تحتفظ بسجلها ولا تُسند إليها مستهدفات جديدة.")</div>
+    </div>
+</div>
+
+<form method="post" asp-page-handler="Add" class="d-flex gap-2 mb-3">
+    <input type="text" name="name" class="form-control" placeholder="@L.T("New department name", "اسم الجهة الجديدة")" required />
+    <button type="submit" class="btn btn-primary text-nowrap"><i class="bi bi-plus-lg"></i>@L.T("Add", "إضافة")</button>
+</form>
+
+<div class="card"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+    <thead><tr><th>@L.T("Department", "الجهة")</th><th style="width:140px">@L["Status"]</th><th style="width:140px"></th></tr></thead>
+    <tbody>
+        @foreach (var e in Model.Entities)
+        {
+            <tr class="@(e.IsActive ? "" : "text-muted")">
+                <td dir="auto" class="bidi-auto">@e.NameAr</td>
+                <td>@if (e.IsActive) { <span class="badge text-bg-success">@L.T("Active", "نشطة")</span> } else { <span class="badge text-bg-secondary">@L.T("Off", "موقوفة")</span> }</td>
+                <td>
+                    <form method="post" asp-page-handler="Toggle" asp-route-id="@e.Id">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">@(e.IsActive ? L.T("Switch off", "إيقاف") : L.T("Switch on", "تفعيل"))</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+</div></div>

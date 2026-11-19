@@ -1,0 +1,37 @@
+@page
+@model SiteMapModel
+@using Kpi.Dashboard.Web.Models
+@{
+    ViewData["Title"] = L.T("KPI site map", "خريطة صفحات المؤشرات");
+    ViewData["Active"] = "sitemap";
+    string Label(string key) => Permissions.Catalog.First(p => p.Key == key).LabelT(L.IsAr);
+}
+
+<div class="page-head">
+    <div>
+        <h3>@ViewData["Title"]</h3>
+        <div class="sub">@L.T("Every KPI page and the permission it needs. Pages you can open are links; the others are greyed out.", "كل صفحات المؤشرات والصلاحية اللازمة لفتحها. الصفحات المتاحة لك روابط، وغيرها معتّم.")</div>
+    </div>
+</div>
+
+<div class="row g-3">
+    @foreach (var s in SiteMapModel.Sections)
+    {
+        <div class="col-md-6 col-xl-3">
+            <div class="card h-100"><div class="card-header">@(L.IsAr ? s.Title : s.TitleEn)</div><div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    @foreach (var n in s.Nodes)
+                    {
+                        var allowed = n.Permission is null || Model.Mine.Contains(n.Permission);
+                        <li class="mb-3 @(allowed ? "" : "opacity-50")">
+                            @if (allowed) { <a class="fw-semibold" href="@n.Url">@(L.IsAr ? n.Title : n.TitleEn)</a> }
+                            else { <span class="fw-semibold"><i class="bi bi-lock-fill"></i> @(L.IsAr ? n.Title : n.TitleEn)</span> }
+                            <div class="small text-muted">@(L.IsAr ? n.Purpose : n.PurposeEn)</div>
+                            @if (n.Permission is not null) { <span class="badge text-bg-light border">@Label(n.Permission)</span> }
+                        </li>
+                    }
+                </ul>
+            </div></div>
+        </div>
+    }
+</div>

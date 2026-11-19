@@ -1,0 +1,238 @@
+@page
+@model IndexModel
+@inject global::Kpi.Dashboard.Web.Services.PermissionService Perms
+@{
+    ViewData["Title"] = L.T("KPI dashboard", "لوحة مؤشرات الأداء");
+    ViewData["Active"] = "dashboard";
+    var canExport = Perms.Has(User, Permissions.ReportExport);
+    (string key, string label)[] tabs = { ("all", L.T("All plans", "كل الخطط")), ("operational", L.T("Operational", "التشغيلية")), ("annual", L.T("Annual", "السنوية")), ("ejada", L.T("Ejada", "الإجادة")) };
+}
+
+@if (Model.IsEmpty)
+{
+    <div class="empty-dashboard">
+        <div class="empty-dashboard-icon"><i class="bi bi-bar-chart-line"></i></div>
+        <h4 class="mb-2">@L.T("No KPIs yet", "لا توجد مؤشرات بعد")</h4>
+        @if (Model.CanManageKpis)
+        {
+            <p class="text-muted mb-4">@L.T("Import the KPI workbook from Excel, or add a single KPI by hand.", "استورد ملف المؤشرات من Excel، أو أضِف مؤشرًا واحدًا يدويًا.")</p>
+            <div class="d-flex flex-wrap justify-content-center gap-2">
+                <a class="btn btn-primary" href="/Kpi/Admin/ImportExcel"><i class="bi bi-file-earmark-excel"></i>@L.T("Import from Excel", "استيراد من Excel")</a>
+                <a class="btn btn-outline-primary" href="/Kpi/Admin/KpiForm"><i class="bi bi-plus-lg"></i>@L.T("Add a KPI", "إضافة مؤشر")</a>
+            </div>
+        }
+        else
+        {
+            <p class="text-muted mb-0">@L.T("The administrator has not imported the KPIs yet.", "لم يقم مدير النظام باستيراد المؤشرات بعد.")</p>
+        }
+    </div>
+}
+else
+{
+<div class="page-head">
+    <div>
+        <h3>@ViewData["Title"]</h3>
+        <div class="sub">
+            @if (Model.IsEntityScoped) { @L.T("Showing only", "تعرض فقط بيانات") <strong>@Model.ScopedEntityName</strong> }
+            else { @L.T("Execution and alignment of the strategic KPIs across all departments.", "تنفيذ المؤشرات الاستراتيجية ومواءمتها عبر جميع الجهات.") }
+        </div>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="kpi-pct"><div class="ring" style="--p:@Model.OverviewStats.OverallPct"></div><div><div class="v">@Model.OverviewStats.OverallPct%</div><div class="l">@L.T("Overall completion", "نسبة الإنجاز الإجمالية")</div></div></div>
+        <a class="btn btn-outline-primary" href="/Kpi/Tracking"><i class="bi bi-table"></i>@L.T("Open tracking", "جدول التتبع")</a>
+        @if (canExport) { <a class="btn btn-outline-success" href="/Kpi/Reports/Export"><i class="bi bi-file-earmark-excel"></i>@L.T("Export", "تصدير")</a> }
+    </div>
+</div>
+
+<div class="section-title justify-content-between flex-wrap" style="margin-top:0">
+    <div class="d-flex align-items-baseline gap-2"><h5>@L.T("Execution", "متابعة التنفيذ")</h5><span class="sub">@L.T("Status of the targets assigned to departments", "مواقف المستهدفات المُسندة للجهات")</span></div>
+    <nav class="seg">
+        @foreach (var (key, label) in tabs) { <a class="@(Model.Plan == key ? "active" : "")" href="/Kpi/Dashboard?plan=@key">@label</a> }
+    </nav>
+</div>
+
+<div class="row g-3 mb-3">
+    @{
+        var tiles = new (string ico, string tone, string label, int n)[]
+        {
+            ("layers", "brand", L.T("Tracked targets", "إجمالي عناصر المتابعة"), Model.OverviewStats.Total),
+            ("check-circle", "ok", L.T("Done", "منفذ"), Model.OverviewStats.Done),
+            ("hourglass-split", "warn", L.T("In progress", "قيد التنفيذ"), Model.OverviewStats.Prog),
+            ("x-circle", "bad", L.T("Not done", "لم ينفذ"), Model.OverviewStats.Low),
+        };
+    }
+    @foreach (var t in tiles)
+    {
+        <div class="col-6 col-lg-3"><div class="stat static d-flex align-items-center gap-3"><span class="ico @t.tone"><i class="bi bi-@t.ico"></i></span><div><div class="n @t.tone">@L.Num(t.n)</div><div class="l">@t.label</div></div></div></div>
+    }
+</div>
+
+<div class="row g-3 mb-2">
+    <div class="col-lg-6"><div class="card h-100"><div class="card-header"><i class="bi bi-pie-chart"></i>@L.T("Status breakdown", "توزيع مواقف التنفيذ")</div><div class="card-body">
+        <div class="chart-wrap" style="height:280px"><canvas id="planStatusChart"></canvas></div>
+    </div></div></div>
+    <div class="col-lg-6"><div class="card h-100"><div class="card-header"><i class="bi bi-bar-chart-steps"></i>@L.T("Status by plan", "مقارنة المواقف بين الخطط")</div><div class="card-body">
+        <div class="chart-wrap" style="height:280px"><canvas id="planComparisonChart"></canvas></div>
+    </div></div></div>
+</div>
+
+<div class="section-title"><h5>@L.T("Attention", "يحتاج متابعة")</h5><span class="sub">@L.T("Overdue targets and assignment coverage", "المستهدفات المتأخرة وتغطية الإسناد")</span></div>
+<div class="row g-3 mb-3">
+    @{
+        var risk = new List<(string ico, string tone, string label, int n)>
+        {
+            ("exclamation-triangle", "bad", L.T("Overdue", "متأخرة عن موعدها"), Model.AtRiskItems.Count),
+            ("link-45deg", "brand", L.T("Assigned to a department", "مُسندة لجهة"), Model.Coverage.Assigned),
+            ("question-circle", "warn", L.T("Not assigned yet", "غير مُسندة بعد"), Model.Coverage.Unassigned),
+        };
+        if (Model.Scorecard.Count > 0) risk.Add(("trophy", "ok", L.T("Departments with tracking", "جهات لها متابعة نشطة"), Model.Scorecard.Count));
+    }
+    @foreach (var t in risk)
+    {
+        <div class="col-6 col-lg-3"><div class="stat static d-flex align-items-center gap-3"><span class="ico @t.tone"><i class="bi bi-@t.ico"></i></span><div><div class="n @t.tone">@L.Num(t.n)</div><div class="l">@t.label</div></div></div></div>
+    }
+</div>
+<div class="row g-3 mb-2">
+    <div class="col-lg-5"><div class="card h-100"><div class="card-header"><i class="bi bi-link-45deg"></i>@L.T("Assignment coverage", "تغطية الإسناد للجهات")</div><div class="card-body">
+        <div class="chart-wrap" style="height:260px"><canvas id="coverageChart"></canvas></div>
+    </div></div></div>
+    <div class="col-lg-7"><div class="card h-100">
+        <div class="card-header"><i class="bi bi-exclamation-triangle"></i>@L.T("Most overdue", "الأكثر تأخرًا")<span class="badge text-bg-danger ms-auto">@Model.AtRiskItems.Count</span></div>
+        @if (Model.AtRiskItems.Count == 0)
+        {
+            <div class="empty"><i class="bi bi-check2-circle text-success"></i>@L.T("Nothing is overdue.", "لا توجد عناصر متأخرة حاليًا.")</div>
+        }
+        else
+        {
+            <div class="table-responsive" style="max-height:300px;overflow:auto">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>#</th><th>@L.T("KPI", "المؤشر")</th><th>@L.T("Department", "الجهة")</th><th>@L.T("Deadline", "الموعد")</th><th>@L.T("Late by", "التأخير")</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in Model.AtRiskItems)
+                        {
+                            <tr>
+                                <td class="text-muted">@r.Sn</td>
+                                <td style="max-width:260px"><div class="text-truncate bidi-auto" dir="auto" style="max-width:260px" title="@r.KpiText">@r.KpiText</div></td>
+                                <td style="max-width:160px"><div class="text-truncate" style="max-width:160px" title="@r.EntityName">@r.EntityName</div></td>
+                                <td class="text-nowrap">@r.Deadline.ToString("yyyy-MM-dd")</td>
+                                <td><span class="badge text-bg-danger">@r.DaysOverdue @L.T("days", "يوم")</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div></div>
+</div>
+@if (Model.Scorecard.Count > 0)
+{
+    <div class="card mt-3"><div class="card-header"><i class="bi bi-trophy"></i>@L.T("Departments by completion", "ترتيب الجهات حسب نسبة الإنجاز")</div><div class="card-body">
+        <div class="chart-wrap" id="scorecardWrap" style="height:360px"><canvas id="scorecardChart"></canvas></div>
+    </div></div>
+}
+
+<div class="section-title"><h5>@L.T("Alignment", "المواءمة")</h5><span class="sub">@L.T("How the KPIs map to the plans, from the imported workbook", "ارتباط المؤشرات بالخطط، من ملف Excel المستورد")</span></div>
+<div class="row g-3 mb-3">
+    @{
+        var al = new (string label, int n)[]
+        {
+            (L.T("Total KPIs", "إجمالي المؤشرات"), Model.Alignment.Total),
+            (L.T("Mapped to Ejada", "مرتبطة بالإجادة"), Model.Alignment.EjadaCount),
+            (L.T("Mapped to the annual plan", "مرتبطة بالخطة السنوية"), Model.Alignment.AnnualCount),
+            (L.T("Mapped to accreditation", "مرتبطة بالاعتماد"), Model.Alignment.AccreditationCount),
+        };
+    }
+    @foreach (var t in al) { <div class="col-6 col-lg-3"><div class="stat static"><div class="n brand">@L.Num(t.n)</div><div class="l">@t.label</div></div></div> }
+</div>
+<div class="row g-3 mb-3">
+    <div class="col-lg-6"><div class="card h-100"><div class="card-header"><i class="bi bi-diagram-3"></i>@L.T("KPIs by domain", "المؤشرات حسب المجال")</div><div class="card-body">
+        <div class="chart-wrap" style="height:300px"><canvas id="domainChart"></canvas></div>
+    </div></div></div>
+    <div class="col-lg-6"><div class="card h-100"><div class="card-header"><i class="bi bi-shield-check"></i>@L.T("ESG classification", "التصنيف (ESG)")</div><div class="card-body">
+        <div class="chart-wrap" style="height:300px"><canvas id="classificationChart"></canvas></div>
+    </div></div></div>
+</div>
+<div class="card mb-4"><div class="card-header"><i class="bi bi-bullseye"></i>@L.T("KPIs by strategic goal", "المؤشرات حسب الهدف الاستراتيجي")</div><div class="card-body">
+    <div class="chart-wrap" style="height:460px"><canvas id="goalChart"></canvas></div>
+</div></div>
+}
+
+@section Scripts {
+@if (!Model.IsEmpty)
+{
+<script>
+(function(){
+  // Chart.js needs an explicit-height wrapper (.chart-wrap) plus maintainAspectRatio:false inside a grid column.
+  var css = getComputedStyle(document.documentElement);
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  Chart.defaults.color = '#5b6675';
+  Chart.defaults.maintainAspectRatio = false;
+  Chart.defaults.responsive = true;
+  var rtl = document.documentElement.dir === 'rtl';
+
+  var OK = '#1a8f5b', WARN = '#e0a526', BAD = '#c7384a', BRAND = '#0B3D5C', BRAND2 = '#14587f';
+  var PALETTE = [BRAND, '#2f8f9d', WARN, '#7a5af8', BAD, '#6b7785'];
+  var statusData = @Html.Raw(Model.StatusChartJson);
+  var planCmp = @Html.Raw(Model.PlanComparisonChartJson);
+  var domain = @Html.Raw(Model.DomainChartJson);
+  var goal = @Html.Raw(Model.GoalChartJson);
+  var classification = @Html.Raw(Model.ClassificationChartJson);
+  var coverage = @Html.Raw(Model.CoverageChartJson);
+  var scorecard = @Html.Raw(Model.ScorecardChartJson);
+  var legend = { position: 'bottom', rtl: rtl, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 } };
+  // A chart with nothing to show gets a short message instead of an empty box.
+  function hasData(arrs) { return arrs.some(function (a) { return (a || []).some(function (v) { return v > 0; }); }); }
+  function emptyMsg(id, text) { var c = document.getElementById(id); if (!c) return true; c.parentElement.innerHTML = '<div class="empty h-100 d-flex flex-column justify-content-center"><i class="bi bi-bar-chart"></i>' + text + '</div>'; return true; }
+  var noStatus = KT('No status has been recorded yet. Assign departments and set their status on the tracking page.', 'لم يُسجَّل أي موقف بعد. أسند الجهات وحدّد مواقفها من جدول التتبع.');
+  if (!hasData([statusData.data])) emptyMsg('planStatusChart', noStatus);
+  if (!hasData([planCmp.done, planCmp.prog, planCmp.low])) emptyMsg('planComparisonChart', noStatus);
+
+  if (document.getElementById('planStatusChart')) new Chart(document.getElementById('planStatusChart'), {
+    type: 'doughnut',
+    data: { labels: statusData.labels, datasets: [{ data: statusData.data, backgroundColor: [OK, WARN, BAD], borderWidth: 2 }] },
+    options: { cutout: '62%', plugins: { legend: legend } }
+  });
+  if (document.getElementById('planComparisonChart')) new Chart(document.getElementById('planComparisonChart'), {
+    type: 'bar',
+    data: { labels: planCmp.labels, datasets: [
+      { label: planCmp.names[0], data: planCmp.done, backgroundColor: OK, borderRadius: 4 },
+      { label: planCmp.names[1], data: planCmp.prog, backgroundColor: WARN, borderRadius: 4 },
+      { label: planCmp.names[2], data: planCmp.low, backgroundColor: BAD, borderRadius: 4 }
+    ]},
+    options: { plugins: { legend: legend }, scales: { x: { stacked: true, reverse: rtl, grid: { display: false } }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, position: rtl ? 'right' : 'left' } } }
+  });
+  new Chart(document.getElementById('domainChart'), {
+    type: 'bar',
+    data: { labels: domain.labels, datasets: [{ data: domain.data, backgroundColor: BRAND2, borderRadius: 4 }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 }, position: rtl ? 'right' : 'left' }, x: { reverse: rtl, grid: { display: false }, ticks: { autoSkip: false, maxRotation: 45, minRotation: 20 } } } }
+  });
+  // Long goal names read better as horizontal bars; the height follows the number of goals.
+  document.getElementById('goalChart').parentElement.style.height = Math.max(340, goal.labels.length * 28) + 'px';
+  new Chart(document.getElementById('goalChart'), {
+    type: 'bar',
+    data: { labels: goal.labels, datasets: [{ data: goal.data, backgroundColor: '#2f8f9d', borderRadius: 4 }] },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, reverse: rtl, ticks: { precision: 0 } }, y: { position: rtl ? 'right' : 'left', ticks: { autoSkip: false } } } }
+  });
+  new Chart(document.getElementById('classificationChart'), {
+    type: 'doughnut',
+    data: { labels: classification.labels, datasets: [{ data: classification.data, backgroundColor: PALETTE, borderWidth: 2 }] },
+    options: { cutout: '55%', plugins: { legend: legend } }
+  });
+  new Chart(document.getElementById('coverageChart'), {
+    type: 'doughnut',
+    data: { labels: coverage.labels, datasets: [{ data: coverage.data, backgroundColor: [BRAND2, '#e5e9ef'], borderWidth: 2 }] },
+    options: { cutout: '62%', plugins: { legend: legend } }
+  });
+  var sc = document.getElementById('scorecardChart');
+  if (sc) {
+    document.getElementById('scorecardWrap').style.height = Math.max(300, scorecard.labels.length * 32) + 'px';
+    new Chart(sc, {
+      type: 'bar',
+      data: { labels: scorecard.labels, datasets: [{ data: scorecard.data, borderRadius: 4, backgroundColor: scorecard.data.map(function (v) { return v >= 70 ? OK : v >= 40 ? WARN : BAD; }) }] },
+      options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, max: 100, reverse: rtl, ticks: { callback: function (v) { return v + '%'; } } }, y: { position: rtl ? 'right' : 'left', ticks: { autoSkip: false } } } }
+    });
+  }
+})();
+</script>
+}
+}

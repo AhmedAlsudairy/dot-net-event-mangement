@@ -1,9 +1,13 @@
 @* "What to do next" box on the event page: depends on the status and on who is looking. *@
 @model EventRequest
+@inject GuestEvents.Services.ApprovalChain Chain
 @{
     var mine = Model.RequesterUsername == User.Identity!.Name;
     var admin = User.IsInRole(Roles.Admin);
-    var hod = User.IsInRole(Roles.Hod);
+    var chainSteps = await Chain.StepsAsync();
+    var stepCount = chainSteps.Count;
+    var curStep = Model.Status == EventStatus.Submitted ? GuestEvents.Services.ApprovalChain.Current(Model, chainSteps) : null;
+    var myTurn = curStep != null && GuestEvents.Services.ApprovalChain.CanDecide(Model, curStep, User);
     var media = User.IsInRole(Roles.Media);
     string tone = "primary"; string title = ""; var steps = new List<string>(); string? link = null, linkText = null;
     var qr = Model.QR;
@@ -15,18 +19,20 @@
             title = L.T("This request is a draft", "هذا الطلب مسودة"); tone = "secondary";
             steps.Add(L.T("Check the details, then press **Submit for approval**. Nothing is sent until you do.", "راجع التفاصيل ثم اضغط **إرسال للموافقة**. لا يُرسل شيء قبل ذلك."));
             break;
-        case EventStatus.Submitted when hod:
-            title = L.T("This request is waiting for your decision", "هذا الطلب بانتظار قرارك"); tone = "warning";
+        case EventStatus.Submitted when myTurn:
+            title = L.T($"This request is waiting for your decision (step \"{curStep!.Name}\")", $"هذا الطلب بانتظار قرارك (الخطوة \"{curStep!.Name}\")"); tone = "warning";
             steps.Add(L.T("Review the details below, then approve or reject it on the **Pending approvals** page.", "راجع التفاصيل أدناه ثم وافق أو ارفض من صفحة **بانتظار الموافقة**."));
+            if (stepCount > 1) steps.Add(L.T("It is only confirmed after every approval step has approved it.", "لا يُعتمد إلا بعد موافقة جميع خطوات الاعتماد."));
             link = Url.Action("Index", "Approvals"); linkText = L.T("Go to pending approvals", "الانتقال إلى الطلبات المعلقة");
             break;
         case EventStatus.Submitted:
-            title = L.T("Waiting for the HOD", "بانتظار رئيس القسم"); tone = "warning";
-            steps.Add(L.T("Nothing to do now. You will get an email as soon as the HOD decides.", "لا يلزمك أي إجراء الآن. ستصلك رسالة بمجرد قرار رئيس القسم."));
-            steps.Add(L.T("If the HOD does not act within 2 working days a reminder is sent automatically.", "إذا لم يتصرف رئيس القسم خلال يومي عمل تُرسل رسالة تذكير تلقائياً."));
+            title = L.T($"Waiting for approval - {curStep?.Name}", $"بانتظار الموافقة - {curStep?.Name}"); tone = "warning";
+            steps.Add(L.T("Nothing to do now. You will get an email as soon as it is decided.", "لا يلزمك أي إجراء الآن. ستصلك رسالة بمجرد القرار."));
+            if (stepCount > 1) steps.Add(L.T($"It goes through {stepCount} approval steps, one after the other. The event is confirmed only after the last one approves.", $"يمر عبر {stepCount} خطوات اعتماد بالتتابع. تُعتمد الفعالية بعد موافقة الخطوة الأخيرة فقط."));
+            steps.Add(L.T("If a step does not act within 2 working days a reminder is sent automatically.", "إذا لم تتصرف الخطوة خلال يومي عمل تُرسل رسالة تذكير تلقائياً."));
             break;
         case EventStatus.Rejected when mine:
-            title = L.T("The HOD asked for changes", "طلب رئيس القسم تعديلات"); tone = "danger";
+            title = L.T("An approver asked for changes", "طلب أحد المعتمدين تعديلات"); tone = "danger";
             steps.Add(L.T("Read the comment above.", "اقرأ التعليق أعلاه."));
             steps.Add(L.T("Press **Edit & resubmit**, fix the request and send it again. The history is kept.", "اضغط **تعديل وإعادة الإرسال** وصحّح الطلب وأرسله مجدداً. يبقى السجل محفوظاً."));
             break;

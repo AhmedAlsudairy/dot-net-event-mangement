@@ -1,6 +1,6 @@
 # Sitemap
 
-Four work areas sit behind one sign-in, plus a public QR area on its own host. The top bar shows only what the signed-in person may use.
+Five work areas (events, visits, research, admin and the KPI dashboard) sit behind one sign-in, plus a public QR area on its own host. The top bar shows only what the signed-in person may use.
 
 ```mermaid
 flowchart TD
@@ -10,19 +10,20 @@ flowchart TD
 
     L["Sign in<br/>/Account/Login<br/>(email + password)"] --> F["Forgot password<br/>/Account/Forgot"]
     L --> H["Help<br/>/Help"]
-    L --> EV
+    L --> HM["Home (by role)<br/>/ - waiting for you, quick actions,<br/>recent requests, upcoming events, KPI snapshot"]
+    HM --> EV
     L --> XV
     L --> RS
     L --> AD
 
     subgraph EV["Events"]
-        E1["My events<br/>/Events (home)"] --> E2["Event details<br/>/Events/Details/{id}"]
+        E1["My events<br/>/Events"] --> E2["Event details<br/>/Events/Details/{id}"]
         E1 --> E3["New event request<br/>/Events/Create"]
         E2 --> E4["Edit and resubmit<br/>/Events/Edit/{id}"]
         E2 --> E5["Food request<br/>/Food/Create?eventId="]
         E2 --> E6["Poster / venue screen<br/>/Events/Poster, /Events/Screen"]
         E2 --> E7["Download image, QR<br/>/Events/DownloadImage, DownloadQr"]
-        E8["Pending approvals (HOD)<br/>/Approvals"]
+        E8["Pending approvals (people of the current step)<br/>/Approvals"]
     end
 
     subgraph XV["External visits (bus)"]
@@ -53,13 +54,13 @@ flowchart TD
 
 ## Who sees what
 
-| Menu item | Staff | HOD | Media | Research in-charge | Admin |
+| Menu item | Staff | HOD / Dean | Media | Research in-charge | Admin |
 |---|---|---|---|---|---|
 | My events | own | all | approved | - | all |
 | New request (event, visit, research) | yes | - | - | - | yes |
 | External visits | own | approvers see all submitted | - | - | all |
 | Research | own uploads | - | - | archive (all uploads) | archive |
-| Pending approvals | - | yes | - | - | - |
+| Pending approvals | only if named or by role in an approval step | yes (default steps) | - | - | only if named in a step |
 | Reports, Food requests, Admin menu | - | - | - | - | yes |
 | Help | yes | yes | yes | yes | yes |
 
@@ -83,7 +84,8 @@ Visit approvers and bus coordinators are chosen in **Settings > External visits 
 | `/Events/Details/{id}` | owner, HOD, Admin, Media (approved) | Details, history, downloads |
 | `/Events/DownloadImage/{id}`, `/Events/DownloadQr/{id}` | owner, HOD, Admin, Media | Event image and QR code |
 | `/Events/Poster/{id}`, `/Events/Screen/{id}` | Staff, Admin | Printable QR poster, venue screen (rotating QR) |
-| `/Approvals` | HOD | Pending event requests, approve or reject |
+| `/Approvals` | anyone who may decide at a step | Requests waiting at a step the person may decide (and has not decided yet). Approve or reject; the event is confirmed only after the last step approves |
+| `/Admin/ApprovalFlow` | Admin | Edit the approval chain: steps, order, who decides, approvals needed, extra email, on/off |
 | `/Food/Create?eventId=` | event owner, Admin | Food request for an approved event |
 | `/Food` | Admin | Confirm or reject food requests |
 
@@ -117,3 +119,23 @@ Visit approvers and bus coordinators are chosen in **Settings > External visits 
 |---|---|
 | `/p/{token}` | Check in at an event (name and organization) |
 | `/p/{token}/evaluate` | Anonymous evaluation after check-in |
+
+
+## KPI dashboard (`/Kpi`)
+
+Same sign-in and top bar as the rest of the app. A row of buttons at the top of each KPI page shows only what the person's permissions allow.
+
+| Route | Needs permission | What it does |
+|---|---|---|
+| `/Kpi` | any signed-in role | Sends you to the first KPI page you may open |
+| `/Kpi/Dashboard` | dashboard.view | Charts and statistics |
+| `/Kpi/Tracking` | tracking.view | Table of KPIs, entity assignment, targets, deadlines, status |
+| `/Kpi/Reports/Export` | report.export | Excel report |
+| `/Kpi/Admin/Kpis`, `/Kpi/Admin/KpiForm` | kpi.manage | List, add, edit, delete KPIs |
+| `/Kpi/Admin/Review` | kpi.manage | Review items |
+| `/Kpi/Admin/ImportExcel` | kpi.import | Excel import and template |
+| `/Kpi/Admin/Entities` | entity.manage | KPI entities (departments) |
+| `/Kpi/Admin/Roles` | role.manage | KPI roles and permissions (a role named like a directory role applies to it) |
+| `/Kpi/Help/SiteMap` | any | KPI page list |
+
+The Admin menu also has shortcuts to KPI permissions, KPI entities and Excel import. The old KPI login, user and LDAP pages no longer exist: use the normal `/Account/Login`.

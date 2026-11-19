@@ -1,0 +1,156 @@
+@model HomeVm
+@{
+    ViewData["Title"] = L.T("Home", "الرئيسية");
+    var h = DateTime.Now.Hour;
+    var greet = h < 12 ? L.T("Good morning", "صباح الخير") : h < 17 ? L.T("Good afternoon", "مساء الخير") : L.T("Good evening", "مساء الخير");
+    var first = Model.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? Model.Name;
+    string RoleName(string r) => r switch
+    {
+        Roles.Staff => L.T("Staff", "موظف"), Roles.Hod => L.T("Head of department", "رئيس القسم"), Roles.Dean => L.T("Dean", "العميد"),
+        Roles.Kpi => L.T("KPI team", "فريق المؤشرات"), Roles.KpiManager => L.T("KPI manager", "مدير المؤشرات"), Roles.KpiEditor => L.T("KPI editor", "محدّث المتابعة"),
+        Roles.KpiOfficer => L.T("Department KPI officer", "مسؤول مؤشرات الجهة"), Roles.KpiViewer => L.T("KPI viewer", "مطّلع على المؤشرات"), Roles.Media => L.T("Media officer", "مسؤول الإعلام"), Roles.Research => L.T("Research in-charge", "مسؤول الأبحاث"), Roles.Admin => L.T("Administrator", "مدير النظام"), _ => r
+    };
+}
+<div class="page-head home-head">
+    <div>
+        <h3>@greet, @first</h3>
+        <div class="sub d-flex flex-wrap gap-1 align-items-center mt-1">
+            @foreach (var r in Model.Roles) { <span class="role-chip">@RoleName(r)</span> }
+            <span class="ms-1">@DateTime.Today.ToString(L.IsAr ? "dddd d MMMM" : "dddd, d MMMM", new System.Globalization.CultureInfo(L.IsAr ? "ar-OM" : "en-GB"))</span>
+        </div>
+    </div>
+    @if (Model.Actions.FirstOrDefault(a => a.Primary) is { } p)
+    {
+        <a class="btn btn-primary" href="@p.Url"><i class="bi bi-@p.Icon"></i>@p.Label</a>
+    }
+</div>
+
+<div class="access-strip">
+    <i class="bi bi-person-badge"></i>
+    <span>@L.T("You are signed in as", "سجّلت الدخول بصفة") @foreach (var r in RoleInfo.All.Where(r => User.IsInRole(r.Key))) { <span class="role-chip" title="@L.T(r.DescEn, r.DescAr)">@L.T(r.En, r.Ar)</span> }</span>
+    <a class="ms-auto small text-nowrap" asp-controller="Account" asp-action="Me">@L.T("What can I open?", "ماذا يمكنني فتحه؟") <i class="bi bi-chevron-@(L.IsAr ? "left" : "right")"></i></a>
+</div>
+
+@if (Model.Setup is { } setup && setup.Any(x => !x.Done))
+{
+    <div class="card mb-3 border-warning"><div class="card-header"><i class="bi bi-rocket-takeoff"></i>@L.T("Finish the setup", "أكمل الإعداد")<span class="badge bg-warning text-dark ms-auto">@setup.Count(x => x.Done) / @setup.Count</span></div>
+    <div class="card-body"><p class="text-muted small mb-2">@L.T("Admin only: these steps make sure sign-in, approvals and emails work for everyone.", "للإدارة فقط: هذه الخطوات تضمن عمل تسجيل الدخول والموافقات والبريد للجميع.")</p>
+        <ul class="setup-list">
+        @foreach (var it in setup)
+        {
+            <li><i class="bi @(it.Done ? "bi-check-circle-fill ok" : "bi-circle todo") fs-5"></i><div class="flex-grow-1"><div class="@(it.Done ? "done-text" : "fw-semibold")">@it.Label</div>@if (!it.Done) { <div class="small text-muted">@it.Hint</div> }</div>
+                @if (!it.Done) { <a class="btn btn-sm btn-outline-primary" href="@it.Url">@L.T("Do it", "نفّذ")</a> }</li>
+        }
+        </ul></div></div>
+}
+
+<div class="section-label">@L.T("Waiting for you", "بانتظارك")</div>
+@if (Model.Tasks.Count == 0)
+{
+    <div class="card mb-4"><div class="card-body d-flex align-items-center gap-3">
+        <span class="task-ico ok"><i class="bi bi-check2-all"></i></span>
+        <div><div class="fw-semibold">@L.T("You're all caught up", "لا يوجد ما ينتظرك")</div><div class="small text-muted">@L.T("Nothing needs your action right now.", "لا شيء يحتاج إجراءً منك الآن.")</div></div>
+    </div></div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        @foreach (var t in Model.Tasks)
+        {
+            <div class="col-md-6">
+                <a class="task-card @t.Tone" href="@t.Url">
+                    <span class="task-ico @t.Tone"><i class="bi bi-@t.Icon"></i></span>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="d-flex align-items-baseline gap-2"><span class="task-n">@L.Num(t.Count)</span><span class="fw-semibold">@t.Title</span></div>
+                        <div class="small text-muted">@t.Hint</div>
+                    </div>
+                    <span class="task-go">@t.Action <i class="bi bi-chevron-@(L.IsAr ? "left" : "right")"></i></span>
+                </a>
+            </div>
+        }
+    </div>
+}
+
+<div class="row g-3">
+    <div class="col-lg-8 d-flex flex-column gap-3">
+        @if (Model.Actions.Count > 0)
+        {
+            <div class="card"><div class="card-header"><i class="bi bi-lightning-charge"></i>@L.T("Quick actions", "إجراءات سريعة")</div>
+            <div class="card-body"><div class="quick-grid">
+                @foreach (var a in Model.Actions)
+                {
+                    <a class="quick @(a.Primary ? "primary" : "")" href="@a.Url"><i class="bi bi-@a.Icon"></i><span>@a.Label</span></a>
+                }
+            </div></div></div>
+        }
+
+        @if (User.IsInRole(Roles.Staff) || User.IsInRole(Roles.Admin))
+        {
+            <div class="card"><div class="card-header"><i class="bi bi-clock-history"></i>@L.T("My recent requests", "آخر طلباتي")<a class="ms-auto small fw-normal" asp-controller="Events" asp-action="Index">@L.T("All my events", "كل فعالياتي")</a></div>
+            @if (Model.Mine.Count == 0)
+            {
+                <div class="empty py-4"><i class="bi bi-inbox"></i>@L.T("You have not made any request yet.", "لم تقدّم أي طلب بعد.")</div>
+            }
+            else
+            {
+                <div class="list-group list-group-flush">
+                    @foreach (var m in Model.Mine)
+                    {
+                        <a class="list-group-item list-group-item-action d-flex align-items-center gap-3 py-3" href="@m.Url">
+                            <span class="kind-ico"><i class="bi bi-@(m.Kind == "event" ? "calendar2-event" : "bus-front")"></i></span>
+                            <div class="flex-grow-1 min-w-0"><div class="fw-semibold text-truncate">@m.Name</div><div class="small text-muted">@(m.Kind == "event" ? L.T("Event", "فعالية") : L.T("External visit", "زيارة خارجية")) · @m.Date.ToString("yyyy-MM-dd")</div></div>
+                            <span class="badge text-bg-@m.StatusTone">@m.Status</span>
+                        </a>
+                    }
+                </div>
+            }
+            </div>
+        }
+
+        <div class="card"><div class="card-header"><i class="bi bi-calendar-week"></i>@L.T("Coming up (next 14 days)", "القادم (خلال 14 يومًا)")</div>
+        @if (Model.Upcoming.Count == 0)
+        {
+            <div class="empty py-4"><i class="bi bi-calendar2"></i>@L.T("No approved events in the next two weeks.", "لا توجد فعاليات معتمدة خلال الأسبوعين القادمين.")</div>
+        }
+        else
+        {
+            <div class="list-group list-group-flush">
+                @foreach (var e in Model.Upcoming)
+                {
+                    <a class="list-group-item list-group-item-action d-flex align-items-center gap-3 py-3" asp-controller="Events" asp-action="Details" asp-route-id="@e.Id">
+                        <span class="date-tile"><span class="d">@e.Date.Day</span><span class="m">@e.Date.ToString("MMM", new System.Globalization.CultureInfo(L.IsAr ? "ar-OM" : "en-GB"))</span></span>
+                        <div class="flex-grow-1 min-w-0"><div class="fw-semibold text-truncate">@e.Name</div><div class="small text-muted text-truncate">@e.StartTime.ToString(@"hh\:mm") · @e.Venue · @e.Presenter</div></div>
+                    </a>
+                }
+            </div>
+        }
+        </div>
+    </div>
+
+    <div class="col-lg-4 d-flex flex-column gap-3">
+        @if (Model.Kpi is { } k)
+        {
+            <div class="card"><div class="card-header"><i class="bi bi-bullseye"></i>@L.T("KPIs at a glance", "المؤشرات باختصار")</div><div class="card-body">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="pct-ring" style="--p:@k.Pct"><span>@k.Pct%</span></div>
+                    <div><div class="fw-semibold">@L.T("Overall completion", "نسبة الإنجاز الإجمالية")</div><div class="small text-muted">@L.Num(k.Kpis) @L.T("KPIs tracked", "مؤشرًا قيد المتابعة")</div></div>
+                </div>
+                <div class="kpi-mini">
+                    <div><span class="dot ok"></span>@L.T("Done", "منفذ")<b>@L.Num(k.Done)</b></div>
+                    <div><span class="dot warn"></span>@L.T("In progress", "قيد التنفيذ")<b>@L.Num(k.Prog)</b></div>
+                    <div><span class="dot bad"></span>@L.T("Not done", "لم ينفذ")<b>@L.Num(k.Low)</b></div>
+                    <div><span class="dot bad"></span>@L.T("Overdue", "متأخرة")<b>@L.Num(k.Overdue)</b></div>
+                    <div><span class="dot muted"></span>@L.T("Not assigned", "غير مُسندة")<b>@L.Num(k.Unassigned)</b></div>
+                </div>
+                <div class="d-flex gap-2 mt-3">
+                    <a class="btn btn-outline-primary btn-sm flex-grow-1" href="/Kpi/Dashboard">@L.T("Dashboard", "لوحة المتابعة")</a>
+                    <a class="btn btn-outline-primary btn-sm flex-grow-1" href="/Kpi/Tracking">@(k.CanEdit ? L.T("Update tracking", "تحديث التتبع") : L.T("Tracking", "جدول التتبع"))</a>
+                </div>
+            </div></div>
+        }
+        <div class="card"><div class="card-header"><i class="bi bi-life-preserver"></i>@L.T("Need help?", "تحتاج مساعدة؟")</div><div class="card-body small">
+            <p class="text-muted mb-2">@L.T("The guide explains each step for your role.", "الدليل يشرح كل خطوة حسب دورك.")</p>
+            <a class="btn btn-sm btn-outline-secondary" asp-controller="Help" asp-action="Index"><i class="bi bi-book"></i>@L.T("Open the guide", "افتح الدليل")</a>
+        </div></div>
+    </div>
+</div>

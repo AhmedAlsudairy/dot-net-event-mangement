@@ -25,6 +25,7 @@
         <div class="col-md-6"><label class="form-label req">@L.T("Destination", "الوجهة")</label><input class="form-control" asp-for="Destination" required maxlength="200" /></div>
         <div class="col-12"><label class="form-label">@L.T("Destination address", "عنوان الوجهة")</label><input class="form-control" asp-for="DestinationAddress" maxlength="500" /></div>
         <div class="col-12"><label class="form-label">@L.T("Purpose", "الغرض من الزيارة")</label><textarea rows="3" class="form-control" asp-for="Purpose"></textarea></div>
+        <div class="col-12"><partial name="_KpiSelect" model="Model.KpiId" /></div>
     </div></div>
 
     <div class="card mb-3"><div class="card-header"><i class="bi bi-bus-front"></i>@L.T("Bus & timing", "الحافلة والوقت")</div><div class="card-body row g-3">

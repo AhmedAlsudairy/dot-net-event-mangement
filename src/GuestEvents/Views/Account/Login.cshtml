@@ -5,16 +5,16 @@
         <h3 class="mb-0">@L["App"]</h3>
         <p class="mb-0 text-white-50">@L["LoginTagline"]</p>
         <ul>
-            <li><i class="bi bi-send-check"></i> @L["Feat1"]</li>
-            <li><i class="bi bi-image"></i> @L["Feat2"]</li>
-            <li><i class="bi bi-qr-code-scan"></i> @L["Feat3"]</li>
+            <li><i class="bi bi-diagram-3"></i> @L["Feat1"]</li>
+            <li><i class="bi bi-qr-code-scan"></i> @L["Feat2"]</li>
+            <li><i class="bi bi-bullseye"></i> @L["Feat3"]</li>
         </ul>
     </div>
     <div class="login-form">
         <h4 class="mb-1">@L["Login"]</h4>
         <p class="text-muted">@L["LoginHint"]</p>
         @if (ViewBag.ErrorKey is string ek) { <div class="alert alert-danger py-2" role="alert"><i class="bi bi-exclamation-triangle"></i> @L[ek]</div> }
-        <form method="post">
+        <form method="post" id="loginForm">
             <input type="hidden" name="returnUrl" value="@ViewBag.ReturnUrl" />
             <div class="mb-3"><label class="form-label">@L.T("Email address", "البريد الإلكتروني")</label>
                 <div class="input-group"><span class="input-group-text bg-white"><i class="bi bi-envelope"></i></span><input name="username" class="form-control" autocomplete="username" placeholder="name@company.com" autofocus required /></div></div>
@@ -29,6 +29,38 @@
             <div class="text-center text-muted small my-3">- @L.T("or", "أو") -</div>
             <a class="btn btn-outline-primary w-100" href="/Account/Sso?returnUrl=@Uri.EscapeDataString(ViewBag.ReturnUrl as string ?? "")"><i class="bi bi-windows"></i> @L.T("Sign in with Windows (no password)", "الدخول بحساب ويندوز (بدون كلمة مرور)")</a>
         }
+        @if (ViewBag.Dev == true)
+        {
+            <div class="dev-box mt-3">
+                <div class="fw-semibold small mb-1"><i class="bi bi-beaker"></i> @L.T("Test mode - sign in as:", "وضع التجربة - سجّل الدخول كـ:") <span class="text-muted fw-normal">@L.T("password for all:", "كلمة المرور للجميع:")</span> <code>dev</code></div>
+                <div class="dev-users">
+                    @foreach (var (u, en, ar, goesEn, goesAr) in new[] {
+                        ("staff", "Staff", "موظف", "Events and visits", "الفعاليات والزيارات"),
+                        ("hod", "HOD", "رئيس القسم", "Approves events", "يعتمد الفعاليات"),
+                        ("dean", "Dean", "العميد", "Approves events", "يعتمد الفعاليات"),
+                        ("media", "Media", "الإعلام", "Approved events", "الفعاليات المعتمدة"),
+                        ("research", "Research", "الأبحاث", "Research archive", "أرشيف الأبحاث"),
+                        ("kpi", "KPI team", "فريق المؤشرات", "All KPI work", "كل أعمال المؤشرات"),
+                        ("kpimanager", "KPI manager", "مدير المؤشرات", "Defines KPIs", "يعرّف المؤشرات"),
+                        ("kpieditor", "KPI editor", "محدّث المتابعة", "Updates any dept", "يحدّث أي جهة"),
+                        ("kpiofficer", "Dept officer", "مسؤول الجهة", "Own dept only", "جهته فقط"),
+                        ("kpiviewer", "KPI viewer", "مطّلع", "View + export", "اطلاع وتصدير"),
+                        ("admin", "Admin", "المدير", "Everything", "كل شيء") })
+                    {
+                        <button type="button" class="dev-user" data-u="@u"><b>@L.T(en, ar)</b><span>@L.T(goesEn, goesAr)</span></button>
+                    }
+                </div>
+            </div>
+        }
+        <details class="login-guide mt-3">
+            <summary><i class="bi bi-compass"></i> @L.T("What will I see after signing in?", "ماذا سأرى بعد تسجيل الدخول؟")</summary>
+            <ul>
+                <li><i class="bi bi-calendar2-event"></i><div><b>@L.T("Events, trips and research", "الفعاليات والرحلات والأبحاث")</b><span>@L.T("Staff ask for events and bus trips; HOD and Dean approve; Media and Research see what they need.", "الموظفون يطلبون الفعاليات والرحلات؛ رئيس القسم والعميد يعتمدون؛ الإعلام والأبحاث يرون ما يحتاجونه.")</span></div></li>
+                <li><i class="bi bi-bullseye"></i><div><b>@L.T("KPIs", "المؤشرات")</b><span>@L.T("KPI managers, editors, department officers and viewers go straight to the KPI dashboard.", "مدير المؤشرات والمحدّث ومسؤول الجهة والمطّلع يدخلون لوحة المؤشرات مباشرة.")</span></div></li>
+                <li><i class="bi bi-gear"></i><div><b>@L.T("Administration", "الإدارة")</b><span>@L.T("Admins also manage settings, the approval flow, roles and reports.", "المدير يدير أيضًا الإعدادات ومسار الموافقات والأدوار والتقارير.")</span></div></li>
+            </ul>
+            <div class="small text-muted">@L.T("Your role decides what you see. After signing in, open your name at the top and choose My access to see exactly what you can open.", "دورك يحدد ما تراه. بعد الدخول افتح اسمك في الأعلى واختر «صلاحياتي» لترى ما يمكنك فتحه بالضبط.")</div>
+        </details>
         <div class="text-muted small mt-3">
             <i class="bi bi-info-circle"></i> @L.T("Sign in with your company email address and the same password you use for your computer.", "سجّل الدخول ببريد الشركة الإلكتروني وكلمة المرور نفسها التي تستخدمها لجهازك.")<br />
             <i class="bi bi-life-preserver"></i> @L.T("Cannot sign in? Your account may not have a role yet - ask the Admin to add you.", "لا تستطيع الدخول؟ قد لا يكون لحسابك دور بعد - اطلب من الإدارة إضافتك.")
@@ -37,6 +69,9 @@
 </div>
 @section Scripts {
 <script>
+    document.querySelectorAll('.dev-user').forEach(function (b) {
+        b.onclick = function () { document.querySelector('[name=username]').value = b.dataset.u; document.getElementById('pw').value = 'dev'; document.getElementById('loginForm').requestSubmit(); };
+    });
     document.getElementById('pwt').onclick = function () {
         var p = document.getElementById('pw'), show = p.type === 'password'; p.type = show ? 'text' : 'password';
         this.innerHTML = '<i class="bi bi-eye' + (show ? '-slash' : '') + '"></i>';

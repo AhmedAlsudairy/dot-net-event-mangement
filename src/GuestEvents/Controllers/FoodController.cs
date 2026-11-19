@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GuestEvents.Controllers;
 
-[Authorize(Policy = "Viewer")]
+[Authorize(Policy = "EventsUser")]
 public class FoodController : AppController
 {
     private readonly AppDb _db;
@@ -64,7 +64,7 @@ public class FoodController : AppController
     private async Task<EventRequest?> Owned(int eventId)
     {
         var e = await _db.Events.FindAsync(eventId);
-        if (e == null || e.Status < EventStatus.Approved || e.Status == EventStatus.Rejected) return null; // only approved events
+        if (e == null || !e.Status.IsLive()) return null; // only approved events
         return e.RequesterUsername == Username || IsAdmin ? e : null;
     }
 }

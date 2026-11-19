@@ -27,7 +27,7 @@ public class AdminController : AppController
         {
             if (!SettingsService.Defaults.ContainsKey(kv.Key)) continue; // ignore unknown keys
             var v = (kv.Value ?? "").Trim();
-            if (kv.Key is "AdminMailbox" or "MediaOfficerEmail" or "AdminExtraTo" or "AdminCc" or "HodEmail" or "VisitApproverEmail" or "VisitBusEmail" or "VisitBusCc" or "ResearchEmail" or "ResearchCc" or "PasswordHelpEmail")
+            if (kv.Key is "AdminMailbox" or "MediaOfficerEmail" or "AdminExtraTo" or "AdminCc" or "HodEmail" or "DeanEmail" or "VisitApproverEmail" or "VisitBusEmail" or "VisitBusCc" or "ResearchEmail" or "ResearchCc" or "PasswordHelpEmail")
             {
                 var list = MailService.Split(v);
                 if (list.Any(x => !System.Net.Mail.MailAddress.TryCreate(x, out _)) || (kv.Key is "AdminMailbox" or "MediaOfficerEmail" && list.Count != 1))
@@ -45,12 +45,14 @@ public class AdminController : AppController
         var s = await _settings.AllAsync();
         Loc.UseArabicDigits = SettingsService.Bool(s, "UseArabicDigits");
         Loc.DateFmt = s["DateFormat"];
+        if (!string.IsNullOrWhiteSpace(s["AppNameEn"])) Loc.BrandEn = s["AppNameEn"].Trim();
+        if (!string.IsNullOrWhiteSpace(s["AppNameAr"])) Loc.BrandAr = s["AppNameAr"].Trim();
         TempData[errors.Count == 0 ? "Saved" : "Error"] = errors.Count == 0 ? "1" : "Invalid: " + string.Join(", ", errors);
         return RedirectToAction(nameof(Settings));
     }
 
     // ---- LDAPS / SMTP connections (saved in the database, passwords encrypted) ----
-    static readonly string[] LdapKeys = { "Host", "Port", "UseSsl", "StartTls", "SkipCertValidation", "CertThumbprint", "Nested", "BaseDn", "ServiceAccountDn", "ServiceAccountPassword", "GroupStaff", "GroupHod", "GroupMedia", "GroupAdmin", "GroupResearch" };
+    static readonly string[] LdapKeys = { "Host", "Port", "UseSsl", "StartTls", "SkipCertValidation", "CertThumbprint", "Nested", "BaseDn", "ServiceAccountDn", "ServiceAccountPassword", "GroupStaff", "GroupHod", "GroupDean", "GroupMedia", "GroupAdmin", "GroupResearch" };
     static readonly string[] SmtpKeys = { "Enabled", "Host", "Port", "UseStartTls", "User", "Password", "From" };
 
     public async Task<IActionResult> Connections()
@@ -112,7 +114,7 @@ public class AdminController : AppController
     {
         var o = await MergeLdap(NormalizeLdap(ldap));
         var auth = HttpContext.RequestServices.GetRequiredService<LdapAuthService>();
-        var defs = new[] { (Roles.Staff, o.GroupStaff), (Roles.Hod, o.GroupHod), (Roles.Media, o.GroupMedia), (Roles.Research, o.GroupResearch), (Roles.Admin, o.GroupAdmin) };
+        var defs = new[] { (Roles.Staff, o.GroupStaff), (Roles.Hod, o.GroupHod), (Roles.Dean, o.GroupDean), (Roles.Media, o.GroupMedia), (Roles.Research, o.GroupResearch), (Roles.Admin, o.GroupAdmin) };
         var direct = await _db.RoleAssignments.AsNoTracking().OrderBy(r => r.Username).ToListAsync();
         var roles = new List<object>(); var calls = 0; string? problem = null;
         foreach (var (role, groups) in defs)
@@ -216,7 +218,7 @@ public class AdminController : AppController
             Pick(f, "GroupStaff", c.GroupStaff), Pick(f, "GroupHod", c.GroupHod), Pick(f, "GroupMedia", c.GroupMedia), Pick(f, "GroupAdmin", c.GroupAdmin),
             f.GetValueOrDefault("StartTls") is { } st ? st == "true" : c.StartTls,
             f.ContainsKey("CertThumbprint") ? (f["CertThumbprint"] ?? "").Trim() : c.CertThumbprint,
-            f.GetValueOrDefault("Nested") is { } n ? n == "true" : c.Nested, Pick(f, "GroupResearch", c.GroupResearch));
+            f.GetValueOrDefault("Nested") is { } n ? n == "true" : c.Nested, Pick(f, "GroupResearch", c.GroupResearch), Pick(f, "GroupDean", c.GroupDean));
     }
 
     // The page sends friendly choices (Encryption: ldaps/starttls/none, CertMode: verify/pin/skip); store them as the plain flags the code uses.
@@ -234,25 +236,44 @@ public class AdminController : AppController
     private static string Pick(Dictionary<string, string> f, string k, string fallback) => string.IsNullOrWhiteSpace(f.GetValueOrDefault(k)) ? fallback : f[k].Trim();
 
     // ---- roles assigned inside the app (for AD users who are not in the Events-* groups) ----
-    static readonly string[] AssignableRoles = { Roles.Staff, Roles.Hod, Roles.Media, Roles.Admin, Roles.Research };
+    static readonly string[] AssignableRoles = { Roles.Staff, Roles.Hod, Roles.Dean, Roles.Media, Roles.Admin, Roles.Research, Roles.Kpi, Roles.KpiManager, Roles.KpiEditor, Roles.KpiOfficer, Roles.KpiViewer };
 
-    public async Task<IActionResult> RolesPage() => View("Roles", await _db.RoleAssignments.AsNoTracking().OrderBy(r => r.Username).ThenBy(r => r.Role).ToListAsync());
+    /// <summary>Everything about access in one place: each role, who has it, its AD group, what it can do (events side and KPI pages).</summary>
+    public async Task<IActionResult> RolesPage()
+    {
+        var vm = new RolesVm
+        {
+            Assignments = await _db.RoleAssignments.AsNoTracking().OrderBy(r => r.Username).ThenBy(r => r.Role).ToListAsync(),
+            Ldap = await _conn.LdapAsync(),
+            Steps = await _db.ApprovalSteps.AsNoTracking().Where(s => s.Enabled).OrderBy(s => s.Order).ToListAsync(),
+            Dev = (HttpContext.RequestServices.GetRequiredService<IConfiguration>()["Auth:Mode"] ?? "Ldap") == "Dev",
+        };
+        return View("Roles", vm);
+    }
 
     [HttpPost]
-    public async Task<IActionResult> AddRole(string username, string role)
+    public async Task<IActionResult> AddRole(string username, string role, int? entityId)
     {
         username = (username ?? "").Trim();
         if (username.Contains('\\')) username = username.Split('\\')[1];
         // an email address is kept whole: people sign in with their email and a role can be given to it directly
-        if (username.Length == 0 || username.Length > 100 || !AssignableRoles.Contains(role)) { TempData["Error"] = "Enter an email address (or username) and choose a role."; return RedirectToAction(nameof(RolesPage)); }
+        if (username.Length == 0 || username.Length > 100 || !AssignableRoles.Contains(role)) { TempData["Error"] = "Enter an email address (or username) and choose a role."; return Redirect(Url.Action(nameof(RolesPage)) + "#role-" + role); }
         var lower = username.ToLower();
+        // A department KPI officer works for one department: it must be chosen.
+        if (role == Roles.KpiOfficer)
+        {
+            var kdb = HttpContext.RequestServices.GetRequiredService<Kpi.Dashboard.Web.Data.AppDbContext>();
+            if (entityId == null || !await kdb.Entities.AnyAsync(e => e.Id == entityId && e.IsActive)) { TempData["Error"] = "Choose the department this KPI officer works for."; return Redirect(Url.Action(nameof(RolesPage)) + "#role-" + role); }
+        }
+        else entityId = null;
         if (!await _db.RoleAssignments.AnyAsync(r => r.Username.ToLower() == lower && r.Role == role))
         {
-            _db.RoleAssignments.Add(new RoleAssignment { Username = username, Role = role, AssignedBy = Username });
+            _db.RoleAssignments.Add(new RoleAssignment { Username = username, Role = role, EntityId = entityId, AssignedBy = Username });
             await _db.SaveChangesAsync();
             await _wf.Audit(Username, "RoleAssigned", $"{username} -> {role}");
         }
-        return RedirectToAction(nameof(RolesPage));
+        TempData["Done"] = $"{username} -> {role}";
+        return Redirect(Url.Action(nameof(RolesPage)) + "#role-" + role);
     }
 
     [HttpPost]
@@ -263,10 +284,92 @@ public class AdminController : AppController
         _db.RoleAssignments.Remove(r);
         await _db.SaveChangesAsync();
         await _wf.Audit(Username, "RoleRemoved", $"{r.Username} -> {r.Role}");
-        return RedirectToAction(nameof(RolesPage));
+        return Redirect(Url.Action(nameof(RolesPage)) + "#role-" + r.Role);
+    }
+
+    // ---- approval flow: which steps, in which order, who decides, how many approvals ----
+    static readonly string[] StepRoles = { Roles.Hod, Roles.Dean, Roles.Staff, Roles.Media, Roles.Research, Roles.Admin };
+
+    public async Task<IActionResult> ApprovalFlow()
+    {
+        ViewBag.Waiting = await _db.Events.AsNoTracking().Where(e => e.Status == EventStatus.Submitted && e.CurrentStepId != null).GroupBy(e => e.CurrentStepId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
+        return View(await _db.ApprovalSteps.AsNoTracking().OrderBy(s => s.Order).ThenBy(s => s.Id).ToListAsync());
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SaveStep(int id, string name, string? role, string? approvers, int required, string? notifyEmail)
+    {
+        var enabled = Request.Form["enabled"].Contains("true");   // checkbox "true" (+ a hidden "false" so an unticked box still arrives)
+        name = (name ?? "").Trim(); approvers = (approvers ?? "").Trim(); notifyEmail = (notifyEmail ?? "").Trim();
+        var list = MailService.Split(approvers);
+        string? error = null;
+        if (name.Length == 0 || name.Length > 100) error = "Give the step a name.";
+        else if (!string.IsNullOrEmpty(role) && !StepRoles.Contains(role)) error = "Unknown role.";
+        else if (list.Count == 0 && string.IsNullOrEmpty(role)) error = "Choose a role or list at least one person: otherwise nobody could approve this step.";
+        else if (required < 1 || required > 20) error = "Approvals needed must be between 1 and 20.";
+        else if (list.Count > 0 && required > list.Count) error = $"{required} approvals are needed but only {list.Count} people are listed. Add people or lower the number.";
+        if (error != null) { TempData["Error"] = error; return RedirectToAction(nameof(ApprovalFlow)); }
+
+        ApprovalStep? step;
+        if (id == 0)
+        {
+            var max = await _db.ApprovalSteps.AnyAsync() ? await _db.ApprovalSteps.MaxAsync(s => s.Order) : 0;
+            step = new ApprovalStep { Order = max + 1 };
+            _db.ApprovalSteps.Add(step);
+        }
+        else step = await _db.ApprovalSteps.FindAsync(id);
+        if (step == null) return NotFound();
+        if (!enabled && step.Enabled && !await CanLeave(step)) return RedirectToAction(nameof(ApprovalFlow));
+        step.Name = name; step.Role = string.IsNullOrEmpty(role) ? null : role; step.Approvers = approvers.Length == 0 ? null : approvers;
+        step.RequiredApprovals = required; step.NotifyEmail = notifyEmail.Length == 0 ? null : notifyEmail; step.Enabled = enabled || id == 0;
+        await _db.SaveChangesAsync();
+        await _wf.Audit(Username, id == 0 ? "ApprovalStepAdded" : "ApprovalStepChanged", $"{step.Name}: role {step.Role}, people {step.Approvers}, needs {step.RequiredApprovals}, enabled {step.Enabled}");
+        return RedirectToAction(nameof(ApprovalFlow));
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> MoveStep(int id, int dir)
+    {
+        var all = await _db.ApprovalSteps.OrderBy(s => s.Order).ThenBy(s => s.Id).ToListAsync();
+        var i = all.FindIndex(s => s.Id == id); var j = i + (dir < 0 ? -1 : 1);
+        if (i < 0 || j < 0 || j >= all.Count) return RedirectToAction(nameof(ApprovalFlow));
+        (all[i], all[j]) = (all[j], all[i]);
+        for (int k = 0; k < all.Count; k++) all[k].Order = k + 1;   // renumber so the order is always clean
+        await _db.SaveChangesAsync();
+        await _wf.Audit(Username, "ApprovalStepMoved", string.Join(" > ", all.Select(s => s.Name)));
+        return RedirectToAction(nameof(ApprovalFlow));
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteStep(int id)
+    {
+        var step = await _db.ApprovalSteps.FindAsync(id);
+        if (step == null) return NotFound();
+        if (!await CanLeave(step)) return RedirectToAction(nameof(ApprovalFlow));
+        _db.ApprovalSteps.Remove(step);
+        await _db.SaveChangesAsync();
+        await _wf.Audit(Username, "ApprovalStepDeleted", step.Name);
+        return RedirectToAction(nameof(ApprovalFlow));
+    }
+
+    /// <summary>A step can only be switched off or deleted if no request waits at it and it is not the last active step.</summary>
+    private async Task<bool> CanLeave(ApprovalStep step)
+    {
+        var waiting = await _db.Events.CountAsync(e => e.Status == EventStatus.Submitted && e.CurrentStepId == step.Id);
+        if (waiting > 0) { TempData["Error"] = $"{waiting} request(s) are waiting at \"{step.Name}\". Wait until they are decided (or ask the approvers to decide), then change this step."; return false; }
+        if (step.Enabled && !await _db.ApprovalSteps.AnyAsync(s => s.Enabled && s.Id != step.Id)) { TempData["Error"] = "At least one approval step must stay active."; return false; }
+        return true;
     }
 
     public async Task<IActionResult> Audit() => View(await _db.AuditLogs.AsNoTracking().OrderByDescending(a => a.At).Take(500).ToListAsync());
 
     public async Task<IActionResult> Notifications() => View(await _db.Notifications.AsNoTracking().OrderByDescending(a => a.SentAt).Take(500).ToListAsync());
+}
+
+public class RolesVm
+{
+    public List<RoleAssignment> Assignments { get; set; } = new();
+    public LdapOpts Ldap { get; set; } = default!;
+    public List<ApprovalStep> Steps { get; set; } = new();
+    public bool Dev { get; set; }
 }

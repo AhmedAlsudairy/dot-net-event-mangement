@@ -1,31 +1,178 @@
-@model List<RoleAssignment>
-@{ ViewData["Title"] = L["Roles"]; }
-<div class="page-head"><div><h3>@L["Roles"]</h3><div class="sub">Give an AD user a role inside the app.</div></div></div>
+@model RolesVm
+@inject Kpi.Dashboard.Web.Data.AppDbContext KpiDb
+@using Microsoft.EntityFrameworkCore
+@using KpiPerm = Kpi.Dashboard.Web.Models.Permissions
+@{
+    ViewData["Title"] = L.T("Access & roles", "الصلاحيات والأدوار");
+    var kpiRoles = KpiDb.Roles.Include(r => r.Permissions).Where(r => r.EntityId == null).ToList().ToDictionary(r => r.Name, StringComparer.OrdinalIgnoreCase);
+    var viewerPerms = kpiRoles.GetValueOrDefault("Viewer")?.Permissions.Select(p => p.Permission).ToHashSet() ?? new HashSet<string>();
+    // One entry per role: what it is for, what it may do on the events side, its AD group.
+    var roles = new (string key, string kind, string icon, string en, string ar, string forEn, string forAr, string typEn, string typAr, string evEn, string evAr, string group)[]
+    {
+        (Roles.Staff, "events", "person", "Staff", "موظف", "Everyday users who ask for events, trips and research uploads.", "المستخدمون الذين يطلبون الفعاليات والرحلات ويرفعون الأبحاث.",
+            "A lecturer or coordinator who organises a guest workshop.", "محاضر أو منسّق ينظّم ورشة لضيف.",
+            "Create and track their own event and visit requests, upload research, food request for their events.", "إنشاء ومتابعة طلبات الفعاليات والزيارات الخاصة بهم، ورفع الأبحاث، وطلب الطعام لفعالياتهم.", Model.Ldap.GroupStaff),
+        (Roles.Hod, "events", "person-check", "Head of department (HOD)", "رئيس القسم", "Approves event requests (when the approval flow says so).", "يعتمد طلبات الفعاليات (حسب مسار الموافقات).",
+            "The head of a department.", "رئيس قسم.",
+            "See and decide the requests waiting at the steps they are eligible for; sees all events.", "يرى ويقرر الطلبات المنتظرة في الخطوات المخوّل بها؛ يرى كل الفعاليات.", Model.Ldap.GroupHod),
+        (Roles.Dean, "events", "award", "Dean", "العميد", "Final approval of event requests (when the approval flow says so).", "الاعتماد النهائي لطلبات الفعاليات (حسب مسار الموافقات).",
+            "The dean or deputy dean.", "العميد أو نائبه.",
+            "Same as HOD, at the steps given to the Dean role.", "مثل رئيس القسم، في الخطوات المسندة لدور العميد.", Model.Ldap.GroupDean),
+        (Roles.Media, "events", "megaphone", "Media officer", "مسؤول الإعلام", "Announces approved events.", "يعلن عن الفعاليات المعتمدة.",
+            "Someone in the media / communication office.", "موظف في مكتب الإعلام والتواصل.",
+            "See approved events and download the event image and QR.", "يرى الفعاليات المعتمدة وينزّل صورة الفعالية وQR.", Model.Ldap.GroupMedia),
+        (Roles.Research, "events", "journal-text", "Research in-charge", "مسؤول الأبحاث", "Owns the research archive.", "المسؤول عن أرشيف الأبحاث.",
+            "The person who collects research and proposals.", "من يجمع الأبحاث والمقترحات.",
+            "See every uploaded research document and proposal.", "يرى كل الأبحاث والمقترحات المرفوعة.", Model.Ldap.GroupResearch),
+        (Roles.KpiManager, "kpi", "kanban", "KPI manager", "مدير المؤشرات", "Defines the KPI set: adds, edits, deletes and imports KPIs, assigns them to departments and manages the departments.", "يعرّف مجموعة المؤشرات: يضيف ويعدّل ويحذف ويستورد المؤشرات، ويسندها للجهات ويدير الجهات.",
+            "The planning / quality office owner of the KPI workbook.", "المسؤول في مكتب التخطيط/الجودة عن ملف المؤشرات.",
+            "Nothing on the events side. Lands on the KPI dashboard.", "لا شيء في جانب الفعاليات. يدخل لوحة المؤشرات مباشرة.", ""),
+        (Roles.KpiEditor, "kpi", "pencil-square", "KPI editor", "محدّث المتابعة", "Keeps the progress up to date for every department: target, deadline and status. Cannot change the KPI set.", "يحدّث المتابعة لكل الجهات: المستهدف والموعد والموقف. لا يغيّر مجموعة المؤشرات.",
+            "A follow-up officer who chases departments and records their progress.", "مسؤول متابعة يتابع الجهات ويسجّل تقدّمها.",
+            "Nothing on the events side. Lands on the KPI dashboard.", "لا شيء في جانب الفعاليات. يدخل لوحة المؤشرات مباشرة.", ""),
+        (Roles.KpiOfficer, "kpi", "building", "Department KPI officer", "مسؤول مؤشرات الجهة", "Updates the KPIs of ONE department only. Sees and edits only that department's rows; the dashboard shows only that department.", "يحدّث مؤشرات جهة واحدة فقط. يرى ويعدّل صفوف تلك الجهة فقط، وتعرض له اللوحة بيانات جهته فقط.",
+            "The person in a department who owns its KPI targets. Choose the department when you add them.", "المسؤول في الجهة عن مستهدفات مؤشراتها. اختر الجهة عند إضافته.",
+            "Nothing on the events side. Lands on the KPI dashboard.", "لا شيء في جانب الفعاليات. يدخل لوحة المؤشرات مباشرة.", ""),
+        (Roles.KpiViewer, "kpi", "eye", "KPI viewer", "مطّلع على المؤشرات", "Read-only: sees the dashboard and tracking table and can export the Excel report.", "اطلاع فقط: يرى اللوحة وجدول التتبع ويصدّر تقرير Excel.",
+            "A manager or committee member who only needs to see progress.", "مدير أو عضو لجنة يحتاج الاطلاع على التقدّم فقط.",
+            "Nothing on the events side. Lands on the KPI dashboard.", "لا شيء في جانب الفعاليات. يدخل لوحة المؤشرات مباشرة.", ""),
+        (Roles.Kpi, "kpi", "bullseye", "KPI team (all-round)", "فريق المؤشرات (شامل)", "All-round KPI worker: follows and updates any department, assigns KPIs, manages and imports them. A manager and editor in one.", "عامل مؤشرات شامل: يتابع ويحدّث أي جهة ويسند المؤشرات ويديرها ويستوردها. مدير ومحدّث في آن واحد.",
+            "A small team that does all the KPI work. For larger teams use the narrower roles above.", "فريق صغير يقوم بكل أعمال المؤشرات. للفرق الأكبر استخدم الأدوار الأضيق أعلاه.",
+            "Nothing on the events side. Lands on the KPI dashboard.", "لا شيء في جانب الفعاليات. يدخل لوحة المؤشرات مباشرة.", ""),
+        (Roles.Admin, "admin", "shield-check", "Administrator", "مدير النظام", "Runs the system.", "يدير النظام.",
+            "IT or the system owner.", "تقنية المعلومات أو مالك النظام.",
+            "Everything: settings, approval flow, roles, reports and Excel, all KPI pages.", "كل شيء: الإعدادات ومسار الموافقات والأدوار والتقارير وExcel وكل صفحات المؤشرات.", Model.Ldap.GroupAdmin),
+    };
+    var kpiEntities = KpiDb.Entities.Where(e => e.IsActive).OrderBy(e => e.NameAr).Select(e => new { e.Id, e.NameAr }).ToList();
+    string EntityName(int? id) => kpiEntities.FirstOrDefault(e => e.Id == id)?.NameAr ?? "?";
+    var sections = new (string kind, string en, string ar, string hintEn, string hintAr)[]
+    {
+        ("events", "Events, visits and research", "الفعاليات والزيارات والأبحاث", "People who work on the events side.", "من يعملون في جانب الفعاليات."),
+        ("kpi", "KPI roles", "أدوار المؤشرات", "People who work only in the KPI pages. Pick the narrowest role that fits; the table at the bottom compares them.", "من يعملون في صفحات المؤشرات فقط. اختر أضيق دور يناسب العمل؛ الجدول في الأسفل يقارن بينها."),
+        ("admin", "Administration", "الإدارة", "", ""),
+    };
+    string KpiName(string key) => KpiPerm.Catalog.First(c => c.Key == key).LabelT(L.IsAr);
+}
+<div class="page-head">
+    <div>
+        <h3>@ViewData["Title"]</h3>
+        <div class="sub">@L.T("One place to see every role, who has it, and what it can do. A person gets a role from an AD group or from the list on its card, and can hold several.", "مكان واحد لرؤية كل دور ومن يحمله وما يستطيع فعله. يحصل الشخص على الدور من مجموعة AD أو من القائمة في بطاقته، ويمكنه حمل عدة أدوار.")</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-secondary" asp-action="ApprovalFlow"><i class="bi bi-diagram-3"></i>@L.T("Approval flow", "مسار الموافقات")</a>
+        <a class="btn btn-outline-secondary" asp-action="Connections"><i class="bi bi-plug"></i>@L.T("AD groups", "مجموعات AD")</a>
+    </div>
+</div>
 <partial name="_Guide" model='"roles"' />
 @if (TempData["Error"] != null) { <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @TempData["Error"]</div> }
-<div class="alert alert-info d-flex gap-2 small">
-    <i class="bi bi-info-circle-fill mt-1"></i>
-    <div>A user's roles are their AD groups (Events-Staff / HOD / Media / Admin) <b>plus</b> the roles assigned here. Use this when a group does not exist yet or a person is not in it.
-    People sign in with their <b>company email address</b> and normal AD password, and must be enabled in AD. Type the email address as it is in AD (the username also works). Roles apply from the next sign-in.
-    To create the very first Admin, put their username in <code>App:BootstrapAdmins</code> in appsettings.json.</div>
+@if (TempData["Done"] != null) { <div class="alert alert-success py-2"><i class="bi bi-check-circle"></i> @L.T("Role given:", "تم منح الدور:") @TempData["Done"]. @L.T("It applies the next time that person signs in.", "يسري عند تسجيل دخول الشخص في المرة القادمة.")</div> }
+
+<div class="d-flex flex-wrap gap-2 mb-3 role-jump">
+    @foreach (var r in roles) { <a href="#role-@r.key" class="role-chip"><i class="bi bi-@r.icon"></i> @L.T(r.en.Split(" (")[0], r.ar) <b>@Model.Assignments.Count(a => a.Role == r.key)</b></a> }
 </div>
-<form method="post" asp-action="AddRole" class="card mb-3"><div class="card-body row g-2 align-items-end">
-    <div class="col-md-5"><label class="form-label">Email address (or AD username)</label><input name="username" class="form-control" placeholder="jsmith@company.com" required maxlength="100" autocomplete="off" /></div>
-    <div class="col-md-4"><label class="form-label">Role</label><select name="role" class="form-select">
-        <option value="Staff">Staff - create requests</option><option value="HOD">HOD - approve requests</option>
-        <option value="Media">Media Officer - view approved events</option><option value="Research">Research in-charge - research archive</option><option value="Admin">Admin - everything</option></select></div>
-    <div class="col-md-3"><button class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i>Add role</button></div>
-</div></form>
-@if (!Model.Any()) { <div class="card"><div class="empty"><i class="bi bi-people"></i>No roles assigned in the app yet.</div></div> }
-else
+
+@foreach (var sec in sections)
 {
-<div class="card"><div class="table-responsive"><table class="table align-middle mb-0">
-    <thead><tr><th>@L["Username"]</th><th>Role</th><th>@L["By"]</th><th>@L["At"]</th><th></th></tr></thead>
-    <tbody>
-    @foreach (var r in Model)
+    <div class="section-title"><h5>@L.T(sec.en, sec.ar)</h5><span class="sub">@L.T(sec.hintEn, sec.hintAr)</span></div>
+    <div class="row g-3 mb-3">
+    @foreach (var r in roles.Where(x => x.kind == sec.kind))
     {
-        <tr><td class="fw-semibold">@r.Username</td><td><span class="badge bg-secondary">@r.Role</span></td><td>@r.AssignedBy</td><td class="text-nowrap">@L.DateTimeStr(r.AssignedAt.ToLocalTime())</td>
-            <td class="text-end"><form method="post" asp-action="RemoveRole" asp-route-id="@r.Id" onsubmit="return confirm('Remove this role?')" data-noload><button class="btn btn-sm btn-outline-danger" title="Remove"><i class="bi bi-trash"></i></button></form></td></tr>
+        var people = Model.Assignments.Where(a => a.Role == r.key).ToList();
+        var isAdmin = r.key == Roles.Admin;
+        var own = kpiRoles.GetValueOrDefault(r.key);
+        var perms = isAdmin ? KpiPerm.Catalog.Select(c => c.Key).ToHashSet() : (own?.Permissions.Select(p => p.Permission).ToHashSet() ?? viewerPerms);
+        var steps = Model.Steps.Where(st => st.Role == r.key).ToList();
+        <div class="col-xl-6" id="role-@r.key">
+        <div class="card h-100 role-card">
+            <div class="card-header"><i class="bi bi-@r.icon"></i>@L.T(r.en, r.ar)<code class="ms-auto small text-muted">@r.key</code></div>
+            <div class="card-body d-flex flex-column gap-3">
+                <div><div>@L.T(r.forEn, r.forAr)</div><div class="small text-muted mt-1"><i class="bi bi-person-badge"></i> @L.T(r.typEn, r.typAr)</div></div>
+
+                <div>
+                    <div class="role-label">@L.T("Who has it", "من يحمله")</div>
+                    @if (r.group != "") { <div class="small mb-2"><i class="bi bi-diagram-2 text-muted"></i> @L.T("Everyone in the AD group", "كل أعضاء مجموعة AD") <code>@r.group</code></div> }
+                    @if (people.Count == 0) { <div class="small text-muted mb-2">@L.T("Nobody added by hand yet.", "لم يُضف أحد يدويًا بعد.")</div> }
+                    else
+                    {
+                        <ul class="list-unstyled mb-2 role-people">
+                        @foreach (var p in people)
+                        {
+                            <li><span class="who"><i class="bi bi-person-circle text-muted"></i> @p.Username</span>
+                                @if (p.EntityId != null) { <span class="badge text-bg-info fw-normal">@EntityName(p.EntityId)</span> }
+                                <span class="small text-muted ms-auto">@L.T("added by", "أضافه") @p.AssignedBy</span>
+                                <form method="post" asp-action="RemoveRole" asp-route-id="@p.Id" onsubmit="return confirm('@L.T("Remove this role from", "إزالة هذا الدور من") @p.Username?')" data-noload><button class="btn btn-sm btn-link text-danger p-0" title="@L.T("Remove", "إزالة")"><i class="bi bi-x-circle"></i></button></form></li>
+                        }
+                        </ul>
+                    }
+                    <form method="post" asp-action="AddRole" class="d-flex gap-2 flex-wrap">
+                        <input type="hidden" name="role" value="@r.key" />
+                        <input name="username" class="form-control form-control-sm" style="flex:1 1 180px" placeholder="@L.T("Email or username", "البريد أو اسم المستخدم")" required maxlength="100" autocomplete="off" />
+                        @if (r.key == Roles.KpiOfficer)
+                        {
+                            <select name="entityId" class="form-select form-select-sm" style="flex:1 1 180px" required>
+                                <option value="">@L.T("Department...", "الجهة...")</option>
+                                @foreach (var en in kpiEntities) { <option value="@en.Id">@en.NameAr</option> }
+                            </select>
+                        }
+                        <button class="btn btn-sm btn-primary text-nowrap"><i class="bi bi-plus-lg"></i>@L.T("Add", "إضافة")</button>
+                    </form>
+                </div>
+
+                <div>
+                    <div class="role-label">@L.T("Events side", "جانب الفعاليات")</div>
+                    <div class="small">@L.T(r.evEn, r.evAr)</div>
+                    @foreach (var st in steps) { <span class="badge text-bg-warning me-1 mt-1"><i class="bi bi-diagram-3"></i> @L.T("Approves step", "يعتمد خطوة") @st.Order: @st.Name</span> }
+                </div>
+
+                <div class="mt-auto">
+                    <div class="role-label d-flex align-items-center">@L.T("In the KPI pages", "في صفحات المؤشرات")
+                        @if (isAdmin) { <span class="ms-auto small text-muted fw-normal">@L.T("fixed", "ثابت")</span> }
+                        else if (own is not null) { <a class="ms-auto small fw-normal" href="/Kpi/Admin/Roles?id=@own.Id"><i class="bi bi-pencil"></i> @L.T("Edit what it can do", "تعديل الصلاحيات")</a> }
+                        else { <a class="ms-auto small fw-normal" href="/Kpi/Admin/Roles?new=true&name=@Uri.EscapeDataString(r.key)"><i class="bi bi-sliders"></i> @L.T("Customize", "تخصيص")</a> }
+                    </div>
+                    @if (own is null && !isAdmin) { <div class="small text-muted mb-1">@L.T("Default: same as Viewer.", "افتراضي: مثل المطّلع.")</div> }
+                    @if (perms.Count == 0) { <span class="small text-muted">@L.T("No KPI access - the KPIs menu is hidden.", "بلا وصول للمؤشرات - تُخفى قائمة المؤشرات.")</span> }
+                    else
+                    {
+                        <ul class="cap-list">
+                        @foreach (var c in KpiPerm.Catalog)
+                        {
+                            var on = perms.Contains(c.Key);
+                            <li class="@(on ? "on" : "off")"><i class="bi bi-@(on ? "check-circle-fill" : "dash-circle")"></i> @KpiName(c.Key)</li>
+                        }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+        </div>
     }
-    </tbody></table></div></div>
+    </div>
 }
+
+<div class="section-title"><h5>@L.T("Compare the KPI roles", "مقارنة أدوار المؤشرات")</h5><span class="sub">@L.T("What each role can do in the KPI pages", "ما يستطيع كل دور فعله في صفحات المؤشرات")</span></div>
+<div class="card mb-3"><div class="table-responsive">
+<table class="table table-sm align-middle mb-0 cmp">
+    <thead><tr><th></th>
+        @foreach (var r in roles.Where(x => x.kind == "kpi" || x.key == Roles.Admin || x.key == Roles.Staff)) { <th class="text-center">@L.T(r.en.Split(" (")[0], r.ar)</th> }
+    </tr></thead>
+    <tbody>
+    @foreach (var c in KpiPerm.Catalog)
+    {
+        <tr><td><div class="fw-semibold small">@KpiName(c.Key)</div><div class="text-muted" style="font-size:.72rem">@c.DescriptionT(L.IsAr)</div></td>
+        @foreach (var r in roles.Where(x => x.kind == "kpi" || x.key == Roles.Admin || x.key == Roles.Staff))
+        {
+            var own2 = kpiRoles.GetValueOrDefault(r.key);
+            var pp = r.key == Roles.Admin ? KpiPerm.Catalog.Select(x => x.Key).ToHashSet() : (own2?.Permissions.Select(x => x.Permission).ToHashSet() ?? viewerPerms);
+            <td class="text-center">@if (pp.Contains(c.Key)) { <i class="bi bi-check-circle-fill text-success"></i> } else { <i class="bi bi-dash text-muted"></i> }</td>
+        }
+        </tr>
+    }
+    </tbody>
+</table>
+</div></div>
+
+<p class="small text-muted mt-3">
+    @L.T("People sign in with their company email and normal password and must be enabled in AD. Type the email as it is in AD (the username also works). To create the very first Admin, put their username in App:BootstrapAdmins in appsettings.json. Staff is shown in the comparison because it has no KPI role of its own (it gets the Viewer default).", "يسجّل الناس الدخول ببريد الشركة وكلمة المرور المعتادة ويجب أن يكونوا مفعّلين في AD. اكتب البريد كما هو في AD (واسم المستخدم يعمل أيضًا). لإنشاء أول مدير ضع اسم المستخدم في App:BootstrapAdmins في appsettings.json. يظهر الموظف في المقارنة لأن ليس له دور مؤشرات خاص (يأخذ الافتراضي).")
+    @if (Model.Dev) { <span class="d-block mt-1"><i class="bi bi-beaker"></i> @L.T("Test mode: the built-in test accounts have their roles built in, so they are not in these lists.", "وضع التجربة: حسابات الاختبار المدمجة أدوارها مضمّنة، لذلك لا تظهر في هذه القوائم.")</span> }
+</p>

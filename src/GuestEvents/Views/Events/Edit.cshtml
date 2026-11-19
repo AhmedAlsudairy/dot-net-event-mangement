@@ -57,6 +57,7 @@
         <div class="col-6 col-md-4"><label class="form-label req">@L["End"]</label><input type="time" class="form-control" name="EndTime" value="@Model.EndTime.ToString(@"hh\:mm")" required /></div>
         <div class="col-12 form-text mt-0" id="dailyHint">@L["DailyHint"]</div>
         <div class="col-12"><label class="form-label req">@L["Venue"]</label><input class="form-control" asp-for="Venue" required maxlength="200" /></div>
+        <div class="col-12"><partial name="_KpiSelect" model="Model.KpiId" /></div>
     </div></div>
 
     <div class="card mb-3"><div class="card-header"><i class="bi bi-card-text"></i>@L["SecContent"]</div><div class="card-body">

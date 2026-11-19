@@ -1,0 +1,7 @@
+@{ ViewData["Title"] = L.T("Something went wrong", "حدث خطأ"); }
+<div class="card mx-auto mt-4" style="max-width:560px"><div class="empty">
+    <i class="bi bi-exclamation-octagon text-danger"></i>
+    <h5>@ViewData["Title"]</h5>
+    <p>@L.T("The page could not be shown. Please try again; if it keeps happening, tell the administrator the time it happened.", "تعذّر عرض الصفحة. حاول مرة أخرى، وإذا تكرر الأمر أبلغ مدير النظام بوقت حدوثه.")</p>
+    <a class="btn btn-primary" href="/"><i class="bi bi-house"></i>@L.T("Back to home", "العودة للرئيسية")</a>
+</div></div>

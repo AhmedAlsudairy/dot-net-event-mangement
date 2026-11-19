@@ -11,11 +11,15 @@ public class SettingsService
 
     public static readonly Dictionary<string, string> Defaults = new()
     {
+        ["AppNameEn"] = "Campus Hub",    // the app name shown everywhere (English)
+        ["AppNameAr"] = "مركز الحرم",     // the app name shown everywhere (Arabic)
         ["AdminMailbox"] = "admin@example.com",
         ["AdminExtraTo"] = "",
         ["AdminCc"] = "",
         ["MediaOfficerEmail"] = "media@example.com",
         ["HodEmail"] = "",               // gets the reminder mail; empty = App:HodEmail, then admin mailbox
+        ["DeanEmail"] = "",              // gets the "waiting for the Dean" mail and reminder; empty = admin mailbox
+        ["DeanUsername"] = "",           // single AD user; empty = any member of Events-Dean
         ["HodUsername"] = "",            // single AD user; empty = any member of Events-HOD
         // External visits (bus requests) - approval is separate from event approval
         ["VisitApprovalRequired"] = "true", // false = a submitted visit goes straight to the bus step

@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GuestEvents.Controllers;
 
-[Authorize(Policy = "Viewer")]
+[Authorize(Policy = "EventsUser")]
 public class EventsController : AppController
 {
     private readonly AppDb _db;
@@ -15,20 +15,22 @@ public class EventsController : AppController
     private readonly QrService _qr;
     private readonly SettingsService _settings;
     private readonly ConnectionConfig _conn;
-    public EventsController(AppDb db, WorkflowService wf, QrService qr, SettingsService settings, ConnectionConfig conn) { _db = db; _wf = wf; _qr = qr; _settings = settings; _conn = conn; }
+    public EventsController(AppDb db, WorkflowService wf, QrService qr, SettingsService settings, ConnectionConfig conn, KpiPicker kpi, ApprovalChain chain) { _chain = chain; _db = db; _wf = wf; _qr = qr; _settings = settings; _conn = conn; _kpi = kpi; }
 
     static readonly string[] ImgExt = { ".png", ".jpg", ".jpeg" };
 
     public async Task<IActionResult> Index()
     {
-        if (User.IsInRole(Roles.Research) && !IsAdmin && !User.IsInRole(Roles.Staff) && !User.IsInRole(Roles.Hod) && !User.IsInRole(Roles.Media))
+        if (User.IsInRole(Roles.Research) && !IsAdmin && !User.IsInRole(Roles.Staff) && !User.IsInRole(Roles.Hod) && !User.IsInRole(Roles.Dean) && !User.IsInRole(Roles.Media))
             return RedirectToAction("Index", "Research"); // the research in-charge lands on the archive
         var q = _db.Events.AsNoTracking().AsQueryable();
-        if (User.IsInRole(Roles.Media) && !IsAdmin && !User.IsInRole(Roles.Hod) && !User.IsInRole(Roles.Staff))
-            q = q.Where(e => e.Status >= EventStatus.Approved && e.Status != EventStatus.Rejected);
-        else if (!IsAdmin && !User.IsInRole(Roles.Hod))
-            q = q.Where(e => e.RequesterUsername == Username);
-        if (IsAdmin) ViewBag.Setup = await SetupChecklist();
+        if (User.IsInRole(Roles.Media) && !IsAdmin && !User.IsInRole(Roles.Hod) && !User.IsInRole(Roles.Dean) && !User.IsInRole(Roles.Staff))
+            q = q.Where(e => EventStatuses.Live.Contains(e.Status));
+        else if (!IsAdmin && !User.IsInRole(Roles.Hod) && !User.IsInRole(Roles.Dean))
+        {
+            if (_isApprover) q = q.Where(e => e.RequesterUsername == Username || e.Status == EventStatus.Submitted || e.Approvals.Any(a => a.ApproverUsername == Username));
+            else q = q.Where(e => e.RequesterUsername == Username);
+        }
         return View(await q.OrderByDescending(e => e.Date).ToListAsync());
     }
 
@@ -81,6 +83,7 @@ public class EventsController : AppController
         e.Name = m.Name; e.Type = m.Type; e.Presenter = m.Presenter; e.CompanyName = m.CompanyName;
         e.ContactName = m.ContactName; e.ContactEmail = m.ContactEmail; e.ContactPhone = m.ContactPhone;
         e.Date = m.Date.Date; e.EndDate = lastDay > m.Date.Date ? lastDay : null; e.StartTime = m.StartTime; e.EndTime = m.EndTime; e.Venue = m.Venue;
+        e.KpiId = m.KpiId; e.KpiLabel = await _kpi.LabelAsync(m.KpiId);
         e.ExpectedAttendees = m.ExpectedAttendees; e.ContentAr = m.ContentAr; e.ContentEn = m.ContentEn;
         if (logo is { Length: > 0 })
         {
@@ -141,27 +144,6 @@ public class EventsController : AppController
         return File(_qr.Png($"{_wf.PublicBase}/p/{token}", 20), "image/png");
     }
 
-    // First-time setup steps for Admin (shown on the home page until everything is done).
-    private async Task<List<SetupItem>> SetupChecklist()
-    {
-        var l = await _conn.LdapAsync(); var m = await _conn.SmtpAsync(); var s = await _settings.AllAsync();
-        bool Changed(string key) => !string.IsNullOrWhiteSpace(s[key]) && !s[key].EndsWith("@example.com");
-        string T(string en, string ar) => Request.Cookies["lang"] == "ar" ? ar : en;
-        return new List<SetupItem>
-        {
-            new(T("Connect Active Directory", "اربط Active Directory"), T("So people can sign in with their company password.", "ليسجّل الموظفون الدخول بكلمة مرور الشركة."),
-                !string.IsNullOrEmpty(l.Host) && !string.IsNullOrEmpty(l.BaseDn) && !string.IsNullOrEmpty(l.SvcDn), Url.Action("Connections", "Admin")!),
-            new(T("Turn on email sending", "فعّل إرسال البريد"), T("Approval emails, food requests and reminders need an SMTP server.", "رسائل الموافقة وطلبات الطعام والتذكير تحتاج خادم SMTP."),
-                m.Enabled && !string.IsNullOrEmpty(m.Host), Url.Action("Connections", "Admin")!),
-            new(T("Set the admin mailbox", "حدّد بريد الإدارة"), T("It receives approval notices, food requests and evaluation results.", "يستلم إشعارات الموافقة وطلبات الطعام ونتائج التقييم."),
-                Changed("AdminMailbox"), Url.Action("Settings", "Admin")!),
-            new(T("Set the Media Officer email", "حدّد بريد مسؤول الإعلام"), T("It receives the approved event image.", "يستلم صورة الفعالية المعتمدة."),
-                Changed("MediaOfficerEmail"), Url.Action("Settings", "Admin")!),
-            new(T("Choose the HOD", "حدّد رئيس القسم"), T("Enter the HOD's username and email in Settings > Recipients (or leave the username empty to allow anyone with the HOD role).", "أدخل اسم مستخدم رئيس القسم وبريده في الإعدادات > المستلمون."),
-                !string.IsNullOrWhiteSpace(s["HodEmail"]), Url.Action("Settings", "Admin")!),
-        };
-    }
-
     // Printable poster: big QR + attendee instructions in both languages.
     [Authorize(Policy = "Requester")]
     public async Task<IActionResult> Poster(int id)
@@ -172,11 +154,20 @@ public class EventsController : AppController
         return View(e);
     }
 
+    private readonly KpiPicker _kpi;
+    private readonly ApprovalChain _chain;
+    private bool _isApprover;   // holds a place in the approval chain (a named approver may have no HOD/Dean role)
+    public override async Task OnActionExecutionAsync(Microsoft.AspNetCore.Mvc.Filters.ActionExecutingContext ctx, Microsoft.AspNetCore.Mvc.Filters.ActionExecutionDelegate next)
+    {
+        if (User.Identity?.IsAuthenticated == true) _isApprover = await _chain.IsApproverAsync(User);
+        await base.OnActionExecutionAsync(ctx, next);
+    }
     private Task<EventRequest?> Load(int id) => _db.Events.Include(e => e.Approvals.OrderBy(a => a.DecidedAt)).Include(e => e.Image).Include(e => e.QR).Include(e => e.FoodRequests)
         .AsSplitQuery().FirstOrDefaultAsync(e => e.Id == id);
 
-    private bool CanView(EventRequest e) => IsAdmin || User.IsInRole(Roles.Hod) || e.RequesterUsername == Username ||
-        (User.IsInRole(Roles.Media) && e.Status >= EventStatus.Approved && e.Status != EventStatus.Rejected);
+    private bool CanView(EventRequest e) => IsAdmin || User.IsInRole(Roles.Hod) || User.IsInRole(Roles.Dean) || e.RequesterUsername == Username ||
+        (_isApprover && (e.Status == EventStatus.Submitted || e.Approvals.Any(a => a.ApproverUsername == Username))) ||
+        (User.IsInRole(Roles.Media) && e.Status.IsLive());
 
     private bool CanEdit(EventRequest e) => e.RequesterUsername == Username && (e.Status == EventStatus.Draft || e.Status == EventStatus.Rejected);
 

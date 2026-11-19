@@ -1,0 +1,78 @@
+@model List<ApprovalStep>
+@{
+    ViewData["Title"] = L.T("Approval flow", "مسار الموافقات");
+    var waiting = (Dictionary<int, int>)ViewBag.Waiting;
+    var roles = new[] { Roles.Hod, Roles.Dean, Roles.Staff, Roles.Media, Roles.Research, Roles.Admin };
+    var active = Model.Where(s => s.Enabled).ToList();
+    string Who(ApprovalStep s)
+    {
+        var list = MailService.Split(s.Approvers);
+        if (list.Count > 0) return list.Count == 1 ? list[0] : L.Num(list.Count) + " " + L.T("named people", "أشخاص محددين");
+        return string.IsNullOrEmpty(s.Role) ? "-" : s.Role + " " + L.T("role", "دور");
+    }
+}
+<div class="page-head"><div><h3>@ViewData["Title"]</h3>
+    <div class="sub">@L.T("Choose who approves an event request, in which order, and how many approvals each step needs.", "حدّد من يوافق على طلب الفعالية وبأي ترتيب وكم موافقة تحتاجها كل خطوة.")</div></div></div>
+@if (TempData["Error"] != null) { <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @TempData["Error"]</div> }
+
+<div class="card mb-3"><div class="card-header"><i class="bi bi-diagram-3"></i>@L.T("How a request travels now", "مسار الطلب حالياً")</div><div class="card-body">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <span class="badge bg-secondary p-2"><i class="bi bi-send"></i> @L.T("Staff submits", "الموظف يرسل")</span>
+        @foreach (var s in active)
+        {
+            <i class="bi bi-arrow-@(L.IsAr ? "left" : "right") text-muted"></i>
+            <span class="badge bg-warning text-dark p-2">@s.Name <span class="fw-normal">- @Who(s) - @L.T("needs", "يلزم") @L.Num(s.RequiredApprovals)</span></span>
+        }
+        <i class="bi bi-arrow-@(L.IsAr ? "left" : "right") text-muted"></i>
+        <span class="badge bg-success p-2"><i class="bi bi-patch-check"></i> @L.T("Approved: image, QR and emails", "معتمد: الصورة وQR والرسائل")</span>
+    </div>
+    <div class="form-text mt-2">@L.T("A rejection at any step (a comment is required) sends the request back to the requester, who fixes it and sends it again from the first step.", "الرفض في أي خطوة (التعليق مطلوب) يعيد الطلب إلى مقدمه ليعدّله ويرسله من الخطوة الأولى.")</div>
+</div></div>
+
+@foreach (var (s, i) in Model.Select((s, i) => (s, i)))
+{
+    int w = waiting.GetValueOrDefault(s.Id);
+    <form method="post" asp-action="SaveStep" class="card mb-3 @(s.Enabled ? "" : "opacity-75")" data-noload>
+        <input type="hidden" name="id" value="@s.Id" />
+        <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+            <span class="badge bg-dark">@L.T("Step", "الخطوة") @L.Num(i + 1)</span><strong>@s.Name</strong>
+            @if (!s.Enabled) { <span class="badge bg-secondary">@L.T("switched off", "متوقفة")</span> }
+            @if (w > 0) { <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> @L.Num(w) @L.T("waiting here", "بانتظارها")</span> }
+            <span class="ms-auto d-flex gap-1">
+                <button class="btn btn-sm btn-outline-secondary" formaction="@Url.Action("MoveStep", new { id = s.Id, dir = -1 })" title="@L.T("Move earlier", "تقديم")" @(i == 0 ? "disabled" : null)><i class="bi bi-arrow-up"></i></button>
+                <button class="btn btn-sm btn-outline-secondary" formaction="@Url.Action("MoveStep", new { id = s.Id, dir = 1 })" title="@L.T("Move later", "تأخير")" @(i == Model.Count - 1 ? "disabled" : null)><i class="bi bi-arrow-down"></i></button>
+                <button class="btn btn-sm btn-outline-danger" formaction="@Url.Action("DeleteStep", new { id = s.Id })" onclick="return confirm('@L.T("Delete this step?", "حذف هذه الخطوة؟")')" title="@L["Delete"]"><i class="bi bi-trash"></i></button>
+            </span>
+        </div>
+        <div class="card-body row g-3">
+            <div class="col-md-4"><label class="form-label">@L.T("Step name", "اسم الخطوة")</label><input class="form-control" name="name" value="@s.Name" maxlength="100" required /></div>
+            <div class="col-md-4"><label class="form-label">@L.T("Who can approve: role", "من يوافق: الدور")</label>
+                <select class="form-select" name="role"><option value="">-</option>@foreach (var r in roles) { <option value="@r" selected="@(s.Role == r)">@r</option> }</select>
+                <div class="form-text">@L.T("Everyone with this role can decide.", "كل من يحمل هذا الدور يستطيع القرار.")</div></div>
+            <div class="col-md-4"><label class="form-label">@L.T("Approvals needed", "عدد الموافقات المطلوبة")</label><input type="number" min="1" max="20" class="form-control" name="required" value="@s.RequiredApprovals" required />
+                <div class="form-text">@L.T("This many different people must approve before it moves on.", "يجب أن يوافق هذا العدد من الأشخاص المختلفين قبل الانتقال.")</div></div>
+            <div class="col-12"><label class="form-label">@L.T("Or only these people (emails or usernames, comma separated)", "أو هؤلاء الأشخاص فقط (بريد أو اسم مستخدم، مفصولة بفاصلة)")</label>
+                <input class="form-control" name="approvers" value="@s.Approvers" maxlength="1000" placeholder="dean@company.com, deputy@company.com" />
+                <div class="form-text">@L.T("If you list people, ONLY they can decide at this step and the role above is ignored. They must also have a role in the system to sign in (for example Staff).", "إذا حدّدت أشخاصاً فهم وحدهم من يقرر في هذه الخطوة ويُهمل الدور أعلاه. ويجب أن يملكوا دوراً في النظام لتسجيل الدخول (مثل موظف).")</div></div>
+            <div class="col-md-8"><label class="form-label">@L.T("Extra email to tell when a request arrives (optional)", "بريد إضافي للإشعار عند وصول طلب (اختياري)")</label>
+                <input class="form-control" name="notifyEmail" value="@s.NotifyEmail" maxlength="500" placeholder="office@company.com" />
+                <div class="form-text">@L.T("Emails listed above are always told. With none, the admin mailbox is told.", "تُبلَّغ الرسائل المذكورة أعلاه دائماً. وإن لم يوجد يُبلَّغ بريد الإدارة.")</div></div>
+            <div class="col-md-2 d-flex align-items-end"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" name="enabled" value="true" id="en@(s.Id)" @(s.Enabled ? "checked" : null) /><input type="hidden" name="enabled" value="false" /><label class="form-check-label" for="en@(s.Id)">@L.T("Active", "فعّالة")</label></div></div>
+            <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100"><i class="bi bi-check2"></i> @L["Save"]</button></div>
+        </div>
+    </form>
+}
+
+<form method="post" asp-action="SaveStep" class="card border-primary mb-4" data-noload>
+    <input type="hidden" name="id" value="0" /><input type="hidden" name="enabled" value="true" />
+    <div class="card-header"><i class="bi bi-plus-circle"></i> @L.T("Add a step at the end", "إضافة خطوة في النهاية")</div>
+    <div class="card-body row g-3">
+        <div class="col-md-4"><label class="form-label">@L.T("Step name", "اسم الخطوة")</label><input class="form-control" name="name" maxlength="100" required placeholder="Finance" /></div>
+        <div class="col-md-4"><label class="form-label">@L.T("Role", "الدور")</label><select class="form-select" name="role"><option value="">-</option>@foreach (var r in roles) { <option value="@r">@r</option> }</select></div>
+        <div class="col-md-4"><label class="form-label">@L.T("Approvals needed", "عدد الموافقات")</label><input type="number" min="1" max="20" class="form-control" name="required" value="1" required /></div>
+        <div class="col-12"><label class="form-label">@L.T("Or only these people (emails or usernames)", "أو هؤلاء الأشخاص فقط (بريد أو اسم مستخدم)")</label><input class="form-control" name="approvers" maxlength="1000" /></div>
+        <div class="col-md-8"><label class="form-label">@L.T("Extra email to tell (optional)", "بريد إضافي للإشعار (اختياري)")</label><input class="form-control" name="notifyEmail" maxlength="500" /></div>
+        <div class="col-md-4 d-flex align-items-end"><button class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i> @L.T("Add step", "إضافة")</button></div>
+    </div>
+</form>
+<div class="alert alert-info small"><i class="bi bi-info-circle"></i> @L.T("Changes apply to requests submitted from now on and to those that reach a step later. A step with requests waiting at it cannot be switched off or deleted, and at least one step must stay active. Each person can approve a request once per step.", "تسري التغييرات على الطلبات المرسلة من الآن وعلى ما يصل لاحقاً إلى الخطوة. لا يمكن إيقاف أو حذف خطوة عندها طلبات منتظرة، ويجب أن تبقى خطوة واحدة فعّالة على الأقل. يمكن للشخص الموافقة مرة واحدة لكل خطوة.")</div>

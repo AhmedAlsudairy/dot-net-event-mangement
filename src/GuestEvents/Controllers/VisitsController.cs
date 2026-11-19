@@ -11,14 +11,15 @@ namespace GuestEvents.Controllers;
 /// External visits: staff request a bus to take students off campus.
 /// Who approves, who confirms the bus and who gets the emails is configured in Settings > External visits.
 /// </summary>
-[Authorize(Policy = "Viewer")]
+[Authorize(Policy = "EventsUser")]
 public class VisitsController : AppController
 {
     private readonly AppDb _db;
     private readonly MailService _mail;
     private readonly SettingsService _settings;
     private readonly WorkflowService _wf;
-    public VisitsController(AppDb db, MailService mail, SettingsService settings, WorkflowService wf) { _db = db; _mail = mail; _settings = settings; _wf = wf; }
+    private readonly KpiPicker _kpi;
+    public VisitsController(AppDb db, MailService mail, SettingsService settings, WorkflowService wf, KpiPicker kpi) { _kpi = kpi; _db = db; _mail = mail; _settings = settings; _wf = wf; }
 
     public async Task<IActionResult> Index()
     {
@@ -71,6 +72,7 @@ public class VisitsController : AppController
 
         v.Name = m.Name; v.Destination = m.Destination; v.DestinationAddress = m.DestinationAddress; v.Purpose = m.Purpose;
         v.Date = m.Date.Date; v.DepartureTime = m.DepartureTime; v.ReturnTime = m.ReturnTime; v.PickupLocation = m.PickupLocation;
+        v.KpiId = m.KpiId; v.KpiLabel = await _kpi.LabelAsync(m.KpiId);
         v.Grade = m.Grade; v.StudentCount = m.StudentCount; v.StaffCount = m.StaffCount;
         v.SupervisorName = m.SupervisorName; v.SupervisorPhone = m.SupervisorPhone; v.Notes = m.Notes;
         await _db.SaveChangesAsync();

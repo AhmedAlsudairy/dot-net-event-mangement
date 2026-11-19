@@ -8,6 +8,7 @@ public class AppDb : DbContext
     public AppDb(DbContextOptions<AppDb> o) : base(o) { }
     public DbSet<EventRequest> Events => Set<EventRequest>();
     public DbSet<Approval> Approvals => Set<Approval>();
+    public DbSet<ApprovalStep> ApprovalSteps => Set<ApprovalStep>();
     public DbSet<EventImage> Images => Set<EventImage>();
     public DbSet<QRCodeInfo> QRCodes => Set<QRCodeInfo>();
     public DbSet<Attendance> Attendances => Set<Attendance>();

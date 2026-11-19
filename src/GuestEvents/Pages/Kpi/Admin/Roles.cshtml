@@ -1,0 +1,192 @@
+@page
+@model RolesModel
+@inject GuestEvents.Data.AppDb AppDb
+@using Kpi.Dashboard.Web.Models
+@{
+    ViewData["Title"] = L.T("KPI permissions", "صلاحيات المؤشرات");
+    ViewData["Active"] = "roles";
+    bool editorOpen = Model.New || Model.Editing is not null;
+    bool locked = Model.Editing?.Name == SystemRoles.Admin;
+    // The app roles, in the order people think of them. A KPI role with the same name sets what that app role may do;
+    // without one the role gets the Viewer default (view dashboard and tracking).
+    var appRoles = new (string name, string en, string ar, string whoEn, string whoAr)[]
+    {
+        (GuestEvents.Models.Roles.Staff, "Staff", "موظف", "Creates event and visit requests", "يقدّم طلبات الفعاليات والزيارات"),
+        (GuestEvents.Models.Roles.Hod, "Head of department", "رئيس القسم", "Approves event requests", "يعتمد طلبات الفعاليات"),
+        (GuestEvents.Models.Roles.Dean, "Dean", "العميد", "Approves event requests", "يعتمد طلبات الفعاليات"),
+        (GuestEvents.Models.Roles.Media, "Media officer", "مسؤول الإعلام", "Sees approved events", "يطّلع على الفعاليات المعتمدة"),
+        (GuestEvents.Models.Roles.Research, "Research in-charge", "مسؤول الأبحاث", "Research archive", "أرشيف الأبحاث"),
+        (GuestEvents.Models.Roles.Kpi, "KPI team", "فريق المؤشرات", "Works only in the KPI pages", "يعمل في صفحات المؤشرات فقط"),
+        (GuestEvents.Models.Roles.Admin, "Administrator", "مدير النظام", "Everything", "كل شيء"),
+    };
+    var kpiByName = Model.Roles.Where(r => r.EntityId == null).ToDictionary(r => r.Name, StringComparer.OrdinalIgnoreCase);
+    var viewer = kpiByName.GetValueOrDefault(SystemRoles.Viewer);
+    var assigned = AppDb.RoleAssignments.GroupBy(r => r.Role).Select(g => new { g.Key, N = g.Count() }).ToDictionary(x => x.Key, x => x.N);
+    string SysDesc(Role r) => !L.IsAr ? r.Name switch
+    {
+        SystemRoles.Admin => "Everything. Cannot be changed.",
+        SystemRoles.EntityEditor => "Updates only their own department (used by department roles).",
+        SystemRoles.Viewer => "Read-only. This is what an app role gets when it has no KPI role of its own.",
+        "Kpi" => "KPI team: follows, updates, imports and exports the KPIs.",
+        _ => r.Description
+    } : r.Description;
+}
+
+<div class="page-head">
+    <div>
+        <h3>@ViewData["Title"]</h3>
+        <div class="sub">@L.T("What each app role (Staff, HOD, Dean, Media, Research, Admin) may do in the KPI pages. Who has which role is set in Admin > Roles. Changes apply at once.", "ما يستطيع كل دور في التطبيق (موظف، رئيس قسم، عميد، إعلام، بحث، مدير) فعله في صفحات المؤشرات. من يحمل أي دور يُحدَّد في الإدارة > الأدوار. التغيير يسري فورًا.")</div>
+    </div>
+    <div class="d-flex gap-2"><a class="btn btn-outline-secondary" href="/Admin/RolesPage"><i class="bi bi-people"></i>@L.T("Access & roles", "الصلاحيات والأدوار")</a>
+    <a class="btn btn-primary" href="/Kpi/Admin/Roles?new=true"><i class="bi bi-plus-lg"></i>@L.T("New role", "دور جديد")</a></div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @Model.Error</div>
+}
+
+@if (editorOpen)
+{
+    <form method="post" asp-page-handler="Save" class="card mb-4 border-primary"><div class="card-body">
+        <input type="hidden" name="id" value="@Model.Editing?.Id" />
+        <h3 class="h6 mb-3"><i class="bi bi-shield-lock text-primary"></i> @(Model.Editing is null ? L.T("New role", "دور جديد") : L.T("Edit role: ", "تعديل الدور: ") + Model.Editing.Name)</h3>
+        @if (locked)
+        {
+            <div class="alert alert-warning small">@L.T("The administrator role always has every permission and cannot be changed.", "دور مدير النظام يملك كل الصلاحيات دائمًا ولا يمكن تعديله.")</div>
+        }
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <label class="form-label req">@L.T("Role name", "اسم الدور")</label>
+                <input class="form-control" name="name" value="@(Model.Editing?.Name ?? Model.Name)" required readonly="@(Model.Editing?.IsSystem == true || Model.Editing?.EntityId != null || (Model.Editing is null && !string.IsNullOrWhiteSpace(Model.Name)))" />
+            </div>
+            <div class="col-md-8">
+                <label class="form-label">@L.T("Description", "الوصف")</label>
+                <input class="form-control" name="description" value="@(Model.Editing?.Description)" disabled="@locked" />
+            </div>
+        </div>
+
+        @foreach (var group in Permissions.Catalog.GroupBy(p => p.GroupT(L.IsAr)))
+        {
+            <div class="fw-semibold small text-primary mb-2">@group.Key</div>
+            <div class="row row-cols-1 row-cols-md-2 g-2 mb-3">
+                @foreach (var p in group)
+                {
+                    var on = locked || Model.EditingPermissions.Contains(p.Key);
+                    <div class="col"><div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="permissions" value="@p.Key" id="p-@p.Key" checked="@on" disabled="@locked" />
+                        <label class="form-check-label small" for="p-@p.Key"><strong>@p.LabelT(L.IsAr)</strong> <span class="text-muted">— @p.DescriptionT(L.IsAr)</span></label>
+                    </div></div>
+                }
+            </div>
+        }
+
+        @if (Model.Editing?.EntityId != null)
+        {
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="applyToAllDepartments" value="true" id="applyAll" />
+                <label class="form-check-label small" for="applyAll"><strong>@L.T("Apply to every department role", "تطبيق هذه الصلاحيات على أدوار كل الجهات")</strong> <span class="text-muted">— @L.T("replaces the permissions of the other department roles with this list.", "يستبدل صلاحيات أدوار الجهات الأخرى بنفس القائمة.")</span></label>
+            </div>
+        }
+        <div class="d-flex justify-content-end gap-2">
+            <a class="btn btn-outline-secondary" href="/Kpi/Admin/Roles">@L.T("Cancel", "إلغاء")</a>
+            @if (!locked)
+            {
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i>@L.T("Save role", "حفظ الدور")</button>
+            }
+        </div>
+    </div></form>
+}
+
+<div class="section-label">@L.T("What each app role can do in the KPI pages", "ما يستطيع كل دور في التطبيق فعله في صفحات المؤشرات")</div>
+<div class="card mb-3"><div class="table-responsive">
+<table class="table align-middle mb-0">
+    <thead><tr><th>@L.T("App role", "الدور")</th><th>@L.T("KPI permissions", "صلاحيات المؤشرات")</th><th>@L.T("Given in the app", "المُسندون في التطبيق")</th><th style="width:150px"></th></tr></thead>
+    <tbody>
+    @foreach (var ar in appRoles)
+    {
+        var own = kpiByName.GetValueOrDefault(ar.name);
+        var isAdminRole = ar.name == GuestEvents.Models.Roles.Admin;
+        var perms = isAdminRole ? Permissions.Catalog.Select(c => c.Key).ToHashSet() : (own ?? viewer)?.Permissions.Select(p => p.Permission).ToHashSet() ?? new HashSet<string>();
+        <tr>
+            <td><div class="fw-semibold">@L.T(ar.en, ar.ar) <code class="small text-muted">@ar.name</code></div><div class="small text-muted">@L.T(ar.whoEn, ar.whoAr)</div></td>
+            <td class="small">
+                @if (own is null && !isAdminRole) { <div class="mb-1"><span class="badge text-bg-light border">@L.T("Default", "افتراضي")</span> <span class="text-muted">@L.T("no KPI role of its own, so it gets the Viewer permissions", "ليس له دور مؤشرات خاص فيأخذ صلاحيات المطّلع")</span></div> }
+                @if (perms.Count == 0) { <span class="text-muted">@L.T("No KPI access (the KPIs menu is hidden)", "بلا وصول للمؤشرات (تُخفى قائمة المؤشرات)")</span> }
+                else if (isAdminRole) { <span class="badge text-bg-success">@L.T("Everything", "كل الصلاحيات")</span> }
+                else foreach (var p in Permissions.Catalog.Where(c => perms.Contains(c.Key))) { <span class="badge text-bg-light border">@p.LabelT(L.IsAr)</span> }
+            </td>
+            <td>@L.Num(assigned.GetValueOrDefault(ar.name)) <span class="small text-muted">@L.T("(people in AD groups are not counted)", "(لا يُحسب أعضاء مجموعات AD)")</span></td>
+            <td>
+                @if (isAdminRole) { <span class="small text-muted">@L.T("fixed", "ثابت")</span> }
+                else if (own is not null) { <a class="btn btn-sm btn-outline-secondary" href="/Kpi/Admin/Roles?id=@own.Id"><i class="bi bi-pencil"></i>@L["Edit"]</a> }
+                else { <a class="btn btn-sm btn-outline-primary" href="/Kpi/Admin/Roles?new=true&name=@Uri.EscapeDataString(ar.name)"><i class="bi bi-sliders"></i>@L.T("Customize", "تخصيص")</a> }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+</div></div>
+<p class="small text-muted">@L.T("Customize creates a KPI role with the same name as the app role. Untick everything to hide the KPIs menu from that role. Who has which app role is set in Admin > Roles.", "«تخصيص» ينشئ دور مؤشرات بنفس اسم دور التطبيق. أزل كل العلامات لإخفاء قائمة المؤشرات عن ذلك الدور. من يحمل أي دور يُحدَّد في الإدارة > الأدوار.")</p>
+
+<details class="mt-3"@(Model.Editing != null && Model.Editing.EntityId == null && !appRoles.Any(a => a.name == Model.Editing.Name) ? " open" : "")>
+    <summary class="fw-semibold mb-2" style="cursor:pointer">@L.T("Other KPI roles", "أدوار مؤشرات أخرى") — @L.T("built-in defaults and any custom roles", "الافتراضية وأي أدوار مخصصة")</summary>
+<div class="card mb-3"><div class="table-responsive">
+<table class="table align-middle mb-0">
+    <thead><tr><th>@L.T("Role", "الدور")</th><th>@L.T("Description", "الوصف")</th><th>@L.T("Permissions", "الصلاحيات")</th><th style="width:130px"></th></tr></thead>
+    <tbody>
+    @foreach (var r in Model.Roles.Where(r => r.EntityId == null && !appRoles.Any(a => a.name.Equals(r.Name, StringComparison.OrdinalIgnoreCase))))
+    {
+        <tr>
+            <td class="fw-semibold">@r.Name @if (r.IsSystem) { <span class="badge text-bg-secondary">@L.T("built-in", "مدمج")</span> }</td>
+            <td class="small">@SysDesc(r)</td>
+            <td class="small">@foreach (var p in Permissions.Catalog.Where(c => r.Permissions.Any(x => x.Permission == c.Key))) { <span class="badge text-bg-light border">@p.LabelT(L.IsAr)</span> }</td>
+            <td><div class="d-flex gap-1">
+                <a class="btn btn-sm btn-outline-secondary" href="/Kpi/Admin/Roles?id=@r.Id"><i class="bi bi-pencil"></i></a>
+                @if (!r.IsSystem)
+                {
+                    <form method="post" asp-page-handler="Delete" asp-route-id="@r.Id" onsubmit="return confirm('@L.T("Delete this role?", "حذف هذا الدور؟")');"><button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form>
+                }
+            </div></td>
+        </tr>
+    }
+    </tbody>
+</table>
+</div></div>
+</details>
+
+<details class="mt-4"@(Model.Editing?.EntityId != null ? " open" : "")>
+    <summary class="fw-semibold mb-2" style="cursor:pointer">@L.T("Department roles", "أدوار الجهات") (@Model.Roles.Count(r => r.EntityId != null)) — @L.T("each department has its own role", "لكل جهة دور خاص بها")</summary>
+<div class="card mb-3"><div class="table-responsive">
+<table class="table align-middle mb-0">
+    <thead><tr><th>@L.T("Role", "الدور")</th><th>@L.T("Description", "الوصف")</th><th>@L.T("Permissions", "الصلاحيات")</th><th>@L.T("Users", "المستخدمون")</th><th style="width:110px"></th></tr></thead>
+    <tbody>
+        @foreach (var r in Model.Roles.Where(r => r.EntityId != null))
+        {
+            <tr>
+                <td class="fw-semibold">@r.Name @if (r.IsSystem) { <span class="badge text-bg-secondary">@L.T("system", "نظامي")</span> } @if (r.EntityId.HasValue) { <span class="badge text-bg-info">@L.T("department", "جهة")</span> }</td>
+                <td class="small">@r.Description</td>
+                <td class="small">
+                    @foreach (var p in Permissions.Catalog.Where(c => r.Permissions.Any(x => x.Permission == c.Key)))
+                    {
+                        <span class="badge text-bg-light border">@p.LabelT(L.IsAr)</span>
+                    }
+                </td>
+                <td>@r.Users.Count</td>
+                <td>
+                    <div class="d-flex gap-1">
+                        <a class="btn btn-sm btn-outline-secondary" href="/Kpi/Admin/Roles?id=@r.Id"><i class="bi bi-pencil"></i></a>
+                        @if (!r.IsSystem && !r.EntityId.HasValue)
+                        {
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@r.Id" onsubmit="return confirm('@L.T("Delete this role?", "حذف هذا الدور؟")');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                            </form>
+                        }
+                    </div>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+</div></div>
+</details>

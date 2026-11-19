@@ -10,11 +10,14 @@ public class Loc
     public bool IsAr => (_h.HttpContext?.Request.Cookies["lang"] ?? "en") == "ar";
     public string Dir => IsAr ? "rtl" : "ltr";
     public string Lang => IsAr ? "ar" : "en";
-    public string this[string key] => D.TryGetValue(key, out var v) ? (IsAr ? v.ar : v.en) : key;
+    public string this[string key] => key == "App" ? (IsAr ? BrandAr : BrandEn) : D.TryGetValue(key, out var v) ? (IsAr ? v.ar : v.en) : key;
 
     /// <summary>Inline bilingual text: T("English", "عربي").</summary>
     public string T(string en, string ar) => IsAr ? ar : en;
 
+    /// <summary>The name of the app shown in the top bar, page titles, login and emails. Set by the Admin in Settings > Branding.</summary>
+    public static string BrandEn { get; set; } = "Campus Hub";
+    public static string BrandAr { get; set; } = "مركز الحرم";
     public static bool UseArabicDigits { get; set; }
     public static string DateFmt { get; set; } = "yyyy-MM-dd";
 
@@ -50,7 +53,7 @@ public class Loc
         ["People"] = ("Number of people", "عدد الأشخاص"), ["Meal"] = ("Meal type", "نوع الوجبة"), ["DeliveryTime"] = ("Delivery time", "وقت التسليم"), ["Location"] = ("Location", "الموقع"),
         ["Notes"] = ("Dietary notes / instructions", "ملاحظات غذائية / تعليمات"), ["Confirm"] = ("Confirm", "تأكيد"), ["None"] = ("Nothing here yet.", "لا يوجد شيء بعد."),
         ["Actions"] = ("Actions", "إجراءات"), ["Open"] = ("Open", "فتح"), ["Back"] = ("Back", "رجوع"), ["By"] = ("By", "بواسطة"), ["At"] = ("At", "في"),
-        ["Draft"] = ("Draft", "مسودة"), ["Submitted"] = ("Submitted", "مرسل"), ["Approved"] = ("Approved", "معتمد"), ["Rejected"] = ("Rejected", "مرفوض"),
+        ["Draft"] = ("Draft", "مسودة"), ["Submitted"] = ("Submitted", "مرسل"), ["AlreadyApproved"] = ("You already approved this request at this step.", "لقد وافقت على هذا الطلب في هذه الخطوة مسبقاً."), ["Approved"] = ("Approved", "معتمد"), ["Rejected"] = ("Rejected", "مرفوض"),
         ["EventDone"] = ("Event done", "انتهت الفعالية"), ["EvaluationClosed"] = ("Evaluation closed", "أُغلق التقييم"), ["Confirmed"] = ("Confirmed", "مؤكد"),
         ["Breakfast"] = ("Breakfast", "فطور"), ["Lunch"] = ("Lunch", "غداء"), ["CoffeeBreak"] = ("Coffee break", "استراحة قهوة"), ["Dinner"] = ("Dinner", "عشاء"),
         ["workshop"] = ("Workshop", "ورشة عمل"), ["seminar"] = ("Seminar", "ندوة"), ["training"] = ("Training", "تدريب"), ["other"] = ("Other", "أخرى"),
@@ -88,9 +91,9 @@ public class Loc
         ["WaitingDecision"] = ("waiting for a decision", "بانتظار القرار"), ["NotAssignedHod"] = ("Only the assigned HOD can decide on requests.", "فقط رئيس القسم المعيّن يمكنه اتخاذ القرار."),
         ["AllCaughtUp"] = ("All caught up", "لا شيء معلّق"), ["NoPending"] = ("There are no requests waiting for your decision.", "لا توجد طلبات بانتظار قرارك."),
         ["WorkingDaysWaiting"] = ("working day(s) waiting", "يوم عمل بالانتظار"), ["RejectNeeds"] = ("required to reject", "مطلوب عند الرفض"),
-        ["LoginTagline"] = ("Guest workshops and events, from request to evaluation.", "ورش وفعاليات الضيوف، من الطلب حتى التقييم."),
+        ["LoginTagline"] = ("Events, external visits, research and KPIs in one place.", "الفعاليات والزيارات الخارجية والأبحاث والمؤشرات في مكان واحد."),
         ["LoginHint"] = ("Use your company account.", "استخدم حساب الشركة."),
-        ["Feat1"] = ("One approval starts everything", "موافقة واحدة تبدأ كل الإجراءات"), ["Feat2"] = ("Event image created automatically", "صورة الفعالية تُنشأ تلقائياً"), ["Feat3"] = ("QR check-in and evaluation", "تسجيل الحضور والتقييم برمز QR"),
+        ["Feat1"] = ("Request events and trips, approved step by step", "اطلب الفعاليات والرحلات واعتمدها خطوة بخطوة"), ["Feat2"] = ("QR check-in, evaluation and the event image", "تسجيل الحضور بـ QR والتقييم وصورة الفعالية"), ["Feat3"] = ("Track the strategic KPIs across departments", "تابع المؤشرات الاستراتيجية عبر الجهات"),
         ["EvalInvite"] = ("After the event, please rate it - it takes one minute.", "بعد الفعالية يرجى تقييمها - يستغرق دقيقة واحدة."), ["OpensAt"] = ("Opens at", "يفتح في"),
         ["Poor"] = ("Poor", "ضعيف"), ["Excellent"] = ("Excellent", "ممتاز"),
         ["FoodHint"] = ("Sent to the admin mailbox. You will be told when it is confirmed.", "يُرسل إلى بريد الإدارة وسيتم إشعارك عند التأكيد."), ["NotesHint"] = ("Allergies, vegetarian, halal, special instructions...", "حساسية، نباتي، حلال، تعليمات خاصة..."),

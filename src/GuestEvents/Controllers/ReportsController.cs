@@ -23,7 +23,7 @@ public class ReportsController : AppController
 
     public async Task<IActionResult> Index()
     {
-        var events = await _db.Events.AsNoTracking().Where(e => e.Status >= EventStatus.Approved && e.Status != EventStatus.Rejected).OrderByDescending(e => e.Date).ToListAsync();
+        var events = await _db.Events.AsNoTracking().Where(e => EventStatuses.Live.Contains(e.Status)).OrderByDescending(e => e.Date).ToListAsync();
         var stats = new List<EventStat>();
         foreach (var e in events) stats.Add(await Stat(e));
         ViewBag.Presenters = stats.GroupBy(x => x.Event.Presenter).Select(g => new PresenterStat(g.Key, g.Count(), g.Sum(x => x.Evaluations),
@@ -88,6 +88,49 @@ public class ReportsController : AppController
         ws.Columns().AdjustToContents();
         await _wf.Audit(Username, "Export", $"Evaluations {(id?.ToString() ?? "all")}");
         return Xlsx(wb, "evaluations.xlsx");
+    }
+
+    public async Task<IActionResult> ExportEvents()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Events");
+        string[] h = { "Id", "Name", "Type", "Status", "Date", "Start", "End", "Venue", "Presenter", "Company", "Expected attendees", "Requester", "Department", "KPI", "Submitted", "Approvals (step - person - decision - date)", "Attendees", "Evaluations" };
+        for (int i = 0; i < h.Length; i++) ws.Cell(1, i + 1).SetValue(h[i]).Style.Font.Bold = true;
+        var events = await _db.Events.AsNoTracking().OrderByDescending(e => e.Date).ToListAsync();
+        var approvals = (await _db.Approvals.AsNoTracking().OrderBy(a => a.DecidedAt).ToListAsync()).GroupBy(a => a.EventRequestId).ToDictionary(g => g.Key, g => g.ToList());
+        var att = await _db.Attendances.AsNoTracking().GroupBy(a => a.EventRequestId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
+        var evs = await _db.Evaluations.AsNoTracking().GroupBy(a => a.EventRequestId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
+        int r = 2;
+        foreach (var e in events)
+        {
+            var hist = approvals.TryGetValue(e.Id, out var l) ? string.Join("\n", l.Select(a => $"{a.StepName ?? "-"} - {a.ApproverName} - {(a.Approved ? "approved" : "rejected")} - {a.DecidedAt.ToLocalTime():yyyy-MM-dd HH:mm}")) : "";
+            object[] v = { e.Id, Safe(e.Name), Safe(e.Type.ToString()), e.Status.ToString(), e.Date.ToString("yyyy-MM-dd"), e.StartTime.ToString(@"hh\:mm"), e.EndTime.ToString(@"hh\:mm"), Safe(e.Venue), Safe(e.Presenter), Safe(e.CompanyName), e.ExpectedAttendees,
+                Safe(e.RequesterName), Safe(e.RequesterDepartment), Safe(e.KpiLabel), e.SubmittedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "", Safe(hist), att.GetValueOrDefault(e.Id), evs.GetValueOrDefault(e.Id) };
+            for (int c = 0; c < v.Length; c++) ws.Cell(r, c + 1).SetValue(XLCellValue.FromObject(v[c]));
+            r++;
+        }
+        ws.Columns().AdjustToContents(); ws.Column(16).Width = 60; ws.Column(16).Style.Alignment.WrapText = true;
+        await _wf.Audit(Username, "Export", "Events");
+        return Xlsx(wb, "events.xlsx");
+    }
+
+    public async Task<IActionResult> ExportVisits()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Visits");
+        string[] h = { "Id", "Name", "Destination", "Status", "Date", "Departure", "Return", "Pick-up", "Grade", "Students", "Staff", "Supervisor", "Supervisor phone", "Requester", "Department", "KPI", "Decision by", "Decision comment", "Bus details" };
+        for (int i = 0; i < h.Length; i++) ws.Cell(1, i + 1).SetValue(h[i]).Style.Font.Bold = true;
+        int r = 2;
+        foreach (var x in await _db.Visits.AsNoTracking().OrderByDescending(v => v.Date).ToListAsync())
+        {
+            object[] v = { x.Id, Safe(x.Name), Safe(x.Destination), x.Status.ToString(), x.Date.ToString("yyyy-MM-dd"), x.DepartureTime.ToString(@"hh\:mm"), x.ReturnTime.ToString(@"hh\:mm"), Safe(x.PickupLocation), Safe(x.Grade), x.StudentCount, x.StaffCount,
+                Safe(x.SupervisorName), Safe(x.SupervisorPhone), Safe(x.RequesterName), Safe(x.RequesterDepartment), Safe(x.KpiLabel), Safe(x.DecisionBy), Safe(x.DecisionComment), Safe(x.BusDetails) };
+            for (int c = 0; c < v.Length; c++) ws.Cell(r, c + 1).SetValue(XLCellValue.FromObject(v[c]));
+            r++;
+        }
+        ws.Columns().AdjustToContents();
+        await _wf.Audit(Username, "Export", "Visits");
+        return Xlsx(wb, "visits.xlsx");
     }
 
     private async Task<EventStat> Stat(EventRequest e)

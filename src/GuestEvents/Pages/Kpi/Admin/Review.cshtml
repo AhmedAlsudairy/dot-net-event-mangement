@@ -1,0 +1,42 @@
+@page
+@model ReviewModel
+@{
+    ViewData["Title"] = L.T("Review items", "بنود المراجعة");
+    ViewData["Active"] = "review";
+    var open = Model.Items.Count(i => !i.IsResolved);
+}
+
+<div class="page-head">
+    <div>
+        <h3>@ViewData["Title"]</h3>
+        <div class="sub">@L.T("Points that need a person to confirm, imported from the \"review\" sheet of the alignment workbook. Mark each one done once decided.", "نقاط تحتاج تأكيدًا بشريًا، مستوردة من ورقة «للمراجعة» في ملف المواءمة. علّم البند «تمت المراجعة» بعد البتّ فيه.")</div>
+    </div>
+    <span class="badge text-bg-warning fs-6">@L.T($"{open} open of {Model.Items.Count}", $"{open} مفتوح من أصل {Model.Items.Count}")</span>
+</div>
+
+<div class="card"><div class="table-responsive">
+<table class="table align-middle mb-0">
+    <thead><tr><th style="width:44px">#</th><th>@L.T("Category", "الفئة")</th><th>@L.T("Item", "البند")</th><th>@L.T("Details", "التفاصيل")</th><th>@L.T("Suggested action", "الإجراء المقترح")</th><th style="width:130px"></th></tr></thead>
+    <tbody>
+        @if (Model.Items.Count == 0)
+        {
+            <tr><td colspan="6" class="empty-state">@L.T("No items. Import an alignment workbook that has a review sheet.", "لا توجد بنود. استورد ملف المواءمة الذي يحتوي ورقة «للمراجعة».")</td></tr>
+        }
+        @foreach (var r in Model.Items)
+        {
+            <tr class="@(r.IsResolved ? "opacity-50" : "")">
+                <td>@r.Seq</td>
+                <td class="small">@r.Category</td>
+                <td class="small fw-semibold bidi-auto" dir="auto">@r.Item</td>
+                <td class="small bidi-auto" dir="auto">@r.Details</td>
+                <td class="small bidi-auto" dir="auto">@r.SuggestedAction</td>
+                <td>
+                    <form method="post" asp-page-handler="Toggle" asp-route-id="@r.Id">
+                        <button type="submit" class="btn btn-sm @(r.IsResolved ? "btn-outline-secondary" : "btn-outline-success")">@(r.IsResolved ? L.T("Reopen", "إعادة فتح") : L.T("Mark done", "تمت المراجعة"))</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+</div></div>

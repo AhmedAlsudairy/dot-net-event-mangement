@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Kpi.Dashboard.Web.Services;
+using KpiDb = Kpi.Dashboard.Web.Data.AppDbContext;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,10 +19,30 @@ builder.Services.AddDbContext<AppDb>(o =>
 });
 
 builder.Services.AddControllersWithViews(o => o.Filters.Add(new Microsoft.AspNetCore.Mvc.AutoValidateAntiforgeryTokenAttribute()));
+
+// ---- KPI dashboard (merged in): Razor Pages under /Kpi, its own SQLite database, same sign-in as the events app ----
+// Let Arabic through un-escaped (the KPI pages are almost entirely Arabic).
+builder.Services.AddSingleton(System.Text.Encodings.Web.HtmlEncoder.Create(
+    System.Text.Unicode.UnicodeRanges.BasicLatin, System.Text.Unicode.UnicodeRanges.Arabic));
+builder.Services.AddRazorPages(o =>
+{
+    o.Conventions.AuthorizeFolder("/Kpi");   // anyone not signed in goes to the normal /Account/Login
+}).AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+builder.Services.AddDbContext<KpiDb>(o => o.UseSqlite(builder.Configuration.GetConnectionString("Kpi") ?? "Data Source=App_Data/kpi_dashboard.db"));
+builder.Services.AddScoped<PermissionService>();
+builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, PermissionHandler>();
+builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<TrackingQueryService>();
+builder.Services.AddScoped<ExcelImportService>();
+builder.Services.AddScoped<ExcelExportService>();
+builder.Services.AddScoped<TrackingSaveService>();
+builder.Services.AddScoped<KpiPicker>();
+builder.Services.AddAntiforgery(o => o.HeaderName = "X-CSRF-TOKEN");
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<Loc>();
 builder.Services.AddScoped<SettingsService>();
 builder.Services.AddScoped<MailService>();
+builder.Services.AddScoped<ApprovalChain>();
 builder.Services.AddScoped<WorkflowService>();
 builder.Services.AddSingleton<ImageService>();
 builder.Services.AddSingleton<QrService>();
@@ -45,6 +67,10 @@ var authBuilder = builder.Services.AddAuthentication(CookieAuthenticationDefault
         o.Cookie.HttpOnly = true;
         o.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         o.Cookie.Name = "ge_auth";
+        // fetch() calls from the KPI tracking table must get a real 401/403, not a redirect to the login page (which reads as success)
+        static bool IsApi(HttpRequest q) => (q.ContentType?.Contains("application/json") ?? false) || q.Headers.Accept.ToString().Contains("application/json");
+        o.Events.OnRedirectToLogin = c => { if (IsApi(c.Request)) c.Response.StatusCode = 401; else c.Response.Redirect(c.RedirectUri); return Task.CompletedTask; };
+        o.Events.OnRedirectToAccessDenied = c => { if (IsApi(c.Request)) c.Response.StatusCode = 403; else c.Response.Redirect(c.RedirectUri); return Task.CompletedTask; };
     });
 // Windows single sign-on (Kerberos / NTLM). Only works when the server itself is joined to the domain.
 if (builder.Configuration.GetValue("Auth:Sso", false)) authBuilder.AddNegotiate();
@@ -52,8 +78,13 @@ builder.Services.AddAuthorization(o =>
 {
     o.AddPolicy("Requester", p => p.RequireRole(Roles.Staff, Roles.Admin));
     o.AddPolicy("Hod", p => p.RequireRole(Roles.Hod));
+    o.AddPolicy("Dean", p => p.RequireRole(Roles.Dean));
     o.AddPolicy("Admin", p => p.RequireRole(Roles.Admin));
-    o.AddPolicy("Viewer", p => p.RequireRole(Roles.Staff, Roles.Admin, Roles.Hod, Roles.Media, Roles.Research));
+    foreach (var permission in Kpi.Dashboard.Web.Models.Permissions.All)   // one policy per KPI permission
+        o.AddPolicy(permission, p => p.Requirements.Add(new PermissionRequirement(permission)));
+    o.AddPolicy("Viewer", p => p.RequireRole(Roles.Staff, Roles.Admin, Roles.Hod, Roles.Dean, Roles.Media, Roles.Research, Roles.Kpi, Roles.KpiManager, Roles.KpiEditor, Roles.KpiOfficer, Roles.KpiViewer));
+    // The events / visits / research / food / approvals side of the app. A KPI-only person is not in it.
+    o.AddPolicy("EventsUser", p => p.RequireRole(Roles.Staff, Roles.Admin, Roles.Hod, Roles.Dean, Roles.Media, Roles.Research));
 });
 
 builder.Services.AddRateLimiter(o =>
@@ -112,9 +143,44 @@ using (var scope = app.Services.CreateScope())
         db.Database.ExecuteSqlRaw("IF OBJECT_ID(N'ResearchDocs') IS NULL CREATE TABLE ResearchDocs (Id INT IDENTITY PRIMARY KEY, Title NVARCHAR(300) NOT NULL, DocType NVARCHAR(50) NOT NULL, Authors NVARCHAR(300) NULL, Summary NVARCHAR(MAX) NULL, OriginalFileName NVARCHAR(MAX) NOT NULL, FilePath NVARCHAR(MAX) NOT NULL, FileSize BIGINT NOT NULL, UploaderUsername NVARCHAR(MAX) NOT NULL, UploaderName NVARCHAR(MAX) NOT NULL, UploaderDepartment NVARCHAR(MAX) NULL, UploaderEmail NVARCHAR(MAX) NULL, UploadedAt DATETIME2 NOT NULL, EmailSent BIT NOT NULL)");
     else
         db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS ResearchDocs (Id INTEGER PRIMARY KEY AUTOINCREMENT, Title TEXT NOT NULL, DocType TEXT NOT NULL, Authors TEXT NULL, Summary TEXT NULL, OriginalFileName TEXT NOT NULL, FilePath TEXT NOT NULL, FileSize INTEGER NOT NULL, UploaderUsername TEXT NOT NULL, UploaderName TEXT NOT NULL, UploaderDepartment TEXT NULL, UploaderEmail TEXT NULL, UploadedAt TEXT NOT NULL, EmailSent INTEGER NOT NULL)");
+    // Configurable approval chain: its table, which step an event waits at, and which step each decision was made at
+    if (provider == "SqlServer")
+    {
+        db.Database.ExecuteSqlRaw("IF OBJECT_ID(N'ApprovalSteps') IS NULL CREATE TABLE ApprovalSteps (Id INT IDENTITY PRIMARY KEY, [Order] INT NOT NULL, Name NVARCHAR(100) NOT NULL, Role NVARCHAR(20) NULL, Approvers NVARCHAR(1000) NULL, RequiredApprovals INT NOT NULL, NotifyEmail NVARCHAR(500) NULL, Enabled BIT NOT NULL)");
+        db.Database.ExecuteSqlRaw("IF COL_LENGTH('Approvals','StepId') IS NULL ALTER TABLE Approvals ADD StepId INT NULL; IF COL_LENGTH('Approvals','StepName') IS NULL ALTER TABLE Approvals ADD StepName NVARCHAR(MAX) NULL");
+        db.Database.ExecuteSqlRaw("IF COL_LENGTH('Events','CurrentStepId') IS NULL ALTER TABLE Events ADD CurrentStepId INT NULL; IF COL_LENGTH('Events','StepStartedAt') IS NULL ALTER TABLE Events ADD StepStartedAt DATETIME2 NULL");
+        db.Database.ExecuteSqlRaw("IF COL_LENGTH('RoleAssignments','EntityId') IS NULL ALTER TABLE RoleAssignments ADD EntityId INT NULL");
+    }
+    else
+    {
+        db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS ApprovalSteps (Id INTEGER PRIMARY KEY AUTOINCREMENT, \"Order\" INTEGER NOT NULL, Name TEXT NOT NULL, Role TEXT NULL, Approvers TEXT NULL, RequiredApprovals INTEGER NOT NULL, NotifyEmail TEXT NULL, Enabled INTEGER NOT NULL)");
+        foreach (var (table, col, type) in new[] { ("Approvals", "StepId", "INTEGER"), ("Approvals", "StepName", "TEXT"), ("Events", "CurrentStepId", "INTEGER"), ("Events", "StepStartedAt", "TEXT"), ("RoleAssignments", "EntityId", "INTEGER") })
+            if (db.Database.SqlQueryRaw<int>($"SELECT COUNT(*) AS Value FROM pragma_table_info('{table}') WHERE name='{col}'").AsEnumerable().First() == 0)
+                db.Database.ExecuteSqlRaw($"ALTER TABLE {table} ADD COLUMN {col} {type} NULL");
+    }
+    await ApprovalChain.EnsureDefaultsAsync(db, scope.ServiceProvider.GetRequiredService<SettingsService>());
+    // Link an event / visit to a KPI (added after the first release)
+    foreach (var table in new[] { "Events", "Visits" })
+    {
+        if (provider == "SqlServer")
+            db.Database.ExecuteSqlRaw($"IF COL_LENGTH('{table}','KpiId') IS NULL ALTER TABLE {table} ADD KpiId INT NULL; IF COL_LENGTH('{table}','KpiLabel') IS NULL ALTER TABLE {table} ADD KpiLabel NVARCHAR(400) NULL");
+        else
+        {
+            if (db.Database.SqlQueryRaw<int>($"SELECT COUNT(*) AS Value FROM pragma_table_info('{table}') WHERE name='KpiId'").AsEnumerable().First() == 0)
+                db.Database.ExecuteSqlRaw($"ALTER TABLE {table} ADD COLUMN KpiId INTEGER NULL");
+            if (db.Database.SqlQueryRaw<int>($"SELECT COUNT(*) AS Value FROM pragma_table_info('{table}') WHERE name='KpiLabel'").AsEnumerable().First() == 0)
+                db.Database.ExecuteSqlRaw($"ALTER TABLE {table} ADD COLUMN KpiLabel TEXT NULL");
+        }
+    }
+    // KPI dashboard database: apply its migrations and make sure the roles/entities exist
+    var kdb = scope.ServiceProvider.GetRequiredService<KpiDb>();
+    kdb.Database.Migrate();
+    Kpi.Dashboard.Web.Data.SeedData.EnsureSeeded(kdb);
     var s = await scope.ServiceProvider.GetRequiredService<SettingsService>().AllAsync();
     Loc.UseArabicDigits = SettingsService.Bool(s, "UseArabicDigits");
     Loc.DateFmt = s["DateFormat"];
+    if (!string.IsNullOrWhiteSpace(s["AppNameEn"])) Loc.BrandEn = s["AppNameEn"].Trim();
+    if (!string.IsNullOrWhiteSpace(s["AppNameAr"])) Loc.BrandAr = s["AppNameAr"].Trim();
 }
 
 app.UseForwardedHeaders();
@@ -142,7 +208,8 @@ app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllerRoute("default", "{controller=Events}/{action=Index}/{id?}");
+app.MapRazorPages();
+app.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}");
 app.Run();
 
 /// <summary>Background job: HOD reminders (Sun-Thu working days) and status roll-over.</summary>

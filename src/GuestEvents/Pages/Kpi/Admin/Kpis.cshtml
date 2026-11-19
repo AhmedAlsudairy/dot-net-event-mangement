@@ -1,0 +1,89 @@
+@page
+@model KpisModel
+@{
+    ViewData["Title"] = L.T("KPI list", "قائمة المؤشرات");
+    ViewData["Active"] = "kpis";
+}
+
+<div class="page-head">
+    <div>
+        <h3>@ViewData["Title"]</h3>
+        <div class="sub">@L.T("Add or edit the reference data of a KPI. To load many at once, use Import.", "إضافة مؤشر أو تعديل بياناته المرجعية. للإضافة الجماعية استخدم الاستيراد.")</div>
+    </div>
+    <a class="btn btn-primary" href="/Kpi/Admin/KpiForm"><i class="bi bi-plus-lg"></i>@L.T("New KPI", "مؤشر جديد")</a>
+</div>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-md-6">
+        <div class="input-group"><span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+        <input class="form-control" type="text" name="Search" value="@Model.Search" placeholder="@L.T("Number, KPI, domain or goal...", "الرقم، المؤشر، المجال، أو الهدف...")" /></div>
+    </div>
+    <div class="col-md-4">
+        <select class="form-select" name="Group">
+            <option value="">@L.T("All groups", "كل المجموعات")</option>
+            <option value="BranchPlan" selected="@(Model.Group == "BranchPlan")">@L.T("Branch plan KPIs", "مؤشرات خطة الفرع")</option>
+            <option value="AnnualOnly" selected="@(Model.Group == "AnnualOnly")">@L.T("Annual projects without an operational KPI", "مشاريع سنوية بلا مؤشر تشغيلي")</option>
+            <option value="EjadaOnly" selected="@(Model.Group == "EjadaOnly")">@L.T("Ejada KPIs without a match", "مؤشرات إجادة بلا مقابل")</option>
+            <option value="OutsideBranchPlan" selected="@(Model.Group == "OutsideBranchPlan")">@L.T("Outside the branch plan", "خارج خطة الفرع")</option>
+        </select>
+    </div>
+    <div class="col-md-2"><button type="submit" class="btn btn-outline-primary w-100">@L.T("Search", "بحث")</button></div>
+</form>
+
+<p class="text-muted small mb-2">@L.Num(Model.Kpis.Count) @L.T("KPIs", "مؤشر")</p>
+
+<div class="card"><div class="table-responsive table-responsive-tall">
+<table class="table table-hover align-middle mb-0 table-sticky-header">
+    <thead>
+        <tr>
+            <th>#</th><th>@L.T("Group", "المجموعة")</th><th>@L.T("Classification", "التصنيف")</th><th>@L.T("Domain", "المجال")</th><th>@L.T("KPI", "المؤشر")</th>
+            <th>@L.T("Plans", "الخطط المرتبطة")</th><th>@L.T("Accreditation", "الاعتماد")</th><th style="width:110px"></th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (Model.Kpis.Count == 0)
+        {
+            <tr><td colspan="8" class="empty-state">@L.T("No KPIs match.", "لا توجد مؤشرات مطابقة.")</td></tr>
+        }
+        else
+        {
+            @foreach (var k in Model.Kpis)
+            {
+                <tr>
+                    <td class="text-muted">@k.Sn</td>
+                    <td>
+                        @switch (k.Group)
+                        {
+                            case KpiGroup.BranchPlan: <span class="badge text-bg-primary">@L.T("Branch plan", "خطة الفرع")</span> break;
+                            case KpiGroup.AnnualOnly: <span class="badge text-bg-info">@L.T("Annual only", "سنوي فقط")</span> break;
+                            case KpiGroup.EjadaOnly: <span class="badge text-bg-success">@L.T("Ejada only", "إجادة فقط")</span> break;
+                            default: <span class="badge text-bg-secondary">@L.T("Outside plan", "خارج الخطة")</span> break;
+                        }
+                    </td>
+                    <td dir="auto" class="bidi-auto">@k.Classification</td>
+                    <td style="max-width:180px"><div class="text-truncate bidi-auto" dir="auto" style="max-width:180px" title="@k.Domain">@k.Domain</div></td>
+                    <td style="max-width:320px"><div class="text-truncate bidi-auto fw-semibold" dir="auto" style="max-width:320px" title="@k.KpiText">@k.KpiText</div></td>
+                    <td class="text-nowrap">
+                        @if (!string.IsNullOrWhiteSpace(k.OperationalPlanText)) { <span class="badge text-bg-primary">@L.T("Operational", "تشغيلية")</span> }
+                        @if (!string.IsNullOrWhiteSpace(k.AnnualPlanText)) { <span class="badge text-bg-info">@L.T("Annual", "سنوية")</span> }
+                        @if (!string.IsNullOrWhiteSpace(k.EjadaPlanText)) { <span class="badge text-bg-success">@L.T("Ejada", "إجادة")</span> }
+                    </td>
+                    <td>@if (string.IsNullOrWhiteSpace(k.AccreditationCriteria)) { <span class="text-muted">—</span> } else { <i class="bi bi-check-lg text-success"></i> }</td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <a class="btn btn-sm btn-outline-secondary" href="/Kpi/Admin/KpiForm?id=@k.Id" title="@L["Edit"]"><i class="bi bi-pencil"></i></a>
+                            @if (Model.CanDelete)
+                            {
+                                <form method="post" asp-page-handler="Delete" asp-route-id="@k.Id" class="d-inline"
+                                      onsubmit="return confirm('@L.T("Delete this KPI and all of its tracking data?", "سيتم حذف هذا المؤشر وكل بيانات متابعته. هل أنت متأكد؟")');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="@L.T("Delete", "حذف")"><i class="bi bi-trash"></i></button>
+                                </form>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+</div></div>

@@ -1,0 +1,51 @@
+/* KPI section: only the pieces the main app does not already have.
+   Colours, fonts, buttons, forms, cards and badges come from /css/app.css so the KPI pages
+   look like the rest of the app. */
+
+/* ---------- Section tabs (shared look with the rest of the app) ---------- */
+.kpi-tabs { display: flex; align-items: center; gap: .15rem; border-bottom: 1px solid var(--line); margin-bottom: 1.25rem; overflow-x: auto; scrollbar-width: thin; }
+.kpi-tabs a { display: flex; align-items: center; gap: .4rem; padding: .65rem .85rem; color: var(--muted); text-decoration: none; font-weight: 500; font-size: .92rem; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.kpi-tabs a:hover { color: var(--ink); }
+.kpi-tabs a.active { color: var(--brand); border-bottom-color: var(--accent); font-weight: 600; }
+.kpi-tabs .sep { width: 1px; align-self: stretch; margin: .55rem .4rem; background: var(--line); flex-shrink: 0; }
+
+/* ---------- Stat tiles with colour accents ---------- */
+.stat .n.ok { color: var(--ok); } .stat .n.warn { color: var(--warn); } .stat .n.bad { color: var(--bad); } .stat .n.brand { color: var(--brand-2); }
+.stat .ico { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; font-size: 1.05rem; flex-shrink: 0; }
+.ico.ok { background: #e3f4ec; color: var(--ok); } .ico.warn { background: #fdf3dc; color: var(--warn); } .ico.bad { background: #fbe7ea; color: var(--bad); } .ico.brand { background: #e4eef5; color: var(--brand-2); }
+
+/* Completion ring on the KPI dashboard head */
+.kpi-pct { display: flex; align-items: center; gap: .75rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: .55rem 1rem; box-shadow: var(--shadow); }
+.kpi-pct .ring { --p: 0; width: 46px; height: 46px; border-radius: 50%; background: conic-gradient(var(--ok) calc(var(--p) * 1%), var(--line) 0); display: grid; place-items: center; }
+.kpi-pct .ring::after { content: ""; width: 34px; height: 34px; border-radius: 50%; background: var(--card); grid-area: 1 / 1; }
+.kpi-pct .v { font-size: 1.3rem; font-weight: 700; line-height: 1; }
+.kpi-pct .l { font-size: .78rem; color: var(--muted); }
+
+.section-title { display: flex; align-items: baseline; gap: .6rem; margin: 1.75rem 0 .85rem; }
+.section-title h5 { margin: 0; font-weight: 700; }
+.section-title .sub { color: var(--muted); font-size: .85rem; }
+
+/* Segmented filter (plan tabs) */
+.seg { display: inline-flex; flex-wrap: wrap; gap: 2px; background: #e9edf2; padding: 3px; border-radius: 10px; }
+.seg a { padding: .35rem .85rem; border-radius: 8px; color: var(--muted); text-decoration: none; font-size: .86rem; font-weight: 500; }
+.seg a.active { background: var(--card); color: var(--brand); box-shadow: 0 1px 2px rgba(16,24,40,.08); font-weight: 600; }
+
+/* ---------- Tables ---------- */
+.table-sticky-header thead th { position: sticky; top: 0; z-index: 2; }
+.table-sticky-header thead th.editable-col { color: var(--brand-2); }
+.table-responsive-tall { max-height: 640px; overflow: auto; }
+.details-btn { min-width: 140px; text-align: start; justify-content: flex-start; }
+.details-btn .dcount { font-weight: 600; }
+
+/* ---------- Empty states ---------- */
+.empty-state { padding: 48px 20px; color: var(--muted); text-align: center; }
+.empty-dashboard { text-align: center; max-width: 520px; margin: 40px auto; padding: 40px 24px; background: var(--card); border: 1px dashed #cfd7e1; border-radius: var(--radius); }
+.empty-dashboard-icon { width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 18px; background: #e4eef5; color: var(--brand); display: flex; align-items: center; justify-content: center; font-size: 2rem; }
+
+.chart-wrap { position: relative; width: 100%; }
+
+/* Mixed Arabic/English data: each text takes its own direction, but lines up with the page. */
+.bidi-auto { unicode-bidi: plaintext; }
+html[dir=ltr] .bidi-auto { text-align: left; }
+html[dir=rtl] .bidi-auto { text-align: right; }
+bdi.ltr, .ltr { direction: ltr; unicode-bidi: isolate; }

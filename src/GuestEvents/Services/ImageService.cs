@@ -100,8 +100,18 @@ public class ImageService
         return data.ToArray();
     }
 
-    private static SKTypeface Face(string family, bool bold) =>
-        SKTypeface.FromFamilyName(family, bold ? SKFontStyle.Bold : SKFontStyle.Normal) ?? SKTypeface.Default;
+    // The configured font may not exist (e.g. "Segoe UI" on Linux): fall back to common fonts that do, so the poster is still drawn.
+    private static readonly string[] Fallbacks = { "Noto Sans Arabic", "Noto Sans", "DejaVu Sans", "Liberation Sans", "Arial", "Tahoma" };
+    private static SKTypeface Face(string family, bool bold)
+    {
+        var style = bold ? SKFontStyle.Bold : SKFontStyle.Normal;
+        foreach (var f in new[] { family }.Concat(Fallbacks))
+        {
+            var tf = SKTypeface.FromFamilyName(f, style);
+            if (tf != null && tf.FamilyName.Equals(f, StringComparison.OrdinalIgnoreCase)) return tf;
+        }
+        return SKTypeface.FromFamilyName(null, style) ?? SKTypeface.Default;
+    }
 
     private static void Text(SKCanvas c, string text, string family, float size, SKColor color, float cx, float baseline, bool bold = false, float maxWidth = 0)
     {

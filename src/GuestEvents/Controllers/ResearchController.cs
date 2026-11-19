@@ -11,7 +11,7 @@ namespace GuestEvents.Controllers;
 /// Research uploads: Staff upload a paper or proposal, it is emailed to the research in-charge and recorded.
 /// There is no approval step. The Research role (and Admin) browse the archive; staff see their own uploads.
 /// </summary>
-[Authorize(Policy = "Viewer")]
+[Authorize(Policy = "EventsUser")]
 public class ResearchController : AppController
 {
     private readonly AppDb _db;

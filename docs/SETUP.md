@@ -48,12 +48,12 @@ Gather this first. Ask your IT team for the directory items.
 | Base DN | `DC=company,DC=local` | where users and groups are searched |
 | Service account DN and password | `CN=svc-events,OU=Service,DC=company,DC=local` | read-only account the app uses to look people up |
 | The company email for each person | `name@company.com` (the AD `mail` attribute) | people sign in with it |
-| AD groups for the roles (or the people for each role) | `Events-Staff`, `Events-HOD`, `Events-Media`, `Events-Admin`, `Research-InCharge` | who gets which role |
+| AD groups for the roles (or the people for each role) | `Events-Staff`, `Events-HOD`, `Events-Dean`, `Events-Media`, `Events-Admin`, `Research-InCharge` | who gets which role |
 | SMTP relay | `smtp.company.local`, port 25 or 587 | all emails |
 | Two host names | internal `events.company.local`, public `qr.company.com` | internal site, public QR page |
 | TLS certificates for both names | from your company CA | HTTPS |
 | Who is the first Admin | their company email | `App__BootstrapAdmins` |
-| Research in-charge, IT helpdesk, admin mailbox, media officer, HOD | email addresses | Settings tabs |
+| Research in-charge, IT helpdesk, admin mailbox, media officer, HOD, Dean, other approvers | email addresses | Admin > Approval flow and Settings |
 
 ### Network ports
 
@@ -71,6 +71,8 @@ A normal **domain user** with no special rights. Reading users and groups is all
 ---
 
 ## 3. Install the tools
+
+**Linux:** the project already includes the Linux native libraries for the event image (SkiaSharp and HarfBuzz). The image needs `libfontconfig` and at least one font such as DejaVu Sans or Noto Sans (`sudo apt install fontconfig fonts-dejavu-core`). If the image cannot be drawn, the event is still approved and emailed without the image, and the audit log shows `ImageFailed`.
 
 On a Windows machine, open **PowerShell** and run (skip what you already have):
 
@@ -135,6 +137,7 @@ Open https://localhost:7100. Demo mode (`Auth:Mode=Dev`) has built-in users. The
 | Admin (also Staff) | `admin@example.com` | `admin` |
 | Staff | `staff@example.com` | `staff` |
 | HOD | `hod@example.com` | `hod` |
+| Dean | `dean@example.com` | `dean` |
 | Media | `media@example.com` | `media` |
 | Research in-charge | `research@example.com` | `research` |
 
@@ -256,7 +259,7 @@ Follow these steps in order. Do not skip the checks.
 ### Step C1. Prepare Active Directory
 
 1. **Service account.** Create a normal domain user, for example `svc-events`, with a long random password that does not expire (or a rotation plan). No special rights.
-2. **Groups** (optional but recommended). Create the groups you want, for example `Events-Staff`, `Events-HOD`, `Events-Media`, `Events-Admin`, `Research-InCharge`, and add people. If you prefer not to create groups, you can give roles to individual people later in **Admin > Roles**. You can use any existing groups: the app lets you pick them from a list.
+2. **Groups** (optional but recommended). Create the groups you want, for example `Events-Staff`, `Events-HOD`, `Events-Dean`, `Events-Media`, `Events-Admin`, `Research-InCharge`, and add people. If you prefer not to create groups, you can give roles to individual people later in **Admin > Roles**. The **KPI team** role (KPI pages only) has no AD group; assign it to people in **Admin > Roles**. You can use any existing groups: the app lets you pick them from a list.
 3. **Emails.** Check people have the `mail` attribute filled in. People sign in with it; people without one can still use their short username.
 4. **LDAPS.** Make sure the domain controller answers on port 636 with a certificate the app server trusts (issued by your company CA). If it uses a self-signed certificate, you can pin its thumbprint later in the app (step C9).
 
@@ -392,7 +395,7 @@ Open **Admin > Settings**. The home-page checklist shows what is still unset.
 
 | Tab | Set this | Why |
 |---|---|---|
-| Recipients | Admin mailbox, Media officer email, HOD username/email | receive approval notices, event images, reminders |
+| Recipients | Admin mailbox, Media officer email, HOD email (for visits) | receive approval notices, event images, reminders |
 | External visits (bus) | Approval required? approvers, approver email, bus coordinators, bus email, minimum notice | who decides and who arranges the bus |
 | Research | Research in-charge email, maximum file size | where uploads are emailed |
 | Sign-in help | Password reset page URL, IT helpdesk email | the *Forgot password* page |
@@ -410,7 +413,7 @@ Tick each one before announcing the system:
 - [ ] A person with no role sees the "no role yet" message (and is fixed in **Admin > Roles**).
 - [ ] **Test LDAP** is green and every role group is `found`.
 - [ ] **Send test email** arrives, and **Admin > Notifications** shows `Success`.
-- [ ] Staff submits an event, the HOD approves: the **image and QR** are created and the **four emails** arrive (media officer, company contact, admin, requester).
+- [ ] Staff submits an event and it goes through every step of **Admin > Approval flow** (by default HOD, then Dean; each step is emailed in turn): only after the last step approves are the **image and QR** created and the **four emails** arrive (media officer, company contact, admin, requester).
 - [ ] The QR link opens on a phone **on mobile data** through the public name, check-in works, and evaluation works.
 - [ ] The internal name is **not** reachable from the internet; the public name returns 404 for everything except `/p/...`.
 - [ ] A bus request goes to the approver, then to the bus recipients; the requester gets the bus details.
@@ -422,6 +425,8 @@ Tick each one before announcing the system:
 ---
 
 ## 8. Database options
+
+**KPI dashboard database.** The KPI dashboard keeps its data in its own SQLite file, `App_Data/kpi_dashboard.db` (change it with `ConnectionStrings__Kpi`). It is created and upgraded automatically at start. To keep existing KPI data from the old stand-alone app, copy its `kpi_dashboard.db` to `App_Data` **before the first start** (stop the old app first so the `-wal` file is merged). Back it up together with `App_Data`. It stays SQLite even if the events database is SQL Server.
 
 **SQLite (default).** Nothing to install. The database is the file `App_Data\events.db`. Good for one school or department. Back up the file together with `App_Data`.
 
@@ -457,7 +462,7 @@ Environment variables use a double underscore for the colon: `Ldap:Host` is `Lda
 | `Auth:LoginsPerMinutePerIp` | `20` | Login rate limit |
 | `Ldap:Host`, `Port`, `UseSsl`, `BaseDn`, `ServiceAccountDn` | `dc.company.local`, `636`, `true` | Directory connection |
 | `Ldap:ServiceAccountPassword` | placeholder | Service account password: set it as an environment variable |
-| `Ldap:GroupStaff`, `GroupHod`, `GroupMedia`, `GroupAdmin` | `Events-Staff`, `Events-HOD`, `Events-Media`, `Events-Admin` | AD groups mapped to roles (several allowed, comma separated) |
+| `Ldap:GroupStaff`, `GroupHod`, `GroupDean`, `GroupMedia`, `GroupAdmin` | `Events-Staff`, `Events-HOD`, `Events-Dean`, `Events-Media`, `Events-Admin` | AD groups mapped to roles (several allowed, comma separated) |
 | `Ldap:GroupResearch` | `Research-InCharge` | AD group for the Research in-charge role |
 | `Smtp:Enabled`, `Host`, `Port`, `UseStartTls`, `From` | `false`, `smtp.company.local`, `25`, `true`, `events@company.local` | Outgoing mail |
 | `Smtp:User`, `Smtp:Password` | empty | Mail login, if the relay needs one |
@@ -514,7 +519,7 @@ Stop the site, put the files back in `App_Data` (and restore the database), star
 1. Take a backup.
 2. Stop the site (`Import-Module WebAdministration; Stop-WebSite GuestEvents`, or use IIS Manager).
 3. Publish the new version (step C3) and copy it over `C:\apps\guest-events`, but **do not delete `App_Data`**.
-4. Start the site. New tables are created on start; no manual migration.
+4. Start the site. New tables and columns (including the KPI database) are created on start; no manual migration.
 5. Run the go-live checklist quickly. To roll back, stop the site and put the previous files and the backup back.
 
 ### Logs and health
@@ -570,3 +575,4 @@ Change the service account password in AD, then enter it on **Admin > LDAP & Ema
 | **Public host** | The internet-facing name that serves only the QR check-in and evaluation pages |
 | **Reverse proxy** | A front door (IIS or nginx) that handles HTTPS and forwards requests to the app |
 | **`App_Data`** | The folder where the app keeps its database, images, uploads and encryption keys |
+

@@ -1,10 +1,12 @@
 # User guide
 
-How to use Guest Events, by role. The same short guides are inside the app under **Help**, in English and Arabic. Setup is in [SETUP.md](SETUP.md); every page is listed in [SITEMAP.md](SITEMAP.md).
+How to use Campus Hub, by role. The same short guides are inside the app under **Help**, in English and Arabic. Setup is in [SETUP.md](SETUP.md); every page is listed in [SITEMAP.md](SITEMAP.md).
 
 ## For everyone
 
 - **Sign in** with your **company email address** and the password you use for your computer. Your short username also works.
+- **Where you land depends on your role.** People who work on the events side (Staff, HOD, Dean, Media, Research, Admin) land on **Home**. A person who only works in the KPI pages (role **KPI team**) lands directly on the **KPI dashboard** and sees only the KPIs menu. If a page is not for your role you see a "Your role cannot open this page" screen with a button to the areas you can use. In test mode the login page lists the test accounts (password `dev`), one click signs in.
+- **Home** opens after you sign in. It greets you, lists what is **waiting for you** for your role (requests to approve, requests returned to you, drafts, visits needing a bus, approved events to announce, new research, overdue KPI targets), gives **quick actions**, your **recent requests**, **events in the next 14 days** and a **KPI snapshot**. Admin also sees the **Finish the setup** checklist here.
 - **Forgot your password?** Press the link under the sign-in button. If your company has a reset page, press **Reset my password**. Otherwise enter your email and press **Ask IT to reset it**; IT receives the request. The app cannot change AD passwords itself.
 - **Language:** the button at the top switches English and Arabic (right-to-left). You are signed out after 30 minutes of inactivity.
 - **Menus depend on your role.** A menu item you cannot see is not part of your role. Roles change at your next sign-in.
@@ -19,18 +21,19 @@ You can request an event, a student bus trip, food for an approved event, and up
 2. Fill in the event, company and contact details. Upload the company logo (PNG or JPG, up to 2 MB). Your name and department are filled in for you.
 3. Write the event content in **English and Arabic**; it is printed on the event image.
 4. Choose **One day** or **Multiple days** (up to 60). The start and end times apply to every day.
-5. Press **Save draft** to finish later, or **Submit for approval**.
-6. The HOD decides. You get an email when it is approved or rejected. If it is rejected, read the comment, press **Edit & resubmit** and send it again.
+5. Choose **Which KPI does this help?** (optional): pick the performance indicator this event supports, or leave it as "Not linked to a KPI".
+6. Press **Save draft** to finish later, or **Submit for approval**.
+6. Your request goes through the **approval steps** Admin set up (by default the HOD, then the Dean), one after the other. It is confirmed only after the last step approves. The event page shows where it is. You get an email when it moves to the next step and when it is decided. A rejection by any approver comes back to you with a comment.
 7. After approval open the event: **Download image**, **Download QR**, **Print QR poster** or **Venue screen** (rotating QR), and press **Food request** if you need food.
 
-You can edit a request only while it is a **Draft** or **Rejected**. A submitted request is locked until the HOD decides.
+You can edit a request only while it is a **Draft** or **Rejected**. A submitted request is locked until every approval step has decided.
 
 ### Request food for an approved event
 Open the event, press **Food request**, enter the number of people, the meal, the delivery time, the location and notes. Admin confirms or rejects it and you get an email.
 
 ### Ask for a bus (external visit)
 1. **New request > External visit (bus)**.
-2. Enter the visit name, destination (and address), purpose, **date**, **departure and return time**, pick-up point, grade or class, number of students, number of accompanying staff, and the supervisor's name and phone.
+2. Enter the visit name, destination (and address), purpose, **which KPI it helps** (optional), **date**, **departure and return time**, pick-up point, grade or class, number of students, number of accompanying staff, and the supervisor's name and phone.
 3. Press **Submit for approval**. A visit for today is allowed unless Admin set a minimum notice in Settings.
 4. The approver Admin chose gets an email. When approved, the bus coordinator confirms the bus and you receive the bus details by email.
 5. If it is rejected, read the comment, press **Edit & resubmit** and send it again.
@@ -46,10 +49,16 @@ The **External visits** page lists your visits and their status: Draft, Submitte
 ## HOD (head of department)
 
 - **Pending approvals** lists event requests waiting for you; the number on the menu shows how many. Click an event name for the full details and content.
-- Press **Approve** (a comment is optional). The system creates the image and QR code and sends all the emails.
+- Press **Approve** (a comment is optional). The request then moves to the next approval step and its people are emailed. The event is not confirmed until the last step approves.
 - Or write a comment and press **Reject**. A comment is required.
 - You get a reminder email after 2 working days. If Admin named one HOD in Settings, only that person can decide.
 - You can also approve **external visits** when Admin has not listed specific approvers: open **External visits**, open the visit and press **Approve** or **Reject**.
+
+## Approvers (any step of the approval flow)
+- You see **Pending approvals** when Admin has made you an approver of a step (by role, for example HOD or Dean, or by name). The number on the menu counts the requests waiting for you.
+- Each card shows **Step N of M** and the step name, who already approved it, and, when a step needs several approvals, how many it has (for example 1 / 2).
+- Press **Approve** (comment optional) or write a comment and press **Reject** (a comment is required). You can decide once per step, and never on your own request.
+- You get an email when a request reaches your step, and a reminder after 2 working days.
 
 ## Visit approvers and bus coordinators
 
@@ -74,15 +83,25 @@ Admin can name people (by email or username) in **Settings > External visits (bu
 
 ## Admin
 
+**Access & roles** (Admin menu) is the one page for access. It has a card for each role (Staff, HOD, Dean, Media, Research, KPI team, Admin) showing who has it (the AD group plus people you add by email), what it can do on the events side, which approval steps it handles, and what it can do in the KPI pages (with a Customize / Edit link). Add or remove a person on the card; the change applies at their next sign-in.
+
 ### First-time setup (about 10 minutes)
 1. **Admin > LDAP & Email:** press **Use standard defaults**, enter the server, service account and password, press **Test LDAP** (add a test user to try a full sign-in), then set up mail and press **Send test email**. Then **Save**.
 2. **Who gets each role:** press **Fetch groups from LDAP**. **Members** shows who is in a group (with emails and groups inside it). A role button adds the group to that role; a role can have several groups. **Preview people per role** shows exactly who would get each role, and lets you add a single person by email or username. Then **Save**.
-3. **Admin > Settings:** Recipients (admin mailbox, media officer, HOD), **External visits (bus)** (approvers, bus coordinators, bus email, minimum notice), **Research** (research in-charge email), **Sign-in help** (password reset page and IT helpdesk email).
+3. **Admin > Settings:** Recipients (admin mailbox, media officer, HOD email for visits), **External visits (bus)** (approvers, bus coordinators, bus email, minimum notice), **Research** (research in-charge email), **Sign-in help** (password reset page and IT helpdesk email).
 4. **Admin > Roles:** give roles to people who are not in an AD group yet, by email or username.
 5. Check the **Event image** and **Email templates** tabs and adjust wording and colours.
-6. Test: create a request as Staff, approve it as HOD, and check the emails and the image.
+6. **Admin > Approval flow:** decide who approves events, in which order and how many approvals each step needs (see below). Test: create a request as Staff, approve it at every step, and check the emails and the image.
 
 The home page shows a setup checklist until the basics are done.
+
+### Approval flow (who approves events)
+Open **Admin > Approval flow**. Each card is one step; steps run from top to bottom.
+- **Step name** is shown to everyone. **Role** lets everyone with that role decide. **Or only these people** lists emails or usernames; if you fill it in, only they can decide and the role is ignored. They still need a role in the system to sign in (for example Staff).
+- **Approvals needed**: how many different people must approve before it moves on (for example 2 of 3 committee members; the number cannot be larger than the people listed).
+- **Extra email**: told when a request arrives (people listed by email are always told; with none the admin mailbox is told).
+- Use the arrows to change the order, **Active** to switch a step off, the bin to delete. **Add a step** at the bottom. A step with requests waiting cannot be switched off or deleted, and one step must stay active.
+- Changes apply to requests that reach a step from now on. A rejection at any step sends the request back to the requester.
 
 ### Everyday tasks
 - **Food requests:** confirm or reject each one.
@@ -90,6 +109,23 @@ The home page shows a setup checklist until the basics are done.
 - **Notifications:** check every automatic email was sent. **Audit log:** who approved, uploaded, downloaded, changed roles or settings.
 - **Roles:** roles apply from the person's next sign-in. Remove a direct role with the trash button; group roles are changed by changing the group or the role's group list.
 - Protect the public QR page: check-in is open from 30 minutes before the start until the end; one check-in per device; optional rotating QR on the venue screen (Settings > QR and public page).
+
+## KPI dashboard
+**KPI roles (pick the narrowest that fits):**
+| Role | What they can do in the KPI pages |
+|---|---|
+| **KPI manager** (`KpiManager`) | Defines the KPIs: add, edit, delete, import, review items, assign KPIs to departments, manage departments, export. Does not update progress. |
+| **KPI editor** (`KpiEditor`) | Updates target, deadline and status for **any** department; exports. Cannot change the KPI set. |
+| **Department KPI officer** (`KpiOfficer`) | Updates **only one department** (chosen when you add them on Access & roles); the dashboard and tracking table show only that department. |
+| **KPI viewer** (`KpiViewer`) | Read-only: dashboard, tracking table, Excel export. |
+| **KPI team** (`Kpi`) | All-round: editor + manager (no delete). For small teams. |
+
+None of these has any access to events, visits, research or reports; they land on the KPI dashboard. Admin can change what any of them may do at **KPIs > Permissions**. **Access & roles** has a "Compare the KPI roles" table.
+
+**KPI-only people:** give them the role **KPI team** (Admin > Roles). They see only the KPIs menu and cannot open events, visits, research or reports. What they may do inside the KPI pages (view, update any department, assign, import) is the KPI role named **Kpi** at **KPIs > Permissions** (created automatically; Admin can change it).
+**Events-only people:** to hide the KPIs menu from a role such as Staff, create a KPI role with the same name (for example `Staff`) at **KPIs > Permissions** and leave all permissions unticked.
+
+Open **KPIs** in the top bar. The tabs along the top switch between the **Dashboard** and **Tracking**; people allowed to manage KPIs also see **KPI list**, **Review items**, **Import / export**, **Departments** and **Permissions**. The KPI pages follow the language button like the rest of the app (KPI and department names stay as they were imported). Admin can also add or edit KPIs, import or export Excel, manage KPI entities and set KPI permissions (Admin menu or the buttons at the top of the KPI pages). By default only Admin can change KPI data; to let another role do more, an Admin creates a KPI role with the same name (for example `HOD`) at **KPI permissions** and ticks what it may do.
 
 ## Event attendees (no account)
 
@@ -105,7 +141,7 @@ The home page shows a setup checklist until the basics are done.
 | I forgot my password | Use **Forgot your password?** on the sign-in page. |
 | A menu item is missing | Menus depend on your role; ask Admin if you need another role. |
 | I cannot edit my request | Only drafts and rejected requests can be edited. |
-| The HOD is away | The request waits and a reminder is sent after 2 working days. Admin can change who decides in Settings or give the role to someone else. |
+| An approver is away | The request waits at that step and a reminder is sent after 2 working days. Admin can add people to the step or lower *Approvals needed* in **Admin > Approval flow**. |
 | I do not see the Food request button | Food requests are only for approved events, for the person who made the request (and Admin). |
 | An attendee sees "Check-in is not open yet" or "closed" | Check-in opens 30 minutes before the start and closes at the end (Admin can change this). |
 | An attendee sees "Already checked in" | Each phone checks in once per event; go straight to the evaluation. |

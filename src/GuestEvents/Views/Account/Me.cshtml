@@ -1,0 +1,75 @@
+@inject Kpi.Dashboard.Web.Services.PermissionService KPerms
+@inject Kpi.Dashboard.Web.Data.AppDbContext KpiDb
+@inject GuestEvents.Data.AppDb Db
+@using KpiPerm = Kpi.Dashboard.Web.Models.Permissions
+@using Kpi.Dashboard.Web.Services
+@using Microsoft.EntityFrameworkCore
+@{
+    ViewData["Title"] = L.T("My access", "صلاحياتي");
+    var name = User.FindFirst("display")?.Value ?? User.Identity?.Name ?? "";
+    var myRoles = RoleInfo.All.Where(r => User.IsInRole(r.Key)).ToList();
+    var perms = KPerms.For(User);
+    bool Has(string p) => perms.Contains(p);
+    bool eventsUser = new[] { Roles.Staff, Roles.Hod, Roles.Dean, Roles.Media, Roles.Research, Roles.Admin }.Any(User.IsInRole);
+    bool requester = User.IsInRole(Roles.Staff) || User.IsInRole(Roles.Admin);
+    bool admin = User.IsInRole(Roles.Admin);
+    var chain = new ApprovalChain(Db);
+    var mySteps = (await chain.StepsAsync(true)).Where(s => ApprovalChain.IsEligible(s, User)).ToList();
+    var deptId = User.GetKpiEntityId();
+    var dept = deptId == null ? null : (await KpiDb.Entities.FirstOrDefaultAsync(e => e.Id == deptId))?.NameAr;
+    var contact = (await new SettingsService(Db).AllAsync())["AdminMailbox"];
+    // (icon, area, link, allowed, who needs it)
+    var areas = new List<(string icon, string en, string ar, string url, bool ok, string needEn, string needAr)>
+    {
+        ("calendar3", "Events and visits (view)", "الفعاليات والزيارات (عرض)", "/Events", eventsUser, "Staff, HOD, Dean, Media, Research or Admin", "موظف أو رئيس قسم أو عميد أو إعلام أو أبحاث أو مدير"),
+        ("plus-circle", "Request an event, a bus trip or upload research", "طلب فعالية أو رحلة أو رفع بحث", "/Events/Create", requester, "Staff or Admin", "موظف أو مدير"),
+        ("check2-square", "Approve event requests", "اعتماد طلبات الفعاليات", "/Approvals", mySteps.Count > 0, "a role or name given to an approval step", "دور أو اسم مسند لخطوة موافقة"),
+        ("journal-text", "Research archive", "أرشيف الأبحاث", "/Research", User.IsInRole(Roles.Research) || admin || User.IsInRole(Roles.Staff), "Staff, Research in-charge or Admin", "موظف أو مسؤول أبحاث أو مدير"),
+        ("speedometer2", "KPI dashboard and tracking", "لوحة المؤشرات وجدول التتبع", "/Kpi/Dashboard", Has(KpiPerm.DashboardView), "any role with KPI view access", "أي دور له صلاحية عرض المؤشرات"),
+        ("pencil-square", "Update KPI progress", "تحديث تقدّم المؤشرات", "/Kpi/Tracking", Has(KpiPerm.TrackingEditAll) || Has(KpiPerm.TrackingEditOwn) || Has(KpiPerm.TrackingAssign), "KPI editor, KPI officer, KPI manager or KPI team", "محدّث متابعة أو مسؤول جهة أو مدير مؤشرات أو فريق المؤشرات"),
+        ("list-check", "Add, edit and import KPIs", "إضافة وتعديل واستيراد المؤشرات", "/Kpi/Admin/Kpis", Has(KpiPerm.KpiManage), "KPI manager, KPI team or Admin", "مدير مؤشرات أو فريق المؤشرات أو مدير"),
+        ("bar-chart-line", "Reports and Excel exports", "التقارير وتصدير Excel", "/Reports", admin, "Admin", "مدير"),
+        ("gear", "Settings, approval flow and roles", "الإعدادات ومسار الموافقات والأدوار", "/Admin/RolesPage", admin, "Admin", "مدير"),
+    };
+}
+<div class="page-head">
+    <div><h3>@ViewData["Title"]</h3><div class="sub">@name · @User.Identity!.Name</div></div>
+    <a class="btn btn-outline-secondary" href="/"><i class="bi bi-house"></i>@L.T("Back to home", "العودة للرئيسية")</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card h-100"><div class="card-header"><i class="bi bi-person-badge"></i>@L.T("Your roles", "أدوارك")</div><div class="card-body">
+            @if (myRoles.Count == 0) { <div class="text-muted">@L.T("You have no role yet.", "ليس لديك دور بعد.")</div> }
+            @foreach (var r in myRoles)
+            {
+                <div class="mb-3">
+                    <div class="fw-semibold"><span class="role-chip">@L.T(r.En, r.Ar)</span></div>
+                    <div class="small text-muted mt-1">@L.T(r.DescEn, r.DescAr)</div>
+                    @if (r.Key == Roles.KpiOfficer) { <div class="small mt-1"><i class="bi bi-building"></i> @L.T("Your department:", "جهتك:") <b>@(dept ?? L.T("not set - ask the Admin", "غير محددة - اسأل المدير"))</b></div> }
+                </div>
+            }
+            @foreach (var s in mySteps) { <span class="badge text-bg-warning me-1 mb-1"><i class="bi bi-diagram-3"></i> @L.T("You approve step", "تعتمد الخطوة") @s.Order: @s.Name</span> }
+            <hr />
+            <div class="small text-muted">@L.T("Roles come from your AD groups and from the Admin. A new role applies the next time you sign in.", "تأتي الأدوار من مجموعات AD ومن المدير. يسري الدور الجديد عند تسجيل دخولك التالي.")</div>
+        </div></div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card h-100"><div class="card-header"><i class="bi bi-door-open"></i>@L.T("What you can open", "ما يمكنك فتحه")</div>
+        <div class="list-group list-group-flush">
+            @foreach (var a in areas)
+            {
+                if (a.ok)
+                {
+                    <a class="list-group-item list-group-item-action d-flex align-items-center gap-3" href="@a.url"><i class="bi bi-@a.icon text-success fs-5"></i><span class="flex-grow-1">@L.T(a.en, a.ar)</span><i class="bi bi-check-circle-fill text-success"></i></a>
+                }
+                else
+                {
+                    <div class="list-group-item d-flex align-items-center gap-3 text-muted"><i class="bi bi-@a.icon fs-5"></i><div class="flex-grow-1">@L.T(a.en, a.ar)<div class="small">@L.T("Needs:", "يتطلب:") @L.T(a.needEn, a.needAr)</div></div><i class="bi bi-lock"></i></div>
+                }
+            }
+        </div>
+        <div class="card-footer small text-muted">@L.T("Need more access? Ask the Admin", "تحتاج صلاحيات أكثر؟ اسأل المدير") @if (!string.IsNullOrWhiteSpace(contact)) { <a href="mailto:@contact">@contact</a> }</div>
+        </div>
+    </div>
+</div>

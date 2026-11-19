@@ -1,0 +1,15 @@
+@model int?
+@inject GuestEvents.Services.KpiPicker Kpis
+@{
+    var opts = await Kpis.OptionsAsync();
+}
+<label class="form-label" for="KpiId"><i class="bi bi-bullseye"></i> @L.T("Which KPI does this help?", "أي مؤشر أداء يخدم هذا النشاط؟")</label>
+<select class="form-select" id="KpiId" name="KpiId">
+    <option value="">@L.T("- Not linked to a KPI -", "- غير مرتبط بمؤشر -")</option>
+    @foreach (var g in opts.GroupBy(o => o.Group))
+    {
+        <optgroup label="@g.Key">
+            @foreach (var o in g) { <option value="@o.Id" selected="@(Model == o.Id)">@o.Label</option> }
+        </optgroup>
+    }
+</select>

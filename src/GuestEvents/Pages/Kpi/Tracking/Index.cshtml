@@ -1,0 +1,187 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = L.T("KPI tracking", "جدول التتبع");
+    ViewData["Active"] = "tracking";
+    var planLabels = new Dictionary<PlanType, string> { [PlanType.Operational] = L.T("Operational plan", "الخطة التشغيلية"), [PlanType.Annual] = L.T("Annual plan", "الخطة السنوية"), [PlanType.Ejada] = L.T("Ejada", "الإجادة المؤسسية") };
+    var statusLabels = new Dictionary<string, string> { ["Done"] = L.T("Done", "منفذ"), ["InProgress"] = L.T("In progress", "قيد التنفيذ"), ["NotStarted"] = L.T("Not done", "لم ينفذ") };
+    var statusPillClass = new Dictionary<string, string> { ["Done"] = "text-bg-success", ["InProgress"] = "text-bg-warning", ["NotStarted"] = "text-bg-danger" };
+}
+
+<div class="page-head">
+    <div>
+        <h3>@ViewData["Title"]</h3>
+        <div class="sub">@L.T("Every KPI and plan, the departments responsible, their targets, deadlines and status.", "كل مؤشر وخطة، والجهات المسؤولة عنها، ومستهدفاتها ومواعيدها ومواقف تنفيذها.")</div>
+    </div>
+</div>
+
+@if (Model.IsEntityScoped)
+{
+    <div class="alert alert-info small">
+        @L.T("You see the KPIs assigned to your department. To add another one: choose \"All\" in the department filter, press \"Assign\" in the plan column, tick your department and fill in the target, deadline and status.",
+             "تعرض الصفحة المؤشرات المُسندة لجهتك. لإضافة مؤشر آخر إلى جهتك: اختر «الكل» في فلتر الجهة، ثم اضغط «إسناد جهة» في خانة الخطة وفعّل جهتك، وأدخل المستهدف والموعد والموقف.")
+    </div>
+}
+
+<div class="card mb-3"><div class="card-body">
+    <form method="get" class="row g-2">
+        <div class="col-md-3">
+            <label class="form-label small">@L.T("Search", "بحث")</label>
+            <input class="form-control form-control-sm" type="text" name="Search" value="@Model.Search" placeholder="@L.T("KPI, domain, goal...", "المؤشر، المجال، الهدف...")" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">@L.T("Plan", "الخطة")</label>
+            <select class="form-select form-select-sm" name="Plan">
+                <option value="all" selected="@(string.IsNullOrEmpty(Model.Plan) || Model.Plan == "all" ? "selected" : null)">@L.T("All", "الكل")</option>
+                <option value="operational" selected="@(Model.Plan == "operational" ? "selected" : null)">@planLabels[PlanType.Operational]</option>
+                <option value="annual" selected="@(Model.Plan == "annual" ? "selected" : null)">@planLabels[PlanType.Annual]</option>
+                <option value="ejada" selected="@(Model.Plan == "ejada" ? "selected" : null)">@planLabels[PlanType.Ejada]</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">@L.T("Status", "موقف التنفيذ")</label>
+            <select class="form-select form-select-sm" name="Status">
+                <option value="all" selected="@(string.IsNullOrEmpty(Model.Status) ? "selected" : null)">@L.T("All", "الكل")</option>
+                <option value="Done" selected="@(Model.Status == "Done" ? "selected" : null)">@statusLabels["Done"]</option>
+                <option value="InProgress" selected="@(Model.Status == "InProgress" ? "selected" : null)">@statusLabels["InProgress"]</option>
+                <option value="NotStarted" selected="@(Model.Status == "NotStarted" ? "selected" : null)">@statusLabels["NotStarted"]</option>
+                <option value="__none__" selected="@(Model.Status == "__none__" ? "selected" : null)">@L.T("Not assigned yet", "غير مُسندة لأي جهة بعد")</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small">@L.T("Department", "الجهة المسؤولة")</label>
+            <select class="form-select form-select-sm" name="EntityId">
+                <option value="">@L.T("All", "الكل")</option>
+                @foreach (var e in Model.Entities)
+                {
+                    <option value="@e.Id" selected="@(Model.EntityId == e.Id ? "selected" : null)">@e.NameAr</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-1 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary btn-sm w-100">@L.T("Apply", "تطبيق")</button>
+        </div>
+        <div class="col-md-1 d-flex align-items-end">
+            <a href="/Kpi/Tracking" class="btn btn-outline-secondary btn-sm w-100">@L.T("Reset", "إعادة تعيين")</a>
+        </div>
+    </form>
+</div></div>
+
+<p class="text-muted small mb-2">@L.T($"Showing {Model.Rows.Count} of {Model.TotalCount}", $"عرض {Model.Rows.Count} من أصل {Model.TotalCount} عنصر")</p>
+
+<div class="card"><div class="table-responsive table-responsive-tall">
+<table class="table table-sm align-middle mb-0 table-sticky-header">
+    <thead>
+        <tr>
+            <th style="width:56px">#</th>
+            <th>@L.T("KPI", "المؤشر")</th>
+            @foreach (var plan in new[] { PlanType.Operational, PlanType.Annual, PlanType.Ejada })
+            {
+                <th class="editable-col">@planLabels[plan]</th>
+            }
+            <th style="width:90px">@L.T("Progress", "الإنجاز")</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (Model.Rows.Count == 0)
+        {
+            <tr><td colspan="6" class="empty-state">@L.T("Nothing matches these filters.", "لا توجد عناصر مطابقة للفلاتر الحالية.")</td></tr>
+        }
+        else
+        {
+            @foreach (var row in Model.Rows)
+            {
+                var allStatuses = row.ItemsByPlan.Values.SelectMany(v => v).Where(i => i.Status.HasValue).Select(i => (int)i.Status!.Value).ToList();
+                var pct = allStatuses.Count > 0 ? (int)Math.Round(allStatuses.Select(s => s switch { 2 => 100, 1 => 50, _ => 0 }).Average()) : (int?)null;
+                <tr>
+                    <td class="text-muted font-monospace">@row.Kpi.Sn</td>
+                    <td style="max-width:320px">
+                        <div class="text-truncate fw-semibold bidi-auto" dir="auto" title="@row.Kpi.KpiText" style="max-width:320px">@row.Kpi.KpiText</div>
+                        <div class="text-truncate text-muted bidi-auto" dir="auto" style="max-width:320px;font-size:.74rem" title="@row.Kpi.Domain">@row.Kpi.Classification &middot; @row.Kpi.Domain</div>
+                    </td>
+                    @foreach (var plan in new[] { PlanType.Operational, PlanType.Annual, PlanType.Ejada })
+                    {
+                        var text = row.Kpi.PlanText(plan);
+                        var items = row.ItemsByPlan[plan];
+                        <td style="max-width:190px">
+                            @if (string.IsNullOrWhiteSpace(text))
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                            else
+                            {
+                                <div class="text-truncate text-muted mb-1 bidi-auto" dir="auto" style="max-width:190px;font-size:.72rem" title="@text">@text</div>
+                                if (!Model.CanEditAnything)
+                                {
+                                    @if (items.Count == 0)
+                                    {
+                                        <span class="badge text-bg-light">@L.T("Not assigned", "غير مُسندة")</span>
+                                    }
+                                    else
+                                    {
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @foreach (var it in items)
+                                            {
+                                                <span class="badge @(it.Status.HasValue ? statusPillClass[it.Status.Value.ToString()] : "text-bg-light")">@(it.Status.HasValue ? statusLabels[it.Status.Value.ToString()] : L.T("No status", "بلا موقف"))</span>
+                                            }
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-primary details-btn"
+                                            onclick="openTrackingModal(@row.Kpi.Id, '@plan', @Html.Raw(System.Net.WebUtility.HtmlEncode(System.Text.Json.JsonSerializer.Serialize(row.Kpi.Sn + " — " + planLabels[plan]))))">
+                                        @if (items.Count == 0)
+                                        {
+                                            <i class="bi bi-plus-circle"></i><span class="dcount">@L.T("Assign", "إسناد جهة")</span>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-people"></i><span class="dcount">@L.T($"{items.Count} department(s)", $"{items.Count} جهة مُسندة")</span>
+                                        }
+                                    </button>
+                                }
+                            }
+                        </td>
+                    }
+                    <td>@(pct.HasValue ? pct + "%" : "—")</td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+</div></div>
+
+<!-- Entity assignment modal -->
+<div class="modal fade" id="trackingModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="trackingModalTitle">@L.T("Target details", "تفاصيل تنفيذ المستهدف")</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small" id="trackingModalSub">@L.T("Tick the department(s) responsible for this target. Each department has its own target, deadline and status.", "حدد الجهة أو الجهات المسؤولة عن تنفيذ هذا المستهدف. كل جهة تُدخل مستهدفها وموعدها وموقف تنفيذها بشكل منفصل.")</p>
+        <div class="row row-cols-2 g-1 border rounded p-2 mb-3" style="max-height:180px;overflow:auto" id="entityChecklist"></div>
+        <div id="entityDetailBlocks"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">@L.T("Cancel", "إلغاء")</button>
+        <button type="button" class="btn btn-primary" id="trackingModalSaveBtn" onclick="saveTrackingModal()">@L.T("Save", "حفظ")</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+<script>
+  window.TRACKING_DATA = @Html.Raw(Model.RowsJson);
+  window.ENTITIES = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Entities.Select(e => new { id = e.Id, name = e.NameAr })));
+  window.CAN_ASSIGN = @Model.CanAssign.ToString().ToLower();
+  window.CAN_EDIT_ALL = @Model.CanEditAll.ToString().ToLower();
+  window.CAN_EDIT_OWN = @Model.CanEditOwn.ToString().ToLower();
+  window.CURRENT_ENTITY_ID = @(Model.CurrentEntityId.HasValue ? Model.CurrentEntityId.Value.ToString() : "null");
+  window.STATUS_LABELS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(statusLabels));
+</script>
+<script src="~/kpi/js/tracking.js" asp-append-version="true"></script>
+}

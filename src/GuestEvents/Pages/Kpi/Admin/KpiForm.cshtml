@@ -1,0 +1,102 @@
+@page
+@model KpiFormModel
+@{
+    ViewData["Title"] = Model.IsEdit ? L.T("Edit KPI", "تعديل مؤشر") : L.T("New KPI", "مؤشر جديد");
+    ViewData["Active"] = "kpis";
+}
+
+<div class="page-head">
+    <div>
+        <a class="small text-decoration-none" href="/Kpi/Admin/Kpis"><i class="bi bi-arrow-@(L.IsAr ? "right" : "left")"></i> @L.T("KPI list", "قائمة المؤشرات")</a>
+        <h3 class="mt-1">@ViewData["Title"]</h3>
+        <div class="sub">@L.T("The KPI's reference data (the same columns as the import file). Departments and targets are set on the Tracking page.", "بيانات المؤشر المرجعية (نفس أعمدة ملف الاستيراد). إسناد الجهات والمستهدفات من صفحة جدول التتبع.")</div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @Model.Error</div>
+}
+
+<form method="post">
+    <div class="card mb-3"><div class="card-header"><i class="bi bi-info-circle"></i>@L.T("Basics", "البيانات الأساسية")</div><div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-2">
+                <label class="form-label req">@L.T("Number", "الرقم") <bdi class="ltr text-muted">(S.N.)</bdi></label>
+                <input class="form-control" dir="auto" asp-for="Sn" required />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">@L.T("Classification", "التصنيف") <bdi class="ltr text-muted">(ESG)</bdi></label>
+                <input class="form-control" dir="auto" asp-for="Classification" placeholder="Governance / Social / Environmental" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">@L.T("Domain", "المجال")</label>
+                <input class="form-control" dir="auto" asp-for="Domain" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">@L.T("Strategic goal", "الهدف الاستراتيجي")</label>
+                <input class="form-control" dir="auto" asp-for="Goal" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">@L.T("Strategic objective", "الهدف الفرعي")</label>
+                <input class="form-control" dir="auto" asp-for="Objective" />
+            </div>
+            <div class="col-12">
+                <label class="form-label req">@L.T("KPI text", "نص المؤشر")</label>
+                <textarea class="form-control" dir="auto" asp-for="KpiText" rows="2" required></textarea>
+            </div>
+        </div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header"><i class="bi bi-diagram-2"></i>@L.T("Plans", "نصوص الخطط")</div><div class="card-body">
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="form-label">@L.T("Operational plan", "الخطة التشغيلية")</label>
+                <textarea class="form-control" dir="auto" asp-for="OperationalPlanText" rows="2"></textarea>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">@L.T("Annual plan", "الخطة السنوية")</label>
+                <textarea class="form-control" dir="auto" asp-for="AnnualPlanText" rows="2"></textarea>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">@L.T("Ejada", "الإجادة المؤسسية")</label>
+                <textarea class="form-control" dir="auto" asp-for="EjadaPlanText" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">@L.T("Accreditation criterion", "معيار الاعتماد المؤسسي")</label>
+                <textarea class="form-control" dir="auto" asp-for="AccreditationCriteria" rows="3" placeholder="@L.T("Linked accreditation criterion...", "نص معيار الاعتماد المرتبط...")"></textarea>
+            </div>
+        </div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header"><i class="bi bi-bullseye"></i>@L.T("Branch target and notes", "مستهدف الفرع وملاحظات التحديث")</div><div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">@L.T("Branch target 2026", "مستهدف الفرع 2026")</label>
+                <input class="form-control" dir="auto" asp-for="BranchTarget2026" placeholder="65%" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">@L.T("Group", "المجموعة")</label>
+                <select class="form-select" asp-for="Group">
+                    <option value="BranchPlan">@L.T("In the branch plan", "مؤشر ضمن خطة الفرع")</option>
+                    <option value="AnnualOnly">@L.T("Annual project without an operational KPI", "مشروع سنوي بلا مؤشر تشغيلي")</option>
+                    <option value="EjadaOnly">@L.T("Ejada KPI without a match", "مؤشر إجادة بلا مقابل")</option>
+                    <option value="OutsideBranchPlan">@L.T("Outside the branch plan (hidden from the dashboard)", "خارج خطة الفرع (مخفي من اللوحة)")</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">@L.T("Number in the previous list", "الرقم في القائمة السابقة")</label>
+                <input class="form-control" dir="auto" asp-for="PrevSn" />
+            </div>
+            <div class="col-12">
+                <label class="form-label">@L.T("Update notes", "ملاحظات التحديث")</label>
+                <textarea class="form-control" dir="auto" asp-for="UpdateNotes" rows="2"></textarea>
+            </div>
+        </div>
+    </div></div>
+
+    <div class="actionbar">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i>@(Model.IsEdit ? L.T("Save changes", "حفظ التعديلات") : L.T("Add KPI", "إضافة المؤشر"))</button>
+        <a class="btn btn-outline-secondary" href="/Kpi/Admin/Kpis">@L.T("Cancel", "إلغاء")</a>
+    </div>
+</form>

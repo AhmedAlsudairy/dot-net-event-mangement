@@ -76,7 +76,7 @@ public class LdapAuthService : IAuthService
             {
                 await svc.BindAsync(o.SvcDn, o.SvcPassword);
                 var parts = new List<string>();
-                foreach (var g in new[] { o.GroupStaff, o.GroupHod, o.GroupMedia, o.GroupAdmin, o.GroupResearch }.SelectMany(MailService.Split).Distinct(StringComparer.OrdinalIgnoreCase))
+                foreach (var g in new[] { o.GroupStaff, o.GroupHod, o.GroupDean, o.GroupMedia, o.GroupAdmin, o.GroupResearch }.SelectMany(MailService.Split).Distinct(StringComparer.OrdinalIgnoreCase))
                 {
                     var res = await svc.SearchAsync(o.BaseDn, LdapConnection.ScopeSub, $"(&(objectClass=group)(cn={Esc(g)}))", new[] { "cn" }, false);
                     bool found = false;
@@ -320,7 +320,7 @@ public class LdapAuthService : IAuthService
                 var roles = new List<string>();
                 // a role can be given by several groups: "Group-A, Group-B"
                 void Map(string g, string role) { if (MailService.Split(g).Any(groups.Contains)) roles.Add(role); }
-                Map(o.GroupStaff, Roles.Staff); Map(o.GroupHod, Roles.Hod); Map(o.GroupMedia, Roles.Media); Map(o.GroupAdmin, Roles.Admin); Map(o.GroupResearch, Roles.Research);
+                Map(o.GroupStaff, Roles.Staff); Map(o.GroupHod, Roles.Hod); Map(o.GroupDean, Roles.Dean); Map(o.GroupMedia, Roles.Media); Map(o.GroupAdmin, Roles.Admin); Map(o.GroupResearch, Roles.Research);
                 var sam = Attr(e, "sAMAccountName") ?? login;
                 return AuthResult.Ok(new AdUser(sam, Attr(e, "displayName") ?? sam, Attr(e, "mail"), Attr(e, "department"), roles, groups.OrderBy(x => x).ToList()));
             }
@@ -470,8 +470,14 @@ public class DevAuthService : IAuthService
     {
         ["staff"] = new("staff", "Sara Staff", "staff@example.com", "Marketing", new() { Roles.Staff }),
         ["hod"] = new("hod", "Hamad HOD", "hod@example.com", "Management", new() { Roles.Hod }),
+        ["dean"] = new("dean", "Dina Dean", "dean@example.com", "Deanship", new() { Roles.Dean }),
         ["media"] = new("media", "Mona Media", "media@example.com", "Media", new() { Roles.Media }),
         ["research"] = new("research", "Rana Research", "research@example.com", "Research", new() { Roles.Research }),
+        ["kpi"] = new("kpi", "Kareem KPI", "kpi@example.com", "Planning", new() { Roles.Kpi }),
+        ["kpimanager"] = new("kpimanager", "Mariam KPI Manager", "kpimanager@example.com", "Planning", new() { Roles.KpiManager }),
+        ["kpieditor"] = new("kpieditor", "Eman KPI Editor", "kpieditor@example.com", "Planning", new() { Roles.KpiEditor }),
+        ["kpiofficer"] = new("kpiofficer", "Omar Dept Officer", "kpiofficer@example.com", "Marketing", new() { Roles.KpiOfficer }),
+        ["kpiviewer"] = new("kpiviewer", "Vera KPI Viewer", "kpiviewer@example.com", "Deanship", new() { Roles.KpiViewer }),
         ["admin"] = new("admin", "Adam Admin", "admin@example.com", "IT", new() { Roles.Admin, Roles.Staff }),
     };
     // dev users sign in by name or by email (staff@example.com), like the real directory

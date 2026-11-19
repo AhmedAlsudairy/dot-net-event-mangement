@@ -32,12 +32,12 @@ public static class GuideContent
         ["approvals"] = (
             new("Reviewing requests", new[] {
                 "Check the facts on each card. Click the event name to see everything, including the content text.",
-                "**Approve** does everything else automatically: image, QR code and emails to Media, the company contact, Admin and the requester.",
+                "Every event goes through the approval steps Admin set up (by default the **HOD**, then the **Dean**). When you press **Approve** the request moves on to the next step (its people are emailed); some steps need several approvals. After the **last** step approves, the system creates the image and QR code and sends the emails to Media, the company contact, Admin and the requester.",
                 "**Reject** needs a comment. The requester can fix the request and send it again - you will see it here again.",
                 "If a request waits too long (default 2 working days, Sunday to Thursday) a reminder email is sent." }),
             new("مراجعة الطلبات", new[] {
                 "راجع المعلومات في كل بطاقة. اضغط على اسم الفعالية لعرض كل التفاصيل بما فيها نص المحتوى.",
-                "**الموافقة** تنفّذ كل شيء تلقائياً: الصورة ورمز QR ورسائل البريد إلى الإعلام وجهة الاتصال والإدارة ومقدّم الطلب.",
+                "تمر كل فعالية بخطوات الاعتماد التي حدّدتها الإدارة (افتراضياً **رئيس القسم** ثم **العميد**). عند الموافقة ينتقل الطلب إلى الخطوة التالية ويصل أصحابها بريد، وبعض الخطوات تحتاج عدة موافقات. وبعد موافقة **الخطوة الأخيرة** ينشئ النظام الصورة ورمز QR ويرسل الرسائل إلى الإعلام وجهة الاتصال والإدارة ومقدّم الطلب.",
                 "**الرفض** يتطلب تعليقاً. يمكن لمقدّم الطلب التعديل وإعادة الإرسال وسيظهر لك هنا مرة أخرى.",
                 "إذا طال انتظار الطلب (افتراضياً يومان عمل، من الأحد إلى الخميس) تُرسل رسالة تذكير." })),
         ["food-create"] = (
@@ -100,10 +100,12 @@ public static class GuideContent
                 "كلمات المرور مشفّرة ولا تُعرض مرة أخرى. اترك الخانة فارغة للإبقاء على المحفوظة." })),
         ["roles"] = (
             new("Giving people roles", new[] {
+                "This page shows every role in one place: who has it, its AD group, what it can do on the events side and in the KPI pages.",
                 "People who are in the AD groups already have a role - you do not need to add them here.",
                 "Use this page when an AD group does not exist yet, or for one-off people (e.g. a deputy).",
                 "They sign in with their normal password. The new role applies from their **next sign-in**." }),
             new("منح الأدوار للأشخاص", new[] {
+                "تعرض هذه الصفحة كل الأدوار في مكان واحد: من يحمل الدور، ومجموعة AD الخاصة به، وما يستطيع فعله في جانب الفعاليات وصفحات المؤشرات.",
                 "الأشخاص الموجودون في مجموعات AD لديهم دور بالفعل - لا حاجة لإضافتهم هنا.",
                 "استخدم هذه الصفحة عندما لا تكون مجموعة AD موجودة بعد، أو لأشخاص بعينهم (مثل نائب).",
                 "يسجّلون الدخول بكلمة مرورهم المعتادة، ويسري الدور الجديد من **تسجيل الدخول التالي**." })),

@@ -1,15 +1,31 @@
 @model EventRequest
+@inject GuestEvents.Services.ApprovalChain Chain
 @{
     ViewData["Title"] = Model.Name;
     var mine = Model.RequesterUsername == User.Identity!.Name;
     var admin = User.IsInRole(Roles.Admin);
     var canEdit = mine && (Model.Status == EventStatus.Draft || Model.Status == EventStatus.Rejected);
-    var approved = Model.Status >= EventStatus.Approved && Model.Status != EventStatus.Rejected;
+    var approved = Model.Status.IsLive();
+    int? lastRejectStepId(EventRequest m) => m.Approvals.OrderByDescending(a => a.DecidedAt).FirstOrDefault(a => !a.Approved)?.StepId;
     var lastReject = Model.Status == EventStatus.Rejected ? Model.Approvals.LastOrDefault(a => !a.Approved) : null;
-    // timeline: Draft -> Submitted -> Approved -> Event done -> Evaluation closed (Rejected replaces "Approved")
+    // timeline: Draft -> one node per approval step the Admin configured -> Approved -> Event done -> Evaluation closed (a rejection replaces the node where it happened)
     var rejected = Model.Status == EventStatus.Rejected;
-    int cur = Model.Status switch { EventStatus.Draft => 0, EventStatus.Submitted => 1, EventStatus.Rejected => 2, EventStatus.Approved => 3, EventStatus.EventDone => 4, _ => 5 };
-    var steps = new[] { ("Draft", "bi-pencil"), ("Submitted", "bi-send"), (rejected ? "Rejected" : "Approved", rejected ? "bi-x-lg" : "bi-check-lg"), ("EventDone", "bi-flag"), ("EvaluationClosed", "bi-clipboard-check") };
+    var chainSteps = await Chain.StepsAsync();
+    var curStep = Model.Status == EventStatus.Submitted ? GuestEvents.Services.ApprovalChain.Current(Model, chainSteps) : null;
+    int n = chainSteps.Count;
+    int rejIdx = rejected ? Math.Max(0, chainSteps.FindIndex(x => x.Id == lastRejectStepId(Model))) : -1;
+    int cur = Model.Status switch
+    {
+        EventStatus.Draft => 0,
+        EventStatus.Submitted => 1 + Math.Max(0, chainSteps.FindIndex(x => curStep != null && x.Id == curStep.Id)),
+        EventStatus.Rejected => 1 + rejIdx,
+        EventStatus.Approved => 1 + n,
+        EventStatus.EventDone => 2 + n,
+        _ => 3 + n
+    };
+    var steps = new List<(string, string)> { ("Draft", "bi-pencil") };
+    for (int i = 0; i < n; i++) steps.Add(rejected && i == rejIdx ? ("Rejected", "bi-x-lg") : (chainSteps[i].Name, "bi-person-check"));
+    steps.Add(("Approved", "bi-patch-check")); steps.Add(("EventDone", "bi-flag")); steps.Add(("EvaluationClosed", "bi-clipboard-check"));
 }
 <div class="page-head">
     <div>
@@ -27,10 +43,10 @@
 
 <div class="card mb-3"><div class="card-body py-3">
     <ol class="stepper">
-        @for (int i = 0; i < steps.Length; i++)
+        @for (int i = 0; i < steps.Count; i++)
         {
             var state = i < cur ? "done" : i == cur ? "current" : "";
-            if (rejected && i == 2) { state = "rejected"; }
+            if (rejected && i == 1 + rejIdx) { state = "rejected"; }
             <li class="@state"><div class="dot"><i class="bi @steps[i].Item2"></i></div>@L[steps[i].Item1]</li>
         }
     </ol>
@@ -47,7 +63,11 @@
 }
 else if (Model.Status == EventStatus.Submitted)
 {
-    <div class="alert alert-warning d-flex gap-2 align-items-center"><i class="bi bi-hourglass-split"></i>@L["WaitingHod"]</div>
+    var given = curStep == null ? 0 : GuestEvents.Services.ApprovalChain.Given(Model, curStep).Select(x => x.ApproverUsername.ToLowerInvariant()).Distinct().Count();
+    <div class="alert alert-warning d-flex gap-2 align-items-center"><i class="bi bi-hourglass-split"></i>
+        <div>@L.T("Waiting for approval at the step", "بانتظار الموافقة في الخطوة") <strong>@(curStep?.Name)</strong>@if (curStep != null) { <span> - @L.T("approvals", "الموافقات") @L.Num(given) / @L.Num(curStep.RequiredApprovals)</span> }.
+        @if (n > 1) { <span>@L.T("Step", "الخطوة") @L.Num(1 + chainSteps.FindIndex(x => curStep != null && x.Id == curStep.Id)) / @L.Num(n).</span> }
+        @L.T("You will get an email when it is decided.", "ستصلك رسالة عند القرار.")</div></div>
 }
 
 <div class="row g-3">
@@ -56,6 +76,7 @@ else if (Model.Status == EventStatus.Submitted)
         <dl class="kv">
             <dt>@L["Date"]</dt><dd><i class="bi bi-calendar3 text-muted"></i> @L.Range(Model) @if (Model.IsMultiDay) { <span class="badge bg-light text-dark border">@L.Num(Model.DayCount) @L["DayWord"]</span> } &nbsp; <i class="bi bi-clock text-muted"></i> @L.Times(Model)</dd>
             <dt>@L["Venue"]</dt><dd>@Model.Venue</dd>
+            @if (!string.IsNullOrEmpty(Model.KpiLabel)) { <dt>KPI</dt><dd><i class="bi bi-bullseye text-muted"></i> @Model.KpiLabel</dd> }
             <dt>@L["Type"]</dt><dd>@L[Model.Type]</dd>
             <dt>@L["Expected"]</dt><dd>@L.Num(Model.ExpectedAttendees)</dd>
             <dt>@L["Presenter"]</dt><dd>@Model.Presenter</dd>
@@ -92,7 +113,7 @@ else if (Model.Status == EventStatus.Submitted)
             @foreach (var a in Model.Approvals.OrderByDescending(x => x.DecidedAt))
             {
                 <li class="@(a.Approved ? "" : "no")">
-                    <div><strong>@(a.Approved ? L["Approved"] : L["Rejected"])</strong> <span class="text-muted small">- @a.ApproverName</span></div>
+                    <div><strong>@(a.Approved ? L["Approved"] : L["Rejected"])</strong> @if (!string.IsNullOrEmpty(a.StepName)) { <span class="badge bg-light text-dark border">@a.StepName</span> } <span class="text-muted small">- @a.ApproverName</span></div>
                     <div class="small text-muted">@L.DateTimeStr(a.DecidedAt.ToLocalTime())</div>
                     @if (!string.IsNullOrWhiteSpace(a.Comment)) { <div class="small mt-1">“@a.Comment”</div> }
                 </li>

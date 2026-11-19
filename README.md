@@ -1,13 +1,21 @@
-# Guest Workshop & Event Management (ASP.NET Core 8, one app)
+# Campus Hub: events, visits, research and KPIs (ASP.NET Core 8, one app)
+
+The app name is set in **Admin > Settings > Name** (English and Arabic); it defaults to "Campus Hub".
 
 One ASP.NET Core MVC app serves both the internal site (AD/LDAP login) and the public QR pages (`/p/{token}`).
 
 Licensed under the [MIT License](LICENSE).
 
+## KPI dashboard (merged in)
+The KPI Alignment & Execution Dashboard now lives inside this app under **/Kpi** (menu: *KPIs*), with the same look, the same English/Arabic switch and the same sign-in as the rest of the app; there are no separate KPI accounts. After sign-in everyone lands on a **Home** page tailored to their role.
+- Directory roles map to KPI roles with the same name: **Admin** has every KPI permission; any other role (HOD, Staff, Media, Research) gets read-only *Viewer* permissions unless an Admin creates a KPI role with that exact name at **/Kpi/Admin/Roles**.
+- KPI data is in its own SQLite file, `App_Data/kpi_dashboard.db` (`ConnectionStrings:Kpi`), migrated automatically at start. To keep existing KPI data, copy the old `kpi_dashboard.db` there before the first start.
+- Event and external-visit forms have a **Which KPI does this help?** dropdown (optional, one KPI), shown on the details pages.
+
 ## Documentation
 - [Product requirements (PRD)](docs/PRD.md) - goals, roles, requirements, workflows, architecture, data model, security
 - [Setup and deployment guide](docs/SETUP.md) - run it locally, connect the real directory, deploy, configuration reference, troubleshooting
-- [User guide](docs/USER-GUIDE.md) - how each role uses it (Staff, HOD, Media, Research in-charge, Admin, attendees)
+- [User guide](docs/USER-GUIDE.md) - how each role uses it (Staff, HOD, Dean, Media, Research in-charge, Admin, attendees)
 - [Sitemap](docs/SITEMAP.md) - every page and route, who sees what
 - [Test tools](testtools/README.md) - fake directory, mail catcher and the automated checks
 
@@ -22,7 +30,7 @@ Dev login users `staff`, `hod`, `media`, `admin`, password `dev` (Auth:Mode=Dev)
 LDAPS and SMTP are set in the app: sign in as an Admin -> **LDAP & Email** page (host, port, SSL, base DN, service account, group names, SMTP host/port/STARTTLS/user/from) with Test buttons.
 Saved values override appsettings.json; passwords are encrypted (Data Protection keys in `App_Data/keys`, back it up with the DB; on Windows the keys are also DPAPI-protected).
 First-time bootstrap (before anyone can sign in) still uses appsettings.json / environment variables:
-- `Auth:Mode` = `Ldap`; `Ldap:*` (LDAPS 636, read-only service account, groups Events-Staff/HOD/Media/Admin).
+- `Auth:Mode` = `Ldap`; `Ldap:*` (LDAPS 636, read-only service account, groups Events-Staff/HOD/Dean/Media/Admin).
   Put `Ldap__ServiceAccountPassword`, `Smtp__Password`, `Security__HashSecret` in environment variables or a secret store, not in the file.
 - `Db:Provider` = `SqlServer` and `ConnectionStrings:Default`.
 - `Smtp:Enabled` = true plus host/port/credentials.
@@ -30,7 +38,7 @@ First-time bootstrap (before anyone can sign in) still uses appsettings.json / e
 
 ## Sign-in
 - People sign in with their **company email address** (the AD `mail` attribute) and their normal password. The short username, `DOMAIN\user` and the UPN also still work.
-- Roles, the HOD, visit approvers and bus coordinators can be given by **email address or username** (Roles page and Settings). Existing records keep working because the internal user name is unchanged.
+- Roles, the HOD and Dean, visit approvers and bus coordinators can be given by **email address or username** (Roles page and Settings). Existing records keep working because the internal user name is unchanged.
 - **Forgot your password?** on the sign-in page. Passwords live in Active Directory and the app never stores or sets them, so the page shows a *Reset my password* button (set the URL in Settings > Sign-in help, for example your self-service reset portal) and an *Ask IT to reset it* form that emails the IT helpdesk address. The answer is always the same, so nobody can find out which addresses exist, and one address can ask once every 10 minutes.
 
 ## Setting up and testing the real directory
@@ -61,3 +69,6 @@ Public pages need no AD access. Rate limits per IP are in `Public:*`.
 - Rejected request keeps its ID; staff edit and resubmit; every decision is a row in Approvals.
 - Attendance (named) and Evaluation (anonymous) are separate tables with no link; device hashes use different keys.
 - Evaluation question labels are editable in Settings (4 optional slots: presenter, content, venue, food); the overall rating is fixed.
+
+## Approval flow
+Admins decide who approves an event, in which order and how many approvals each step needs at **Admin > Approval flow** (default: HOD, then Dean). See the [user guide](docs/USER-GUIDE.md#approval-flow-who-approves-events).

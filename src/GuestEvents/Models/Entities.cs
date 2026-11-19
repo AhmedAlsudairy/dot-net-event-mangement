@@ -4,10 +4,25 @@ namespace GuestEvents.Models;
 
 public static class Roles
 {
-    public const string Staff = "Staff", Hod = "HOD", Media = "Media", Admin = "Admin", Research = "Research";
+    public const string Staff = "Staff", Hod = "HOD", Dean = "Dean", Media = "Media", Admin = "Admin", Research = "Research";
+    /// <summary>KPI team: works only in the KPI pages (no events, visits or research). Its KPI permissions are the KPI role of the same name.</summary>
+    public const string Kpi = "Kpi";
+    /// <summary>The finer KPI roles. Each one is also the name of a KPI role that holds its permissions.</summary>
+    public const string KpiManager = "KpiManager", KpiEditor = "KpiEditor", KpiOfficer = "KpiOfficer", KpiViewer = "KpiViewer";
+    /// <summary>Everyone who works only in the KPI pages (none of these has any events-side access).</summary>
+    public static readonly string[] KpiRoles = { Kpi, KpiManager, KpiEditor, KpiOfficer, KpiViewer };
 }
 
-public enum EventStatus { Draft, Submitted, Approved, Rejected, EventDone, EvaluationClosed }
+/// <summary>Draft -> Submitted (going through the approval steps the Admin configured, one after the other) -> Approved, or Rejected at any step.
+/// The numbers are stored in the database, so they must not change.</summary>
+public enum EventStatus { Draft = 0, Submitted = 1, Approved = 2, Rejected = 3, EventDone = 4, EvaluationClosed = 5 }
+
+public static class EventStatuses
+{
+    /// <summary>The event has been fully approved (HOD and Dean) and is running or over.</summary>
+    public static readonly EventStatus[] Live = { EventStatus.Approved, EventStatus.EventDone, EventStatus.EvaluationClosed };
+    public static bool IsLive(this EventStatus s) => s is EventStatus.Approved or EventStatus.EventDone or EventStatus.EvaluationClosed;
+}
 public enum FoodStatus { Submitted, Confirmed, Rejected }
 public enum MealType { Breakfast, Lunch, CoffeeBreak, Dinner }
 
@@ -38,6 +53,14 @@ public class EventRequest
     public DateTime? SubmittedAt { get; set; }
     public DateTime? ReminderSentAt { get; set; }
 
+    /// <summary>While Submitted: the approval step the request is waiting at, and since when.</summary>
+    public int? CurrentStepId { get; set; }
+    public DateTime? StepStartedAt { get; set; }
+
+    /// <summary>The KPI (from the KPI dashboard) this event helps. KpiLabel is a snapshot of its number and text so the page still reads well if the KPI list changes.</summary>
+    public int? KpiId { get; set; }
+    [StringLength(400)] public string? KpiLabel { get; set; }
+
     /// <summary>Last day of a multi-day event (null = one-day event). The start/end times apply to EVERY day.</summary>
     [DataType(DataType.Date)] public DateTime? EndDate { get; set; }
     public DateTime LastDate => (EndDate ?? Date).Date;
@@ -52,6 +75,24 @@ public class EventRequest
     public List<FoodRequest> FoodRequests { get; set; } = new();
 }
 
+/// <summary>One step of the event approval chain. Steps run in Order; a step is done when RequiredApprovals different eligible people approved it.</summary>
+public class ApprovalStep
+{
+    public int Id { get; set; }
+    /// <summary>Position in the chain (1 = first). Steps run from the lowest to the highest.</summary>
+    public int Order { get; set; }
+    [Required, StringLength(100)] public string Name { get; set; } = "";
+    /// <summary>Anyone holding this role may decide (used only when Approvers is empty). One of Roles.*; empty = nobody by role.</summary>
+    [StringLength(20)] public string? Role { get; set; }
+    /// <summary>Comma separated emails or usernames. When filled in, ONLY these people may decide at this step.</summary>
+    [StringLength(1000)] public string? Approvers { get; set; }
+    /// <summary>How many different people must approve before the request moves on (a rejection by any eligible person rejects it).</summary>
+    [Range(1, 20)] public int RequiredApprovals { get; set; } = 1;
+    /// <summary>Extra address(es) told when a request arrives at this step. Emails in Approvers are always told too.</summary>
+    [StringLength(500)] public string? NotifyEmail { get; set; }
+    public bool Enabled { get; set; } = true;
+}
+
 public class Approval
 {
     public int Id { get; set; }
@@ -60,6 +101,9 @@ public class Approval
     public string ApproverUsername { get; set; } = "";
     public string ApproverName { get; set; } = "";
     public bool Approved { get; set; }
+    /// <summary>The approval step this decision was made at (a snapshot of its name is kept, so history survives edits).</summary>
+    public int? StepId { get; set; }
+    public string? StepName { get; set; }
     public string? Comment { get; set; }
     public DateTime DecidedAt { get; set; } = DateTime.UtcNow;
 }
@@ -160,6 +204,10 @@ public class ExternalVisit
     public DateTime? DecidedAt { get; set; }
     /// <summary>Filled by the admin when the bus is confirmed (bus number, driver, ...).</summary>
     public string? BusDetails { get; set; }
+
+    /// <summary>The KPI (from the KPI dashboard) this visit helps, with a snapshot of its label.</summary>
+    public int? KpiId { get; set; }
+    [StringLength(400)] public string? KpiLabel { get; set; }
     public DateTime Departure => Date.Date + DepartureTime;
 }
 
@@ -206,6 +254,8 @@ public class RoleAssignment
     [Required, StringLength(100)] public string Username { get; set; } = "";
     [Required, StringLength(20)] public string Role { get; set; } = "";
     public string AssignedBy { get; set; } = "";
+    /// <summary>Only for the KpiOfficer role: the KPI department (entity) this person updates.</summary>
+    public int? EntityId { get; set; }
     public DateTime AssignedAt { get; set; } = DateTime.UtcNow;
 }
 

@@ -43,6 +43,7 @@
         <span><i class="bi bi-people"></i>@L.Num(Model.StudentCount) @L.T("students", "طالب")@(string.IsNullOrWhiteSpace(Model.Grade) ? "" : " (" + Model.Grade + ")") + @L.Num(Model.StaffCount) @L.T("staff", "موظف")</span>
         <span><i class="bi bi-person-badge"></i>@Model.SupervisorName &middot; @Model.SupervisorPhone</span>
     </div>
+    @if (!string.IsNullOrEmpty(Model.KpiLabel)) { <h6>@L.T("KPI this helps", "مؤشر الأداء المرتبط")</h6><p><i class="bi bi-bullseye text-muted"></i> @Model.KpiLabel</p> }
     @if (!string.IsNullOrWhiteSpace(Model.Purpose)) { <h6>@L.T("Purpose", "الغرض من الزيارة")</h6><p style="white-space:pre-line">@Model.Purpose</p> }
     @if (!string.IsNullOrWhiteSpace(Model.Notes)) { <h6>@L["Comments"]</h6><p class="mb-0" style="white-space:pre-line">@Model.Notes</p> }
 </div></div>

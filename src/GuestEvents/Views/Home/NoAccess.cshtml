@@ -1,0 +1,6 @@
+@{ ViewData["Title"] = L.T("No access yet", "لا توجد صلاحية بعد"); }
+<div class="card mx-auto mt-4" style="max-width:600px"><div class="empty">
+    <i class="bi bi-person-lock text-warning"></i>
+    <h5>@ViewData["Title"]</h5>
+    <p>@L.T("You are signed in, but your account does not have access to any part of the app yet. Ask the Admin to give you a role.", "سجّلت الدخول لكن حسابك لا يملك صلاحية لأي جزء من التطبيق بعد. اطلب من الإدارة منحك دورًا.")</p>
+</div></div>
