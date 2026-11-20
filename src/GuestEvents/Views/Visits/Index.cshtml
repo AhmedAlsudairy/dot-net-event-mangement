@@ -15,19 +15,19 @@
 }
 else
 {
-    <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 align-middle">
+    <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 align-middle m-cards">
         <thead><tr><th>@L["Name"]</th><th>@L.T("Destination", "الوجهة")</th><th>@L["Date"]</th><th class="d-none d-md-table-cell">@L.T("Students", "الطلاب")</th><th class="d-none d-lg-table-cell">@L["Requester"]</th><th>@L["Status"]</th><th></th></tr></thead>
         <tbody>
         @foreach (var v in Model)
         {
             <tr style="cursor:pointer" onclick="location='@Url.Action("Details", new { id = v.Id })'">
-                <td class="fw-semibold">@v.Name</td>
-                <td>@v.Destination</td>
-                <td class="text-nowrap">@L.Date(v.Date)<div class="small text-muted">@L.Time(v.DepartureTime) - @L.Time(v.ReturnTime)</div></td>
-                <td class="d-none d-md-table-cell">@L.Num(v.StudentCount)</td>
-                <td class="d-none d-lg-table-cell">@v.RequesterName</td>
-                <td><partial name="_VisitStatus" model="v.Status" /></td>
-                <td class="text-end"><i class="bi bi-chevron-@(L.IsAr ? "left" : "right") text-muted"></i></td>
+                <td class="fw-semibold" data-label="">@v.Name</td>
+                <td data-label="@L.T("Destination", "الوجهة")">@v.Destination</td>
+                <td class="text-nowrap" data-label="@L["Date"]">@L.Date(v.Date)<div class="small text-muted">@L.Time(v.DepartureTime) - @L.Time(v.ReturnTime)</div></td>
+                <td class="d-none d-md-table-cell" data-label="@L.T("Students", "الطلاب")">@L.Num(v.StudentCount)</td>
+                <td class="d-none d-lg-table-cell" data-label="@L["Requester"]">@v.RequesterName</td>
+                <td data-label="@L["Status"]"><partial name="_VisitStatus" model="v.Status" /></td>
+                <td class="text-end m-hide"><i class="bi bi-chevron-@(L.IsAr ? "left" : "right") text-muted"></i></td>
             </tr>
         }
         </tbody></table></div></div>

@@ -15,7 +15,7 @@
 </div>
 
 <div class="card"><div class="table-responsive">
-<table class="table align-middle mb-0">
+<table class="table align-middle mb-0 m-cards">
     <thead><tr><th style="width:44px">#</th><th>@L.T("Category", "الفئة")</th><th>@L.T("Item", "البند")</th><th>@L.T("Details", "التفاصيل")</th><th>@L.T("Suggested action", "الإجراء المقترح")</th><th style="width:130px"></th></tr></thead>
     <tbody>
         @if (Model.Items.Count == 0)
@@ -25,12 +25,12 @@
         @foreach (var r in Model.Items)
         {
             <tr class="@(r.IsResolved ? "opacity-50" : "")">
-                <td>@r.Seq</td>
-                <td class="small">@r.Category</td>
-                <td class="small fw-semibold bidi-auto" dir="auto">@r.Item</td>
-                <td class="small bidi-auto" dir="auto">@r.Details</td>
-                <td class="small bidi-auto" dir="auto">@r.SuggestedAction</td>
-                <td>
+                <td data-label="#">@r.Seq</td>
+                <td class="small" data-label="@L.T("Category", "الفئة")">@r.Category</td>
+                <td class="small fw-semibold bidi-auto" dir="auto" data-label="@L.T("Item", "البند")">@r.Item</td>
+                <td class="small bidi-auto" dir="auto" data-label="@L.T("Details", "التفاصيل")">@r.Details</td>
+                <td class="small bidi-auto" dir="auto" data-label="@L.T("Suggested action", "الإجراء المقترح")">@r.SuggestedAction</td>
+                <td class="m-actions">
                     <form method="post" asp-page-handler="Toggle" asp-route-id="@r.Id">
                         <button type="submit" class="btn btn-sm @(r.IsResolved ? "btn-outline-secondary" : "btn-outline-success")">@(r.IsResolved ? L.T("Reopen", "إعادة فتح") : L.T("Mark done", "تمت المراجعة"))</button>
                     </form>

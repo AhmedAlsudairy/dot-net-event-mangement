@@ -2,14 +2,14 @@
 @{ ViewData["Title"] = L["Reports"]; var pres = (List<PresenterStat>)ViewBag.Presenters; }
 <div class="page-head"><div><h3>@L["Reports"]</h3><div class="sub">@L.Num(Model.Count) @L["Events"]</div></div><div class="d-flex gap-2 flex-wrap"><a class="btn btn-outline-success" asp-action="ExportEvents"><i class="bi bi-file-earmark-excel"></i>@L.T("Events", "الفعاليات")</a><a class="btn btn-outline-success" asp-action="ExportVisits"><i class="bi bi-file-earmark-excel"></i>@L.T("Visits", "الزيارات")</a><a class="btn btn-outline-success" asp-action="ExportEvaluations"><i class="bi bi-file-earmark-excel"></i>@L["ExportExcel"]</a><a class="btn btn-outline-success" href="/Kpi/Reports/Export"><i class="bi bi-file-earmark-excel"></i>KPI</a></div></div>
 <partial name="_Guide" model='"reports"' />
-<div class="card mb-3"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+<div class="card mb-3"><div class="table-responsive"><table class="table table-hover align-middle mb-0 m-cards">
     <thead><tr><th>@L["Event"]</th><th>@L["Date"]</th><th>@L["Attendees"]</th><th>@L["Responses"]</th><th>@L["ResponseRate"]</th><th>@L["Overall"]</th></tr></thead>
     <tbody>
     @foreach (var s in Model)
     {
         <tr>
-            <td><a asp-action="Event" asp-route-id="@s.Event.Id">@s.Event.Name</a></td><td class="text-nowrap">@L.Range(s.Event)</td>
-            <td>@L.Num(s.Attendees) / @L.Num(s.Event.ExpectedAttendees)</td><td>@L.Num(s.Evaluations)</td><td>@L.Num(s.Rate)%</td><td>@(s.Overall?.ToString("0.00") ?? "-")</td>
+            <td data-label=""><a class="fw-semibold" asp-action="Event" asp-route-id="@s.Event.Id">@s.Event.Name</a></td><td class="text-nowrap" data-label="@L["Date"]">@L.Range(s.Event)</td>
+            <td data-label="@L["Attendees"]">@L.Num(s.Attendees) / @L.Num(s.Event.ExpectedAttendees)</td><td data-label="@L["Responses"]">@L.Num(s.Evaluations)</td><td data-label="@L["ResponseRate"]">@L.Num(s.Rate)%</td><td data-label="@L["Overall"]">@(s.Overall?.ToString("0.00") ?? "-")</td>
         </tr>
     }
     </tbody></table></div></div>

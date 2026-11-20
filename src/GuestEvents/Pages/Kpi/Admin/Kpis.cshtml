@@ -33,7 +33,7 @@
 <p class="text-muted small mb-2">@L.Num(Model.Kpis.Count) @L.T("KPIs", "مؤشر")</p>
 
 <div class="card"><div class="table-responsive table-responsive-tall">
-<table class="table table-hover align-middle mb-0 table-sticky-header">
+<table class="table table-hover align-middle mb-0 table-sticky-header m-cards">
     <thead>
         <tr>
             <th>#</th><th>@L.T("Group", "المجموعة")</th><th>@L.T("Classification", "التصنيف")</th><th>@L.T("Domain", "المجال")</th><th>@L.T("KPI", "المؤشر")</th>
@@ -50,8 +50,8 @@
             @foreach (var k in Model.Kpis)
             {
                 <tr>
-                    <td class="text-muted">@k.Sn</td>
-                    <td>
+                    <td class="text-muted m-sn" data-label="#">@k.Sn</td>
+                    <td data-label="@L.T("Group", "المجموعة")">
                         @switch (k.Group)
                         {
                             case KpiGroup.BranchPlan: <span class="badge text-bg-primary">@L.T("Branch plan", "خطة الفرع")</span> break;
@@ -60,16 +60,16 @@
                             default: <span class="badge text-bg-secondary">@L.T("Outside plan", "خارج الخطة")</span> break;
                         }
                     </td>
-                    <td dir="auto" class="bidi-auto">@k.Classification</td>
-                    <td style="max-width:180px"><div class="text-truncate bidi-auto" dir="auto" style="max-width:180px" title="@k.Domain">@k.Domain</div></td>
-                    <td style="max-width:320px"><div class="text-truncate bidi-auto fw-semibold" dir="auto" style="max-width:320px" title="@k.KpiText">@k.KpiText</div></td>
-                    <td class="text-nowrap">
+                    <td dir="auto" class="bidi-auto @(string.IsNullOrWhiteSpace(k.Classification) ? "m-hide" : "")" data-label="@L.T("Classification", "التصنيف")">@k.Classification</td>
+                    <td class="m-dom" style="max-width:180px" data-label="@L.T("Domain", "المجال")"><div class="text-truncate bidi-auto" dir="auto" title="@k.Domain">@k.Domain</div></td>
+                    <td class="m-title" style="max-width:320px" data-label=""><div class="text-truncate bidi-auto fw-semibold" dir="auto" title="@k.KpiText">@k.KpiText</div></td>
+                    <td class="text-nowrap" data-label="@L.T("Plans", "الخطط")">
                         @if (!string.IsNullOrWhiteSpace(k.OperationalPlanText)) { <span class="badge text-bg-primary">@L.T("Operational", "تشغيلية")</span> }
                         @if (!string.IsNullOrWhiteSpace(k.AnnualPlanText)) { <span class="badge text-bg-info">@L.T("Annual", "سنوية")</span> }
                         @if (!string.IsNullOrWhiteSpace(k.EjadaPlanText)) { <span class="badge text-bg-success">@L.T("Ejada", "إجادة")</span> }
                     </td>
-                    <td>@if (string.IsNullOrWhiteSpace(k.AccreditationCriteria)) { <span class="text-muted">—</span> } else { <i class="bi bi-check-lg text-success"></i> }</td>
-                    <td>
+                    <td class="m-hide-empty" data-label="@L.T("Accreditation", "الاعتماد")">@if (string.IsNullOrWhiteSpace(k.AccreditationCriteria)) { <span class="text-muted">—</span> } else { <i class="bi bi-check-lg text-success"></i> }</td>
+                    <td class="m-actions">
                         <div class="d-flex gap-1">
                             <a class="btn btn-sm btn-outline-secondary" href="/Kpi/Admin/KpiForm?id=@k.Id" title="@L["Edit"]"><i class="bi bi-pencil"></i></a>
                             @if (Model.CanDelete)

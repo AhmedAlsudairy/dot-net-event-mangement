@@ -93,7 +93,7 @@
     <span>@L.T($"{Model.Total:N0} entries match", $"{Model.Total:N0} سجل مطابق") · @L.T($"page {f.Page} of {Model.Pages}", $"صفحة {f.Page} من {Model.Pages}")</span>
     <span>@L.T($"{Model.AllEntries:N0} kept in total", $"{Model.AllEntries:N0} محفوظ إجمالًا")@(Model.Oldest.HasValue ? $" · {L.T("since", "منذ")} {Model.Oldest.Value.ToLocalTime():yyyy-MM-dd}" : "")</span>
 </div>
-<div class="card"><div class="table-responsive"><table class="table table-hover table-sm mb-0 align-middle audit-table">
+<div class="card"><div class="table-responsive"><table class="table table-hover table-sm mb-0 align-middle audit-table m-cards">
     <thead><tr><th>@L["At"]</th><th></th><th>@L.T("Category", "الفئة")</th><th>@L["By"]</th><th>@L.T("What happened", "ماذا حدث")</th><th>@L["Details"]</th><th class="d-none d-lg-table-cell">IP</th></tr></thead>
     <tbody>
     @if (Model.Rows.Count == 0) { <tr><td colspan="7" class="empty-state">@L.T("No entries match these filters.", "لا توجد سجلات مطابقة.")</td></tr> }
@@ -103,13 +103,13 @@
         <tr class="@(a.Outcome == "Failure" ? "row-fail" : "")" style="cursor:pointer" data-id="@a.Id"
             data-at="@L.DateTimeStr(a.At.ToLocalTime())" data-user="@a.User" data-roles="@a.Roles" data-action="@a.Action" data-label="@AuditCatalog.Label(a.Action, L.IsAr)" data-cat="@a.Category" data-sev="@a.Severity" data-out="@a.Outcome"
             data-target="@a.Target" data-details="@a.Details" data-ip="@a.Ip" data-ua="@a.UserAgent" data-method="@a.Method" data-path="@a.Path" data-req="@a.CorrelationId" data-ms="@a.DurationMs">
-            <td class="text-nowrap small">@L.DateTimeStr(a.At.ToLocalTime())</td>
-            <td><span class="badge @SevBadge(a.Severity)" title="@SevLabel(a.Severity)"><i class="bi bi-@SevIcon(a.Severity)"></i></span></td>
-            <td class="small">@CatLabel(a.Category)</td>
-            <td class="small fw-semibold">@a.User</td>
-            <td class="small">@AuditCatalog.Label(a.Action, L.IsAr)@if (a.Outcome == "Failure") { <i class="bi bi-x-circle-fill text-danger ms-1" title="@L.T("Failed", "فشل")"></i>}@if (!string.IsNullOrEmpty(a.Target)) { <span class="badge text-bg-light border fw-normal ms-1">@a.Target</span> }</td>
-            <td class="small text-muted audit-det">@(det.Length > 110 ? det[..110] + "…" : det)</td>
-            <td class="small text-muted d-none d-lg-table-cell">@a.Ip</td>
+            <td class="text-nowrap small m-time" data-label="">@L.DateTimeStr(a.At.ToLocalTime())</td>
+            <td class="m-sev"><span class="badge @SevBadge(a.Severity)" title="@SevLabel(a.Severity)"><i class="bi bi-@SevIcon(a.Severity)"></i></span></td>
+            <td class="small m-hide">@CatLabel(a.Category)</td>
+            <td class="small fw-semibold m-user" data-label="">@a.User</td>
+            <td class="small m-what" data-label="">@AuditCatalog.Label(a.Action, L.IsAr)@if (a.Outcome == "Failure") { <i class="bi bi-x-circle-fill text-danger ms-1" title="@L.T("Failed", "فشل")"></i>}@if (!string.IsNullOrEmpty(a.Target)) { <span class="badge text-bg-light border fw-normal ms-1">@a.Target</span> }</td>
+            <td class="small text-muted audit-det m-det" data-label="">@(det.Length > 110 ? det[..110] + "…" : det)</td>
+            <td class="small text-muted d-none d-lg-table-cell m-hide">@a.Ip</td>
         </tr>
     }
     </tbody>

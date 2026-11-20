@@ -276,6 +276,11 @@ for form in ("/Events/Create", "/Visits/Create"):
     s, h, _ = staff.get(form)
     check("KPI picker on " + form, 'id="kpiPicker"' in h and 'class="kpi-data"' in h and "Which KPI does this help?" in h and 'name="KpiId"' in h)
 s, h, _ = staff.get("/Events/Create"); check("KPI picker lists real KPI codes (not row numbers)", '"sn":"1.1.1.1"' in h or '"sn":"2.1.1.1"' in h)
+# --- responsive: phone-friendly markup is present
+s, h, _ = admin.get("/Kpi/Tracking"); check("responsive: tracking rows turn into cards on phones", "m-cards" in h and 'data-label=' in h)
+s, h, _ = admin.get("/Admin/Audit"); check("responsive: audit rows are compact cards on phones", "audit-table m-cards" in h)
+s, h, _ = admin.get("/"); check("responsive: viewport covers notches", "viewport-fit=cover" in h)
+s, h, _ = admin.get("/Visits"); check("responsive: visits list has phone cards", "m-cards" in h or "No visits" in h or "empty" in h)
 # --- logo: nothing uploaded yet, only the Admin can change it
 s, h, _ = anon.get("/brand/logo"); check("no logo uploaded yet -> 404", s == 404)
 s, h, url = staff.post("/Admin/RemoveLogo", {}, "/Account/Me"); check("staff cannot remove/upload the logo", "/Account/Denied" in url or s in (401, 403))

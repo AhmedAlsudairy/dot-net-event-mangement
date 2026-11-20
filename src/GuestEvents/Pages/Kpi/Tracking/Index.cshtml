@@ -70,7 +70,7 @@
 <p class="text-muted small mb-2">@L.T($"Showing {Model.Rows.Count} of {Model.TotalCount}", $"عرض {Model.Rows.Count} من أصل {Model.TotalCount} عنصر")</p>
 
 <div class="card"><div class="table-responsive table-responsive-tall">
-<table class="table table-sm align-middle mb-0 table-sticky-header">
+<table class="table table-sm align-middle mb-0 table-sticky-header m-cards m-track">
     <thead>
         <tr>
             <th style="width:56px">#</th>
@@ -94,8 +94,8 @@
                 var allStatuses = row.ItemsByPlan.Values.SelectMany(v => v).Where(i => i.Status.HasValue).Select(i => (int)i.Status!.Value).ToList();
                 var pct = allStatuses.Count > 0 ? (int)Math.Round(allStatuses.Select(s => s switch { 2 => 100, 1 => 50, _ => 0 }).Average()) : (int?)null;
                 <tr>
-                    <td class="text-muted font-monospace">@row.Kpi.Sn</td>
-                    <td style="max-width:320px">
+                    <td class="text-muted font-monospace m-sn" data-label="">@row.Kpi.Sn</td>
+                    <td class="m-title" style="max-width:320px" data-label="">
                         <div class="text-truncate fw-semibold bidi-auto" dir="auto" title="@row.Kpi.KpiText" style="max-width:320px">@row.Kpi.KpiText</div>
                         <div class="text-truncate text-muted bidi-auto" dir="auto" style="max-width:320px;font-size:.74rem" title="@row.Kpi.Domain">@row.Kpi.Classification &middot; @row.Kpi.Domain</div>
                     </td>
@@ -103,7 +103,7 @@
                     {
                         var text = row.Kpi.PlanText(plan);
                         var items = row.ItemsByPlan[plan];
-                        <td style="max-width:190px">
+                        <td style="max-width:190px" data-label="@planLabels[plan]" class="m-plan @(string.IsNullOrWhiteSpace(text) ? "m-hide" : "")">
                             @if (string.IsNullOrWhiteSpace(text))
                             {
                                 <span class="text-muted">—</span>
@@ -144,7 +144,7 @@
                             }
                         </td>
                     }
-                    <td>@(pct.HasValue ? pct + "%" : "—")</td>
+                    <td data-label="@L.T("Progress", "الإنجاز")" class="m-prog">@(pct.HasValue ? pct + "%" : "—")</td>
                 </tr>
             }
         }

@@ -324,3 +324,125 @@ html[dir=rtl] .kpi-opt.sel { box-shadow: inset -3px 0 0 var(--ok); }
 .kpi-opt mark { background: #ffe9a8; padding: 0 1px; border-radius: 2px; color: inherit; }
 .kpi-empty { padding: 1.2rem; text-align: center; color: var(--muted); font-size: .9rem; }
 @media (max-width: 576px) { .kpi-pick-list { max-height: 60vh; } }
+
+/* =====================================================================
+   Responsive pass: phones, tablets, touch screens
+   ===================================================================== */
+html { -webkit-text-size-adjust: 100%; }
+body { padding-inline: env(safe-area-inset-left) env(safe-area-inset-right); }
+img, canvas, svg { max-width: 100%; }
+
+/* ---- Tables become cards on phones (add class m-cards and data-label on each cell) ---- */
+@media (max-width: 767.98px) {
+  .table-responsive-tall { max-height: none; }
+  .m-cards { border-collapse: separate; }
+  .m-cards thead { display: none; }
+  .m-cards, .m-cards tbody { display: block; width: 100%; }
+  .m-cards tr { display: block; padding: .8rem .95rem; border-bottom: 1px solid var(--line); position: relative; }
+  .m-cards tr:last-child { border-bottom: 0; }
+  .m-cards td { display: block; width: 100%; max-width: none !important; border: 0 !important; padding: .2rem 0 !important; background: transparent !important; white-space: normal !important; }
+  .m-cards td[data-label]:not([data-label=""])::before { content: attr(data-label); display: block; font-size: .66rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: .05rem; }
+  .m-cards td.m-hide, .m-cards td.m-hide-empty:empty { display: none; }
+  .m-cards td.m-actions { display: flex; gap: .5rem; padding-top: .6rem !important; }
+  .m-cards td.m-actions form { margin: 0; }
+  .m-cards .text-truncate { white-space: normal !important; overflow: visible; text-overflow: clip; }
+  .m-cards tr[onclick] { cursor: pointer; }
+  .m-cards .empty-state { padding: 2rem 1rem !important; }
+
+  /* KPI tracking: number + title on top, each plan below as its own block */
+  .m-track .m-sn { position: absolute; inset-inline-end: .95rem; top: .8rem; width: auto; font-size: .78rem; background: #eef1f5; border-radius: 6px; padding: .05rem .45rem !important; }
+  .m-track .m-title { padding-inline-end: 3rem !important; padding-bottom: .35rem !important; }
+  .m-track .m-plan { margin-top: .4rem; padding: .5rem .65rem !important; background: #f7f9fb !important; border-radius: 10px; }
+  .m-track .m-plan .btn { width: 100%; justify-content: center; margin-top: .3rem; }
+  .m-track .m-prog { display: none; }
+  .m-track.m-cards td.m-plan .text-truncate { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  /* KPI list rows */
+  .m-cards .m-title .text-truncate { font-size: .95rem; }
+  .m-cards .m-sn { font-variant-numeric: tabular-nums; }
+  /* Audit rows */
+  .audit-table.m-cards tr { display: grid; grid-template-columns: 1fr auto; gap: .1rem .6rem; align-items: center; }
+  .audit-table.m-cards td.m-time { grid-column: 1; grid-row: 1; color: var(--muted); }
+  .audit-table.m-cards td.m-sev { grid-column: 2; grid-row: 1; width: auto; text-align: end; }
+  .audit-table.m-cards td.m-user { grid-column: 1 / -1; grid-row: 2; }
+  .audit-table.m-cards td.m-what { grid-column: 1 / -1; grid-row: 3; }
+  .audit-table.m-cards td.m-det { grid-column: 1 / -1; grid-row: 4; max-width: none; }
+  .audit-table.m-cards td.audit-det { white-space: normal !important; word-break: break-word; }
+}
+
+/* ---- Phones ---- */
+@media (max-width: 575.98px) {
+  main.container { padding-inline: 12px; }
+  .page-head { margin-bottom: .9rem; gap: .6rem; }
+  .page-head h3 { font-size: 1.35rem; }
+  .page-head .sub { font-size: .86rem; }
+  .page-head > .btn, .page-head > a.btn { width: 100%; }
+  .page-head > .d-flex { width: 100%; }
+  .page-head > .d-flex > .btn { flex: 1 1 auto; }
+  .card-body { padding: .95rem; } .card-header { padding: .75rem .95rem; }
+  h4 { font-size: 1.15rem; }
+  /* 16px inputs stop iOS from zooming the page when a field is focused */
+  .form-control, .form-select, .form-control-sm, .form-select-sm { font-size: 16px; }
+  .btn { min-height: 42px; } .btn-sm { min-height: 38px; }
+  .actionbar { padding: .7rem 12px calc(.7rem + env(safe-area-inset-bottom)); margin-inline: -12px; gap: .5rem; }
+  .actionbar .btn { flex: 1 1 calc(50% - .5rem); }
+  .actionbar .btn-primary { flex-basis: 100%; }
+  .actionbar > span { flex-basis: 100%; font-size: .74rem; }
+  .stat .n { font-size: 1.4rem; }
+  .kv dt { font-size: .78rem; }
+  /* full-screen pop-ups */
+  .modal-dialog { margin: 0; max-width: 100%; min-height: 100%; }
+  .modal-content { min-height: 100vh; border-radius: 0; border: 0; }
+  .modal-dialog-scrollable .modal-content { max-height: 100vh; }
+  .toast-wrap { inset-inline: 12px; top: 68px; }
+  .login-form { padding: 1.25rem; }
+  .guide-box { padding: .8rem .9rem; }
+  .pagination { --bs-pagination-padding-x: .6rem; --bs-pagination-padding-y: .4rem; }
+  .role-people li { flex-wrap: wrap; }
+  .access-strip { font-size: .82rem; }
+  .task-card { flex-wrap: wrap; } .task-go { width: 100%; text-align: end; }
+}
+
+/* ---- Tablets and below: settings tabs scroll sideways instead of stacking ---- */
+@media (max-width: 991.98px) {
+  .settings-nav { flex-direction: row !important; flex-wrap: nowrap; overflow-x: auto; gap: .25rem; padding-bottom: .15rem; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+  .settings-nav .nav-link { white-space: nowrap; padding: .55rem .85rem; flex: 0 0 auto; }
+  .kpi-tabs { scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+  html[dir=rtl] .kpi-tabs { mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent); }
+  .kpi-tabs a { scroll-snap-align: center; }
+  .topbar .navbar-collapse { padding-bottom: .6rem; }
+  .topbar .navbar-nav .nav-link { padding: .7rem .8rem !important; font-size: 1rem; }
+  .topbar .dropdown-item { padding: .6rem .9rem; }
+  .row.g-3 > [class*="col-"] { min-width: 0; }
+}
+
+/* ---- Touch screens: bigger tap targets ---- */
+@media (pointer: coarse) {
+  .btn-sm { min-height: 38px; padding-inline: .75rem; }
+  .btn-link.btn-sm, .role-people .btn-link { min-width: 38px; min-height: 38px; display: inline-grid; place-items: center; }
+  .form-check-input { width: 1.25em; height: 1.25em; }
+  .page-link { min-width: 40px; min-height: 40px; display: grid; place-items: center; }
+  .seg a { padding: .5rem .9rem; }
+  .kpi-pick-clear { width: 32px; height: 32px; } .kpi-opt { padding: .7rem .8rem; }
+  .guide-toggle { padding: .5rem; }
+  .dev-user { min-height: 52px; }
+  .nav-link, .dropdown-item { min-height: 44px; display: flex; align-items: center; }
+}
+
+/* ---- Large screens: keep line length readable ---- */
+@media (min-width: 1600px) { main.container { max-width: 1440px; } }
+@media (min-width: 992px) and (max-width: 1399.98px) { .quick-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); } }
+@media (min-width: 576px) and (max-width: 991.98px) { .row-cols-md-2 > * { min-width: 0; } .stat { padding: .75rem .9rem; } }
+
+/* ---- Access & roles on phones: shorter cards, bigger links ---- */
+@media (max-width: 575.98px) {
+  .cap-list li.off { display: none; }
+  .role-jump .role-chip { padding: .5rem .85rem; }
+  .role-card .role-label a, .role-card a.small { display: inline-block; padding: .4rem .3rem; }
+  .role-people .btn-link { min-width: 38px; min-height: 38px; display: inline-grid; place-items: center; }
+  .role-people .who { word-break: break-all; }
+}
+@media (max-width: 991.98px) { .topbar .navbar-collapse { margin-top: .6rem; } }
+@media (max-width: 575.98px) {
+  #entityChecklist { max-height: 38vh !important; }
+  #entityChecklist > .col { flex: 0 0 100%; max-width: 100%; width: 100%; }
+}
