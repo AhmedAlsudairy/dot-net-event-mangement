@@ -187,6 +187,7 @@ using (var scope = app.Services.CreateScope())
     var s = await scope.ServiceProvider.GetRequiredService<SettingsService>().AllAsync();
     Loc.UseArabicDigits = SettingsService.Bool(s, "UseArabicDigits");
     Loc.DateFmt = s["DateFormat"];
+    Theme.Apply(s);
     if (!string.IsNullOrWhiteSpace(s["AppNameEn"])) Loc.BrandEn = s["AppNameEn"].Trim();
     if (!string.IsNullOrWhiteSpace(s["AppNameAr"])) Loc.BrandAr = s["AppNameAr"].Trim();
 }

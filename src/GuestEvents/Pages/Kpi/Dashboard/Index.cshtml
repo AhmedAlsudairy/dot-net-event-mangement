@@ -165,13 +165,15 @@ else
   // Chart.js needs an explicit-height wrapper (.chart-wrap) plus maintainAspectRatio:false inside a grid column.
   var css = getComputedStyle(document.documentElement);
   Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
-  Chart.defaults.color = '#5b6675';
+  function cv(n, d) { var v = getComputedStyle(document.documentElement).getPropertyValue(n).trim(); return v || d; }
+  Chart.defaults.color = cv('--muted', '#5b6675'); Chart.defaults.borderColor = cv('--line', '#e5e9ef');
   Chart.defaults.maintainAspectRatio = false;
   Chart.defaults.responsive = true;
+  window.addEventListener('themechange', function () { location.reload(); });
   var rtl = document.documentElement.dir === 'rtl';
 
-  var OK = '#1a8f5b', WARN = '#e0a526', BAD = '#c7384a', BRAND = '#0B3D5C', BRAND2 = '#14587f';
-  var PALETTE = [BRAND, '#2f8f9d', WARN, '#7a5af8', BAD, '#6b7785'];
+  var OK = cv('--ok', '#1a8f5b'), WARN = cv('--accent', '#e0a526'), BAD = cv('--bad', '#c7384a'), BRAND = cv('--brand', '#0B3D5C'), BRAND2 = cv('--brand-2', '#14587f'), SURF = cv('--surface', '#ffffff'), TEAL = '#2f8f9d';
+  var PALETTE = [BRAND2, TEAL, WARN, '#7a5af8', BAD, cv('--muted', '#6b7785')];
   var statusData = @Html.Raw(Model.StatusChartJson);
   var planCmp = @Html.Raw(Model.PlanComparisonChartJson);
   var domain = @Html.Raw(Model.DomainChartJson);
@@ -189,7 +191,7 @@ else
 
   if (document.getElementById('planStatusChart')) new Chart(document.getElementById('planStatusChart'), {
     type: 'doughnut',
-    data: { labels: statusData.labels, datasets: [{ data: statusData.data, backgroundColor: [OK, WARN, BAD], borderWidth: 2 }] },
+    data: { labels: statusData.labels, datasets: [{ data: statusData.data, backgroundColor: [OK, WARN, BAD], borderWidth: 2, borderColor: SURF }] },
     options: { cutout: '62%', plugins: { legend: legend } }
   });
   if (document.getElementById('planComparisonChart')) new Chart(document.getElementById('planComparisonChart'), {
@@ -210,17 +212,17 @@ else
   document.getElementById('goalChart').parentElement.style.height = Math.max(340, goal.labels.length * 28) + 'px';
   new Chart(document.getElementById('goalChart'), {
     type: 'bar',
-    data: { labels: goal.labels, datasets: [{ data: goal.data, backgroundColor: '#2f8f9d', borderRadius: 4 }] },
+    data: { labels: goal.labels, datasets: [{ data: goal.data, backgroundColor: TEAL, borderRadius: 4 }] },
     options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, reverse: rtl, ticks: { precision: 0 } }, y: { position: rtl ? 'right' : 'left', ticks: { autoSkip: false } } } }
   });
   new Chart(document.getElementById('classificationChart'), {
     type: 'doughnut',
-    data: { labels: classification.labels, datasets: [{ data: classification.data, backgroundColor: PALETTE, borderWidth: 2 }] },
+    data: { labels: classification.labels, datasets: [{ data: classification.data, backgroundColor: PALETTE, borderWidth: 2, borderColor: SURF }] },
     options: { cutout: '55%', plugins: { legend: legend } }
   });
   new Chart(document.getElementById('coverageChart'), {
     type: 'doughnut',
-    data: { labels: coverage.labels, datasets: [{ data: coverage.data, backgroundColor: [BRAND2, '#e5e9ef'], borderWidth: 2 }] },
+    data: { labels: coverage.labels, datasets: [{ data: coverage.data, backgroundColor: [BRAND2, cv('--line-2', '#e5e9ef')], borderWidth: 2, borderColor: SURF }] },
     options: { cutout: '62%', plugins: { legend: legend } }
   });
   var sc = document.getElementById('scorecardChart');

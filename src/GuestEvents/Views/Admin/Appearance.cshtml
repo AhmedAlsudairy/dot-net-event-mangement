@@ -1,0 +1,173 @@
+@model Dictionary<string, string>
+@{
+    ViewData["Title"] = L.T("Appearance", "المظهر");
+    string cur(string k) => Model[k];
+    var mode = cur("ThemeMode"); var radius = cur("ThemeRadius");
+    var presetsJson = System.Text.Json.JsonSerializer.Serialize(Theme.Presets.Select(p => new { key = p.Key, p = p.Primary, s = p.Secondary, a = p.Accent, bg = p.Bg }));
+}
+<div class="page-head">
+    <div>
+        <h3>@ViewData["Title"]</h3>
+        <div class="sub">@L.T("Choose the colours and the look of the whole platform. The preview on the right changes as you pick; nothing is applied until you press Save.", "اختر ألوان ومظهر المنصة بالكامل. تتغير المعاينة على اليمين أثناء الاختيار؛ ولا يُطبَّق شيء حتى تضغط حفظ.")</div>
+    </div>
+    <form method="post" asp-action="AppearanceReset" onsubmit="return confirm('@L.T("Go back to the default look?", "العودة إلى المظهر الافتراضي؟")')" data-noload>
+        <button class="btn btn-outline-secondary"><i class="bi bi-arrow-counterclockwise"></i>@L.T("Reset to default", "إعادة الضبط")</button>
+    </form>
+</div>
+@if (TempData["Error"] != null) { <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @TempData["Error"]</div> }
+@if (TempData["Saved"] != null) { <div class="alert alert-success py-2"><i class="bi bi-check-circle"></i> @L.T("Saved. The new look is now live for everyone.", "تم الحفظ. المظهر الجديد يعمل الآن للجميع.")</div> }
+
+<form method="post" asp-action="Appearance" id="themeForm">
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card mb-3"><div class="card-header"><i class="bi bi-palette2"></i>@L.T("Ready-made themes", "سمات جاهزة")</div><div class="card-body">
+            <div class="preset-grid" id="presets">
+                @foreach (var p in Theme.Presets)
+                {
+                    <button type="button" class="preset" data-preset="@p.Key" data-p="@p.Primary" data-s="@p.Secondary" data-a="@p.Accent" data-bg="@p.Bg">
+                        <span class="sw"><i style="background:@p.Primary"></i><i style="background:@p.Secondary"></i><i style="background:@p.Accent"></i><i style="background:@p.Bg"></i></span>
+                        <b>@L.T(p.En, p.Ar)</b>
+                    </button>
+                }
+            </div>
+        </div></div>
+
+        <div class="card mb-3"><div class="card-header"><i class="bi bi-eyedropper"></i>@L.T("Your own colours", "ألوانك الخاصة")</div><div class="card-body d-grid gap-3">
+            @foreach (var (name, key, en, ar, helpEn, helpAr) in new[] {
+                ("primary", "ThemePrimary", "Primary", "الأساسي", "Top bar and main buttons. Pick a dark colour: text on it is white.", "الشريط العلوي والأزرار الرئيسية. اختر لونًا داكنًا: النص عليه أبيض."),
+                ("secondary", "ThemeSecondary", "Secondary", "الثانوي", "Links, highlights and the second colour of the top bar.", "الروابط والتمييز واللون الثاني للشريط العلوي."),
+                ("accent", "ThemeAccent", "Accent", "التمييز", "The yellow \"New request\" button, badges and highlights.", "زر «طلب جديد» والشارات والتمييز."),
+                ("bg", "ThemeBg", "Page background", "خلفية الصفحة", "A very light tint (light mode). Dark mode builds its own from the primary colour.", "درجة فاتحة جدًا (الوضع الفاتح). الوضع الداكن يبني خلفيته من اللون الأساسي.") })
+            {
+                <div>
+                    <label class="form-label mb-1" for="c-@name">@L.T(en, ar)</label>
+                    <div class="color-field">
+                        <input type="color" id="c-@name" data-for="@name" value="@cur(key).ToLower()" aria-label="@L.T(en, ar)" />
+                        <input type="text" class="form-control font-monospace" name="@name" id="h-@name" value="@cur(key).ToUpper()" maxlength="7" pattern="#[0-9a-fA-F]{6}" style="max-width:130px" />
+                        @if (name is "primary" or "secondary") { <span class="contrast-chip" id="chip-@name"></span> }
+                    </div>
+                    <div class="form-text">@L.T(helpEn, helpAr)</div>
+                </div>
+            }
+        </div></div>
+
+        <div class="card mb-3"><div class="card-header"><i class="bi bi-circle-half"></i>@L.T("Light or dark", "فاتح أو داكن")</div><div class="card-body">
+            <div class="seg mb-2 w-100" id="modeSeg">
+                @foreach (var (m, ico, en, ar) in new[] { ("light", "sun", "Light", "فاتح"), ("dark", "moon-stars", "Dark", "داكن"), ("auto", "circle-half", "Follow the device", "حسب الجهاز") })
+                {
+                    <label class="flex-fill text-center mb-0"><input type="radio" name="mode" value="@m" class="d-none" @(mode == m ? "checked" : "") /><a role="button" class="@(mode == m ? "active" : "")" data-mode="@m" style="display:block"><i class="bi bi-@ico"></i> @L.T(en, ar)</a></label>
+                }
+            </div>
+            <div class="form-text mb-2">@L.T("The default for everyone. \"Follow the device\" uses the phone or computer setting.", "الإعداد الافتراضي للجميع. «حسب الجهاز» يتبع إعداد الهاتف أو الحاسوب.")</div>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="lockTheme" value="true" id="lockTheme" @(cur("ThemeLock") == "true" ? "checked" : "") />
+                <label class="form-check-label" for="lockTheme">@L.T("Everyone must use this mode (hide the Light / Dark switch in the user menu)", "الجميع يستخدم هذا الوضع (إخفاء مفتاح فاتح / داكن من قائمة المستخدم)")</label>
+            </div>
+        </div></div>
+
+        <div class="card mb-3"><div class="card-header"><i class="bi bi-bounding-box-circles"></i>@L.T("Corners", "الزوايا")</div><div class="card-body">
+            <div class="seg w-100" id="radiusSeg">
+                @foreach (var (rv, en, ar) in new[] { ("sharp", "Sharp", "حادة"), ("soft", "Soft", "ناعمة"), ("round", "Round", "مستديرة") })
+                {
+                    <label class="flex-fill text-center mb-0"><input type="radio" name="radius" value="@rv" class="d-none" @(radius == rv ? "checked" : "") /><a role="button" class="@(radius == rv ? "active" : "")" data-radius="@rv" style="display:block">@L.T(en, ar)</a></label>
+                }
+            </div>
+        </div></div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="position-sticky" style="top:78px">
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                <div class="fw-semibold"><i class="bi bi-eye"></i> @L.T("Live preview", "معاينة مباشرة")</div>
+                <div class="seg" id="previewSeg"><a role="button" data-pv="light" class="active"><i class="bi bi-sun"></i> @L.T("Light", "فاتح")</a><a role="button" data-pv="dark"><i class="bi bi-moon-stars"></i> @L.T("Dark", "داكن")</a></div>
+            </div>
+            <div class="theme-preview" id="themePreview" data-bs-theme="light">
+                <div class="tp-nav"><span class="brand-mark"><i class="bi bi-calendar2-event"></i></span><b>@L["App"]</b><span class="tp-link on">@L.T("Home", "الرئيسية")</span><span class="tp-link">@L.T("My events", "فعالياتي")</span><span class="tp-link">KPIs</span><span class="ms-auto btn btn-warning btn-sm fw-semibold py-0">+ @L.T("New request", "طلب جديد")</span></div>
+                <div class="tp-body">
+                    <div class="page-head" style="margin-bottom:.8rem"><div><h5 class="mb-0">@L.T("Good morning, Adam", "صباح الخير، آدم")</h5><div class="sub">@L.T("What is waiting for you today", "ما ينتظرك اليوم")</div></div><a class="btn btn-primary btn-sm" href="#" onclick="return false"><i class="bi bi-plus-lg"></i>@L.T("New event request", "طلب فعالية جديد")</a></div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-4"><div class="stat static"><div class="n" style="color:var(--brand-text)">12</div><div class="l">@L.T("Events", "فعاليات")</div></div></div>
+                        <div class="col-4"><div class="stat static"><div class="n ok" style="color:var(--ok)">8</div><div class="l">@L.T("Approved", "معتمد")</div></div></div>
+                        <div class="col-4"><div class="stat static"><div class="n" style="color:var(--warn)">3</div><div class="l">@L.T("Waiting", "بالانتظار")</div></div></div>
+                    </div>
+                    <div class="card mb-3"><div class="card-header"><i class="bi bi-calendar3"></i>@L.T("Upcoming", "القادم")<span class="badge text-bg-primary ms-auto">3</span></div>
+                        <table class="table mb-0 align-middle"><tbody>
+                            <tr><td class="fw-semibold">@L.T("AI workshop", "ورشة الذكاء الاصطناعي")</td><td class="small text-muted">2026-12-03</td><td><span class="badge text-bg-success">@L.T("Approved", "معتمد")</span></td></tr>
+                            <tr><td class="fw-semibold">@L.T("Safety talk", "محاضرة السلامة")</td><td class="small text-muted">2026-12-09</td><td><span class="badge text-bg-warning">@L.T("In approval", "قيد الموافقة")</span></td></tr>
+                        </tbody></table>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <button type="button" class="btn btn-primary btn-sm">@L.T("Primary", "أساسي")</button>
+                        <button type="button" class="btn btn-outline-primary btn-sm">@L.T("Outline", "محدد")</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm">@L.T("Secondary", "ثانوي")</button>
+                        <button type="button" class="btn btn-warning btn-sm">@L.T("Accent", "تمييز")</button>
+                        <a href="#" onclick="return false">@L.T("A link", "رابط")</a>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-sm-6"><input class="form-control form-control-sm" placeholder="@L.T("A text field", "حقل نصي")" /></div>
+                        <div class="col-sm-6"><select class="form-select form-select-sm"><option>@L.T("A dropdown", "قائمة منسدلة")</option></select></div>
+                    </div>
+                    <div class="alert alert-info mt-3 mb-0 py-2 small"><i class="bi bi-info-circle"></i> @L.T("This is how notices look.", "هكذا تظهر الإشعارات.")</div>
+                </div>
+            </div>
+            <div class="small text-muted mt-2" id="contrastNote"></div>
+            <div class="actionbar" style="position:static;border:0;background:none;padding-inline:0">
+                <button class="btn btn-primary"><i class="bi bi-check2"></i>@L.T("Save the look", "حفظ المظهر")</button>
+                <span class="text-muted small">@L.T("Applies to everyone straight away: top bar, buttons, pages, KPI charts and the login page.", "يُطبَّق على الجميع فورًا: الشريط العلوي والأزرار والصفحات ومخططات المؤشرات وصفحة الدخول.")</span>
+            </div>
+        </div>
+    </div>
+</div>
+</form>
+<style id="previewVars"></style>
+
+@section Scripts {
+<script>
+(function () {
+  var f = document.getElementById('themeForm'), pv = document.getElementById('themePreview'), style = document.getElementById('previewVars');
+  var presets = @Html.Raw(presetsJson);
+  var keys = ['primary', 'secondary', 'accent', 'bg'];
+  function hex(k) { return document.getElementById('h-' + k); } function pick(k) { return document.getElementById('c-' + k); }
+  function ok(v) { return /^#[0-9a-fA-F]{6}$/.test(v); }
+  function lum(h) { var c = [1, 3, 5].map(function (i) { var v = parseInt(h.substr(i, 2), 16) / 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; }
+  function contrast(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); }
+  var radius = function () { return f.querySelector('input[name=radius]:checked').value; };
+  var timer = null;
+  function refresh() {
+    keys.forEach(function (k) { if (ok(hex(k).value)) pick(k).value = hex(k).value.toLowerCase(); });
+    // preset highlight
+    var cur = keys.map(function (k) { return hex(k).value.toUpperCase(); });
+    document.querySelectorAll('.preset').forEach(function (b) { b.classList.toggle('on', [b.dataset.p, b.dataset.s, b.dataset.a, b.dataset.bg].join() === cur.join()); });
+    // contrast of white text on the primary and secondary colours
+    var bad = false;
+    ['primary', 'secondary'].forEach(function (k) {
+      var chip = document.getElementById('chip-' + k), v = hex(k).value; if (!ok(v)) { chip.textContent = ''; return; }
+      var c = contrast(v, '#FFFFFF'), good = c >= 4.5, usable = c >= 3; if (!usable) bad = true;
+      chip.className = 'contrast-chip ' + (good ? 'ok' : 'bad'); chip.innerHTML = '<i class="bi bi-' + (good ? 'check-circle' : 'exclamation-triangle') + '"></i> ' + c.toFixed(1) + ':1 ' + (good ? '@L.T("readable", "مقروء")' : usable ? '@L.T("weak", "ضعيف")' : '@L.T("too light", "فاتح جدًا")');
+    });
+    document.getElementById('contrastNote').textContent = bad ? '@L.T("A colour is too light for white text and cannot be saved. Pick a darker one.", "لون فاتح جدًا للنص الأبيض ولا يمكن حفظه. اختر لونًا أغمق.")' : '';
+    f.querySelector('button.btn-primary[type=submit], .actionbar .btn-primary').disabled = bad;
+    clearTimeout(timer);
+    if (keys.every(function (k) { return ok(hex(k).value); })) timer = setTimeout(function () {
+      var q = 'primary=' + encodeURIComponent(hex('primary').value) + '&secondary=' + encodeURIComponent(hex('secondary').value) + '&accent=' + encodeURIComponent(hex('accent').value) + '&bg=' + encodeURIComponent(hex('bg').value) + '&radius=' + radius();
+      fetch('@Url.Action("AppearanceCss")?' + q).then(function (r) { return r.ok ? r.text() : ''; }).then(function (css) { if (css) style.textContent = css; });
+    }, 120);
+  }
+  keys.forEach(function (k) {
+    pick(k).addEventListener('input', function () { hex(k).value = pick(k).value.toUpperCase(); refresh(); });
+    hex(k).addEventListener('input', refresh);
+  });
+  document.querySelectorAll('.preset').forEach(function (b) { b.addEventListener('click', function () {
+    hex('primary').value = b.dataset.p; hex('secondary').value = b.dataset.s; hex('accent').value = b.dataset.a; hex('bg').value = b.dataset.bg; refresh(); }); });
+  // segmented radio groups (mode, corners)
+  function seg(id, attr) { document.querySelectorAll('#' + id + ' label').forEach(function (l) { l.addEventListener('click', function (e) {
+    e.preventDefault(); var r = l.querySelector('input'); r.checked = true; document.querySelectorAll('#' + id + ' a').forEach(function (a) { a.classList.toggle('active', a === l.querySelector('a')); });
+    if (id === 'modeSeg') setPreview(r.value === 'dark' ? 'dark' : 'light'); refresh(); }); }); }
+  seg('modeSeg'); seg('radiusSeg');
+  function setPreview(m) { pv.setAttribute('data-bs-theme', m); document.querySelectorAll('#previewSeg a').forEach(function (a) { a.classList.toggle('active', a.dataset.pv === m); }); }
+  document.querySelectorAll('#previewSeg a').forEach(function (a) { a.addEventListener('click', function () { setPreview(a.dataset.pv); }); });
+  setPreview('@(mode == "dark" ? "dark" : "light")');
+  refresh();
+})();
+</script>
+}

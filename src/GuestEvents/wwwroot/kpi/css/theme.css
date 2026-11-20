@@ -12,7 +12,7 @@
 /* ---------- Stat tiles with colour accents ---------- */
 .stat .n.ok { color: var(--ok); } .stat .n.warn { color: var(--warn); } .stat .n.bad { color: var(--bad); } .stat .n.brand { color: var(--brand-2); }
 .stat .ico { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; font-size: 1.05rem; flex-shrink: 0; }
-.ico.ok { background: #e3f4ec; color: var(--ok); } .ico.warn { background: #fdf3dc; color: var(--warn); } .ico.bad { background: #fbe7ea; color: var(--bad); } .ico.brand { background: #e4eef5; color: var(--brand-2); }
+.ico.ok { background: var(--ok-soft); color: var(--ok); } .ico.warn { background: var(--warn-soft); color: var(--warn); } .ico.bad { background: var(--bad-soft); color: var(--bad); } .ico.brand { background: var(--brand-soft); color: var(--brand-2); }
 
 /* Completion ring on the KPI dashboard head */
 .kpi-pct { display: flex; align-items: center; gap: .75rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: .55rem 1rem; box-shadow: var(--shadow); }
@@ -26,7 +26,7 @@
 .section-title .sub { color: var(--muted); font-size: .85rem; }
 
 /* Segmented filter (plan tabs) */
-.seg { display: inline-flex; flex-wrap: wrap; gap: 2px; background: #e9edf2; padding: 3px; border-radius: 10px; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 2px; background: var(--surface-3); padding: 3px; border-radius: 10px; }
 .seg a { padding: .35rem .85rem; border-radius: 8px; color: var(--muted); text-decoration: none; font-size: .86rem; font-weight: 500; }
 .seg a.active { background: var(--card); color: var(--brand); box-shadow: 0 1px 2px rgba(16,24,40,.08); font-weight: 600; }
 
@@ -39,8 +39,8 @@
 
 /* ---------- Empty states ---------- */
 .empty-state { padding: 48px 20px; color: var(--muted); text-align: center; }
-.empty-dashboard { text-align: center; max-width: 520px; margin: 40px auto; padding: 40px 24px; background: var(--card); border: 1px dashed #cfd7e1; border-radius: var(--radius); }
-.empty-dashboard-icon { width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 18px; background: #e4eef5; color: var(--brand); display: flex; align-items: center; justify-content: center; font-size: 2rem; }
+.empty-dashboard { text-align: center; max-width: 520px; margin: 40px auto; padding: 40px 24px; background: var(--card); border: 1px dashed var(--line-2); border-radius: var(--radius); }
+.empty-dashboard-icon { width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 18px; background: var(--brand-soft); color: var(--brand); display: flex; align-items: center; justify-content: center; font-size: 2rem; }
 
 .chart-wrap { position: relative; width: 100%; }
 

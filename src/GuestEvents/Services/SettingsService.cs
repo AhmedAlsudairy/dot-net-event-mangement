@@ -13,6 +13,14 @@ public class SettingsService
     {
         ["AppNameEn"] = "Campus Hub",    // the app name shown everywhere (English)
         ["AppNameAr"] = "مركز الحرم",     // the app name shown everywhere (Arabic)
+        ["ThemePreset"] = "ocean",       // Admin > Appearance: preset name, or "custom"
+        ["ThemePrimary"] = "#0B3D5C",    // top bar, buttons
+        ["ThemeSecondary"] = "#14587F",  // links, highlights, second colour of the top bar
+        ["ThemeAccent"] = "#E0A526",     // call-to-action buttons and badges
+        ["ThemeBg"] = "#F4F6F9",         // page background in light mode
+        ["ThemeMode"] = "light",         // light, dark or auto (follow the device)
+        ["ThemeRadius"] = "soft",        // corner style: soft, sharp or round
+        ["ThemeLock"] = "false",         // true = people cannot choose their own light/dark mode
         ["AuditRetentionDays"] = "365",  // log entries older than this are deleted automatically; 0 = keep forever
         ["AdminMailbox"] = "admin@example.com",
         ["AdminExtraTo"] = "",

@@ -1,8 +1,8 @@
-"""End-to-end smoke test against a running Dev instance (Auth:Mode=Dev). Start the app with Auth__LoginsPerMinutePerIp=1000 (the test signs in many times from one IP). Usage: python smoke_test.py"""
+"""End-to-end smoke test against a running Dev instance (Auth:Mode=Dev). Start the app with Auth__LoginsPerMinutePerIp=1000 (the test signs in many times from one IP). To test beside a running copy, start a second instance on another port with its own databases (ConnectionStrings__Default / ConnectionStrings__Kpi) and set SMOKE_BASE and SMOKE_DB. Usage: python smoke_test.py"""
 import http.cookiejar, re, ssl, sqlite3, struct, urllib.parse, urllib.request, datetime, uuid, os, sys
 
-BASE = "https://localhost:7100"
-DB = os.path.join(os.path.dirname(__file__), "src", "GuestEvents", "App_Data", "events.db")
+BASE = os.environ.get("SMOKE_BASE", "https://localhost:7100")
+DB = os.environ.get("SMOKE_DB", os.path.join(os.path.dirname(__file__), "src", "GuestEvents", "App_Data", "events.db"))
 ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
 
 
@@ -276,6 +276,22 @@ for form in ("/Events/Create", "/Visits/Create"):
     s, h, _ = staff.get(form)
     check("KPI picker on " + form, 'id="kpiPicker"' in h and 'class="kpi-data"' in h and "Which KPI does this help?" in h and 'name="KpiId"' in h)
 s, h, _ = staff.get("/Events/Create"); check("KPI picker lists real KPI codes (not row numbers)", '"sn":"1.1.1.1"' in h or '"sn":"2.1.1.1"' in h)
+# --- appearance: colours, dark mode, corner style (Admin only)
+s, h, _ = admin.get("/Admin/Appearance"); check("appearance page (admin)", s == 200 and "Ready-made themes" in h and 'id="themePreview"' in h)
+s, h, u = staff.get("/Admin/Appearance"); check("appearance page denied to staff", "/Account/Denied" in u or s in (401, 403))
+s, h, _ = admin.get("/Admin/AppearanceCss?primary=%233B2A7A&secondary=%235B45B0&accent=%23F5A524&bg=%23F6F5FA&radius=round"); check("preview css is built by the server", s == 200 and "#themePreview" in h and "--brand:#3B2A7A" in h and "[data-bs-theme=dark]" in h)
+s, h, _ = admin.get("/Admin/AppearanceCss?primary=red&secondary=%235B45B0&accent=%23F5A524&bg=%23F6F5FA"); check("preview css refuses bad colours", s == 400)
+base = {"primary": "#3B2A7A", "secondary": "#5B45B0", "accent": "#F5A524", "bg": "#F6F5FA", "mode": "dark", "radius": "round"}
+s, h, _ = admin.post("/Admin/Appearance", dict(base, primary="#EEEEEE"), "/Admin/Appearance"); check("too-light primary colour is refused", "too light" in h)
+s, h, _ = admin.post("/Admin/Appearance", dict(base, primary="nope"), "/Admin/Appearance"); check("invalid colour is refused", "must look like" in h)
+s, h, _ = admin.get("/"); check("theme unchanged after refused saves", "--brand:#0B3D5C" in h and 'data-bs-theme="light"' in h)
+s, h, _ = admin.post("/Admin/Appearance", base, "/Admin/Appearance"); check("theme saved", "Saved. The new look is now live" in h)
+s, h, _ = admin.get("/"); check("new colours and dark mode are live for signed-in people", "--brand:#3B2A7A" in h and 'data-bs-theme="dark"' in h and "--radius:22px" in h)
+s, h, _ = anon.get("/Account/Login"); check("new theme is live on the login page too", "--brand:#3B2A7A" in h and 'data-bs-theme="dark"' in h)
+check("users get a Light / Dark switch by default", 'data-theme-mode="dark"' in admin.get("/")[1])
+s, h, _ = admin.post("/Admin/Appearance", dict(base, lockTheme="true"), "/Admin/Appearance"); s, h, _ = admin.get("/"); check("theme can be locked for everyone (no switch)", 'data-theme-mode="dark"' not in h)
+s, h, _ = admin.get("/Admin/Audit?Range=1h&What=ThemeChanged"); check("appearance changes are logged", "Appearance changed" in h)
+s, h, _ = admin.post("/Admin/AppearanceReset", {}, "/Admin/Appearance"); s, h, _ = admin.get("/"); check("reset brings back the default look", "--brand:#0B3D5C" in h and 'data-bs-theme="light"' in h and 'data-theme-mode="dark"' in h)
 # --- responsive: phone-friendly markup is present
 s, h, _ = admin.get("/Kpi/Tracking"); check("responsive: tracking rows turn into cards on phones", "m-cards" in h and 'data-label=' in h)
 s, h, _ = admin.get("/Admin/Audit"); check("responsive: audit rows are compact cards on phones", "audit-table m-cards" in h)

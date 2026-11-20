@@ -67,6 +67,7 @@ public class AdminController : AppController
         var s = await _settings.AllAsync();
         Loc.UseArabicDigits = SettingsService.Bool(s, "UseArabicDigits");
         Loc.DateFmt = s["DateFormat"];
+        Theme.Apply(s);
         if (!string.IsNullOrWhiteSpace(s["AppNameEn"])) Loc.BrandEn = s["AppNameEn"].Trim();
         if (!string.IsNullOrWhiteSpace(s["AppNameAr"])) Loc.BrandAr = s["AppNameAr"].Trim();
         TempData[errors.Count == 0 ? "Saved" : "Error"] = errors.Count == 0 ? "1" : "Invalid: " + string.Join(", ", errors);
@@ -381,6 +382,43 @@ public class AdminController : AppController
         if (waiting > 0) { TempData["Error"] = $"{waiting} request(s) are waiting at \"{step.Name}\". Wait until they are decided (or ask the approvers to decide), then change this step."; return false; }
         if (step.Enabled && !await _db.ApprovalSteps.AnyAsync(s => s.Enabled && s.Id != step.Id)) { TempData["Error"] = "At least one approval step must stay active."; return false; }
         return true;
+    }
+
+    // ---------------- Appearance: colours, light/dark mode, corner style ----------------
+    public async Task<IActionResult> Appearance() => View(await _settings.AllAsync());
+
+    /// <summary>The CSS variables for a draft theme, scoped to the preview box (one source of truth: the same code builds the real theme).</summary>
+    [HttpGet]
+    public IActionResult AppearanceCss(string primary, string secondary, string accent, string bg, string radius = "soft")
+    {
+        if (!Theme.IsHex(primary) || !Theme.IsHex(secondary) || !Theme.IsHex(accent) || !Theme.IsHex(bg) || !Theme.Radii.Contains(radius)) return BadRequest();
+        return Content(Theme.Build("preview", primary.ToUpperInvariant(), secondary.ToUpperInvariant(), accent.ToUpperInvariant(), bg.ToUpperInvariant(), radius, "#themePreview", "#themePreview[data-bs-theme=dark]", scoped: true), "text/css");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Appearance(string primary, string secondary, string accent, string bg, string mode, string radius, string? preset, bool lockTheme)
+    {
+        primary = (primary ?? "").Trim().ToUpperInvariant(); secondary = (secondary ?? "").Trim().ToUpperInvariant(); accent = (accent ?? "").Trim().ToUpperInvariant(); bg = (bg ?? "").Trim().ToUpperInvariant();
+        var err = Theme.Validate(primary, secondary, accent, bg, mode ?? "", radius ?? "");
+        if (err != null) { TempData["Error"] = err; return RedirectToAction(nameof(Appearance)); }
+        var key = Theme.Presets.FirstOrDefault(p => p.Primary == primary && p.Secondary == secondary && p.Accent == accent && p.Bg == bg)?.Key ?? "custom";
+        var current = await _settings.AllAsync();
+        var values = new Dictionary<string, string> { ["ThemePreset"] = key, ["ThemePrimary"] = primary, ["ThemeSecondary"] = secondary, ["ThemeAccent"] = accent, ["ThemeBg"] = bg, ["ThemeMode"] = mode!, ["ThemeRadius"] = radius!, ["ThemeLock"] = lockTheme ? "true" : "false" };
+        foreach (var kv in values) if (current[kv.Key] != kv.Value) await _settings.SetAsync(kv.Key, kv.Value);
+        Theme.Apply(await _settings.AllAsync());
+        await _wf.Audit(Username, "ThemeChanged", $"{key}: primary {primary}, secondary {secondary}, accent {accent}, background {bg}, mode {mode}, corners {radius}{(lockTheme ? ", locked for everyone" : "")}");
+        TempData["Saved"] = "1";
+        return RedirectToAction(nameof(Appearance));
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> AppearanceReset()
+    {
+        foreach (var k in new[] { "ThemePreset", "ThemePrimary", "ThemeSecondary", "ThemeAccent", "ThemeBg", "ThemeMode", "ThemeRadius", "ThemeLock" }) await _settings.SetAsync(k, SettingsService.Defaults[k]);
+        Theme.Apply(await _settings.AllAsync());
+        await _wf.Audit(Username, "ThemeChanged", "reset to the default theme");
+        TempData["Saved"] = "1";
+        return RedirectToAction(nameof(Appearance));
     }
 
     // ---------------- Audit / activity log ----------------

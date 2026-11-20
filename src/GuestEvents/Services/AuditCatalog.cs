@@ -44,6 +44,7 @@ public static class AuditCatalog
         ["TestSmtp"] = new("Admin", "Info", "Tested email", "اختبار البريد"),
         ["FetchLdapGroups"] = new("Admin", "Info", "Loaded AD groups", "جلب مجموعات AD"),
         ["LogoChanged"] = new("Admin", "Info", "Logo changed", "تغيير الشعار"),
+        ["ThemeChanged"] = new("Admin", "Info", "Appearance changed", "تغيير المظهر"),
         ["LogoRemoved"] = new("Admin", "Info", "Logo removed", "إزالة الشعار"),
         ["ApprovalStepAdded"] = new("Admin", "Info", "Approval step added", "إضافة خطوة موافقة"),
         ["ApprovalStepChanged"] = new("Admin", "Info", "Approval step changed", "تغيير خطوة موافقة"),

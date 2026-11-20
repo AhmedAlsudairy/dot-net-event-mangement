@@ -131,6 +131,7 @@ public class HomeController : AppController
             vm.Actions.Add(new("bar-chart-line", T("Reports & Excel", "التقارير وExcel"), Url.Action("Index", "Reports")!));
             vm.Actions.Add(new("diagram-3", T("Approval flow", "مسار الموافقات"), Url.Action("ApprovalFlow", "Admin")!));
             vm.Actions.Add(new("people", T("Access & roles", "الصلاحيات والأدوار"), Url.Action("RolesPage", "Admin")!));
+            vm.Actions.Add(new("palette", T("Appearance", "المظهر"), Url.Action("Appearance", "Admin")!));
         }
 
         if (User.IsInRole(Roles.Media) && !requester) vm.Actions.Add(new("calendar3", T("Approved events", "الفعاليات المعتمدة"), Url.Action("Index", "Events")!, !approver));
