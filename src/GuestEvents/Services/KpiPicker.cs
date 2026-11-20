@@ -30,6 +30,16 @@ public class KpiPicker
         return i > 0 && i <= 14 ? (s[..i], s[(i + 3)..]) : ("", s);
     }
 
+    private static readonly System.Text.RegularExpressions.Regex DomainRx = new(@"^\s*Domain\s*(\d+)\s*[:\-]?\s*(.*)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>"Domain1: Governance" and "Domain 1: Governance" are the same domain: show them the same way, and order domains by their number.</summary>
+    private static (int order, string name) DomainInfo(string? domain)
+    {
+        var d = (domain ?? "").Trim();
+        var m = DomainRx.Match(d);
+        return m.Success ? (int.Parse(m.Groups[1].Value), $"Domain {m.Groups[1].Value}: {m.Groups[2].Value}".TrimEnd(' ', ':')) : (int.MaxValue, d);
+    }
+
     /// <summary>Compares KPI numbers like 1.2.10 and 1.2.9 the way people read them (by number, not letter by letter).</summary>
     private static int Natural(string a, string b)
     {
@@ -46,8 +56,9 @@ public class KpiPicker
     {
         // The model's query filter already hides out-of-plan KPIs.
         var rows = await _kpi.Kpis.AsNoTracking().Select(k => new { k.Id, k.Sn, k.KpiText, k.Domain, k.Goal }).ToListAsync();
-        return rows.OrderBy(k => string.IsNullOrWhiteSpace(k.Domain) ? "\uffff" : k.Domain, StringComparer.OrdinalIgnoreCase).ThenBy(k => k.Sn, Comparer<string>.Create(Natural))
-            .Select(k => { var (code, text) = CodeAndText(k.Sn, k.KpiText); return new Option(k.Id, code, Short(text, 300), string.IsNullOrWhiteSpace(k.Domain) ? "" : k.Domain.Trim(), Short(k.Goal, 200), Short($"{code} - {text}", 140)); }).ToList();
+        return rows.Select(k => new { k, dom = DomainInfo(k.Domain), ct = CodeAndText(k.Sn, k.KpiText) })
+            .OrderBy(x => x.dom.order).ThenBy(x => x.dom.name, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.ct.code, Comparer<string>.Create(Natural))
+            .Select(x => new Option(x.k.Id, x.ct.code, Short(x.ct.text, 300), x.dom.name, Short(x.k.Goal, 200), Short($"{x.ct.code} - {x.ct.text}", 140))).ToList();
     }
 
     /// <summary>Text saved with the event/visit; null when nothing (or an unknown KPI) is chosen.</summary>
