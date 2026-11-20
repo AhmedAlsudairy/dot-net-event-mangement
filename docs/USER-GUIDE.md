@@ -83,6 +83,8 @@ Admin can name people (by email or username) in **Settings > External visits (bu
 
 ## Admin
 
+**Name and logo:** at **Admin > Settings**, the **Logo** card at the top uploads your logo (PNG, JPG or WEBP up to 3 MB; it is resized automatically) and **Remove** goes back to the built-in icon; the **Name** tab sets the app name in English and Arabic. Both show in the top bar, login page, public check-in page and (logo) the browser tab icon.
+
 **Access & roles** (Admin menu) is the one page for access. It has a card for each role (Staff, HOD, Dean, Media, Research, KPI team, Admin) showing who has it (the AD group plus people you add by email), what it can do on the events side, which approval steps it handles, and what it can do in the KPI pages (with a Customize / Edit link). Add or remove a person on the card; the change applies at their next sign-in.
 
 ### First-time setup (about 10 minutes)

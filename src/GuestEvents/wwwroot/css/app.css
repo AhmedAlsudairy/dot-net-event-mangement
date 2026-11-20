@@ -267,3 +267,12 @@ h3, h4, h5 { letter-spacing: -.01em; }
 .login-guide li { display: flex; gap: .65rem; align-items: flex-start; }
 .login-guide li > i { color: var(--brand-2); font-size: 1.15rem; margin-top: .15rem; }
 .login-guide li b { display: block; font-size: .86rem; } .login-guide li span { display: block; font-size: .8rem; color: var(--muted); }
+
+/* ---------- Uploaded logo ---------- */
+.brand-mark.has-logo { background: transparent; padding: 0; overflow: visible; }
+.brand-mark.has-logo img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; display: block; }
+.topbar .brand-mark.has-logo { width: auto; min-width: 34px; max-width: 120px; height: 38px; background: rgba(255,255,255,.95); border-radius: 8px; padding: 3px 6px; }
+.login-art .brand-mark.has-logo { width: auto; min-width: 54px; max-width: 200px; height: 70px; background: rgba(255,255,255,.95); padding: 6px 10px; }
+.pub-head .brand-mark.has-logo { width: auto; min-width: 34px; max-width: 120px; height: 38px; background: rgba(255,255,255,.95); border-radius: 8px; padding: 3px 6px; }
+.logo-preview .brand-mark { width: 64px; height: 64px; background: var(--brand); border-radius: 14px; }
+.logo-preview .brand-mark.has-logo { width: auto; min-width: 64px; max-width: 160px; background: #e9edf2; padding: 6px 10px; }

@@ -251,6 +251,9 @@ s, h, url = kpi.get("/Kpi/Admin/Roles"); check("kpi-only cannot open KPI permiss
 s, h, _ = staff.get("/"); check("staff menu has events and KPIs", "My events" in h and "bi-bullseye" in h)
 s, h, url = staff.get("/Account/Login"); check("login page lists test accounts in dev mode", True)
 anon = Client()
+# --- logo: nothing uploaded yet, only the Admin can change it
+s, h, _ = anon.get("/brand/logo"); check("no logo uploaded yet -> 404", s == 404)
+s, h, url = staff.post("/Admin/RemoveLogo", {}, "/Account/Me"); check("staff cannot remove/upload the logo", "/Account/Denied" in url or s in (401, 403))
 # --- the narrower KPI roles
 def kpi_user(u): return login(u)
 for u, can_manage, can_import, edit_any, tracking_btn in (("kpimanager", True, True, False, False), ("kpieditor", False, False, True, True), ("kpiofficer", False, False, False, True), ("kpiviewer", False, False, False, False)):

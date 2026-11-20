@@ -18,6 +18,28 @@ public class AdminController : AppController
 
     public async Task<IActionResult> Settings() => View(await _settings.AllAsync());
 
+    /// <summary>Upload the app logo (shown in the top bar, login and public pages). Resized to fit 256 px.</summary>
+    [HttpPost, RequestSizeLimit(4_000_000)]
+    public async Task<IActionResult> UploadLogo(IFormFile? logo)
+    {
+        if (logo == null) { TempData["Error"] = "Choose an image file first."; return RedirectToAction(nameof(Settings)); }
+        string? err;
+        await using (var s = logo.OpenReadStream()) err = Brand.Save(s, logo.Length);
+        if (err != null) { TempData["Error"] = err; return RedirectToAction(nameof(Settings)); }
+        await _wf.Audit(Username, "LogoChanged", logo.FileName.Length > 100 ? logo.FileName[..100] : logo.FileName);
+        TempData["Saved"] = "1";
+        return RedirectToAction(nameof(Settings));
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> RemoveLogo()
+    {
+        Brand.Remove();
+        await _wf.Audit(Username, "LogoRemoved");
+        TempData["Saved"] = "1";
+        return RedirectToAction(nameof(Settings));
+    }
+
     [HttpPost]
     public async Task<IActionResult> Settings(Dictionary<string, string> values)
     {

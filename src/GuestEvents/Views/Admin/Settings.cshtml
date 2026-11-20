@@ -72,6 +72,24 @@
 <partial name="_Guide" model='"settings"' />
 @if (TempData["Error"] != null) { <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @TempData["Error"]</div> }
 
+<div class="card mb-3"><div class="card-header"><i class="bi bi-image"></i>@L.T("Logo", "الشعار")</div><div class="card-body">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div class="logo-preview"><partial name="_BrandMark" /></div>
+        <div class="flex-grow-1" style="min-width:240px">
+            <div class="fw-semibold">@(Brand.Has ? L.T("Your logo is in use", "شعارك قيد الاستخدام") : L.T("Using the built-in icon", "يُستخدم الرمز الافتراضي"))</div>
+            <div class="small text-muted">@L.T("Shown in the top bar, the login page, the public check-in page and as the browser tab icon. PNG, JPG or WEBP up to 3 MB; a square logo on a transparent background looks best. It is resized automatically.", "يظهر في الشريط العلوي وصفحة الدخول وصفحة التسجيل العامة وأيقونة التبويب. PNG أو JPG أو WEBP حتى 3 ميغابايت؛ الأفضل شعار مربع بخلفية شفافة. يُصغَّر تلقائيًا.")</div>
+        </div>
+        <form method="post" asp-action="UploadLogo" enctype="multipart/form-data" class="d-flex gap-2 flex-wrap align-items-center">
+            <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" class="form-control form-control-sm" style="max-width:260px" required />
+            <button class="btn btn-sm btn-primary text-nowrap"><i class="bi bi-upload"></i>@L.T("Upload logo", "رفع الشعار")</button>
+        </form>
+        @if (Brand.Has)
+        {
+            <form method="post" asp-action="RemoveLogo" onsubmit="return confirm('@L.T("Go back to the built-in icon?", "العودة إلى الرمز الافتراضي؟")')"><button class="btn btn-sm btn-outline-danger text-nowrap"><i class="bi bi-trash"></i>@L.T("Remove", "إزالة")</button></form>
+        }
+    </div>
+</div></div>
+
 <form method="post">
 <div class="row g-3">
     <div class="col-lg-3">
