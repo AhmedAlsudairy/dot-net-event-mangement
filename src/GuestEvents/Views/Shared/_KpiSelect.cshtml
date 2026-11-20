@@ -2,14 +2,80 @@
 @inject GuestEvents.Services.KpiPicker Kpis
 @{
     var opts = await Kpis.OptionsAsync();
+    var sel = opts.FirstOrDefault(o => o.Id == Model);
+    var data = System.Text.Json.JsonSerializer.Serialize(opts.Select(o => new { id = o.Id, sn = o.Sn, t = o.Text, d = o.Domain, g = o.Goal }),
+        new System.Text.Json.JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }).Replace("</", "<\\/");
 }
-<label class="form-label" for="KpiId"><i class="bi bi-bullseye"></i> @L.T("Which KPI does this help?", "أي مؤشر أداء يخدم هذا النشاط؟")</label>
-<select class="form-select" id="KpiId" name="KpiId">
-    <option value="">@L.T("- Not linked to a KPI -", "- غير مرتبط بمؤشر -")</option>
-    @foreach (var g in opts.GroupBy(o => o.Group))
-    {
-        <optgroup label="@g.Key">
-            @foreach (var o in g) { <option value="@o.Id" selected="@(Model == o.Id)">@o.Label</option> }
-        </optgroup>
-    }
-</select>
+<label class="form-label" for="kpiPickBtn"><i class="bi bi-bullseye"></i> @L.T("Which KPI does this help?", "أي مؤشر أداء يخدم هذا النشاط؟") <span class="text-muted fw-normal">@L.T("(optional)", "(اختياري)")</span></label>
+<div class="kpi-pick" id="kpiPicker" data-none="@L.T("Not linked to a KPI", "غير مرتبط بمؤشر")" data-count="@L.T("KPIs", "مؤشر")" data-empty="@L.T("No KPI matches. Try another word or number.", "لا يوجد مؤشر مطابق. جرّب كلمة أو رقمًا آخر.")">
+    <input type="hidden" name="KpiId" value="@(sel?.Id.ToString() ?? "")" />
+    <div class="kpi-pick-box">
+        <button type="button" class="kpi-pick-btn" id="kpiPickBtn" aria-haspopup="listbox" aria-expanded="false">
+            <span class="kpi-pick-value">
+                @if (sel != null) { <span class="kpi-sn">@sel.Sn</span><span class="kpi-txt" dir="auto">@sel.Text</span> }
+                else { <span class="kpi-ph"><i class="bi bi-search"></i> @L.T("Search or choose a KPI…", "ابحث أو اختر مؤشرًا…")</span> }
+            </span>
+            <i class="bi bi-chevron-down kpi-caret"></i>
+        </button>
+        <button type="button" class="kpi-pick-clear" title="@L.T("Remove the KPI", "إزالة المؤشر")" aria-label="@L.T("Remove the KPI", "إزالة المؤشر")" @(sel == null ? "hidden" : "")><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="kpi-pick-panel" hidden>
+        <div class="kpi-pick-search"><i class="bi bi-search"></i><input type="text" placeholder="@L.T("Type a number or a word…", "اكتب رقمًا أو كلمة…")" autocomplete="off" aria-label="@L.T("Search KPIs", "ابحث في المؤشرات")" /><span class="kpi-pick-count"></span></div>
+        <div class="kpi-pick-list" role="listbox"></div>
+    </div>
+    <script type="application/json" class="kpi-data">@Html.Raw(data)</script>
+    <noscript><select class="form-select" name="KpiId"><option value="">@L.T("- Not linked to a KPI -", "- غير مرتبط بمؤشر -")</option>@foreach (var o in opts) { <option value="@o.Id" selected="@(Model == o.Id)">@o.Label</option> }</select></noscript>
+</div>
+<script>
+(function () {
+  var root = document.getElementById('kpiPicker'); if (!root) return;
+  var data = JSON.parse(root.querySelector('.kpi-data').textContent);
+  var hidden = root.querySelector('input[name=KpiId]'), btn = root.querySelector('.kpi-pick-btn'), val = root.querySelector('.kpi-pick-value'),
+      clr = root.querySelector('.kpi-pick-clear'), panel = root.querySelector('.kpi-pick-panel'), search = panel.querySelector('input'),
+      list = panel.querySelector('.kpi-pick-list'), cnt = panel.querySelector('.kpi-pick-count');
+  var NONE = root.dataset.none, UNIT = root.dataset.count, EMPTY = root.dataset.empty, active = -1, shown = [];
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function hl(s, words) {
+    s = esc(s); if (!words || !words.length) return s;
+    var parts = words.map(function (w) { return esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
+    return s.replace(new RegExp('(' + parts.join('|') + ')', 'ig'), '<mark>$1</mark>');
+  }
+  function setValue(k) {
+    hidden.value = k ? k.id : '';
+    val.innerHTML = k ? '<span class="kpi-sn">' + esc(k.sn) + '</span><span class="kpi-txt" dir="auto">' + esc(k.t) + '</span>' : '<span class="kpi-ph"><i class="bi bi-search"></i> ' + btn.dataset.ph + '</span>';
+    clr.hidden = !k; hidden.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  btn.dataset.ph = (val.querySelector('.kpi-ph') ? val.querySelector('.kpi-ph').textContent.trim() : '@L.T("Search or choose a KPI…", "ابحث أو اختر مؤشرًا…")');
+  function render() {
+    var q = search.value.trim().toLowerCase(), words = q.split(/\s+/).filter(Boolean);
+    shown = data.filter(function (k) { var hay = (k.sn + ' ' + k.t + ' ' + k.d + ' ' + k.g).toLowerCase(); return words.every(function (w) { return hay.indexOf(w) >= 0; }); });
+    cnt.textContent = shown.length + ' ' + UNIT;
+    var html = '<div class="kpi-opt kpi-opt-none' + (hidden.value === '' ? ' sel' : '') + '" data-id=""><i class="bi bi-slash-circle"></i> ' + esc(NONE) + '</div>', last = null;
+    if (shown.length === 0) html += '<div class="kpi-empty">' + esc(EMPTY) + '</div>';
+    shown.forEach(function (k, i) {
+      if (k.d !== last) { html += '<div class="kpi-grp">' + esc(k.d || '-') + '</div>'; last = k.d; }
+      html += '<div class="kpi-opt' + (String(k.id) === hidden.value ? ' sel' : '') + '" role="option" data-id="' + k.id + '" data-i="' + i + '"><span class="kpi-sn">' + hl(k.sn, words) + '</span><span class="kpi-body"><span class="kpi-txt" dir="auto">' + hl(k.t, words) + '</span>' + (k.g ? '<span class="kpi-goal" dir="auto">' + esc(k.g) + '</span>' : '') + '</span></div>';
+    });
+    list.innerHTML = html; active = -1;
+  }
+  function items() { return list.querySelectorAll('.kpi-opt'); }
+  function mark(i) { var it = items(); it.forEach(function (e) { e.classList.remove('act'); }); if (it[i]) { it[i].classList.add('act'); it[i].scrollIntoView({ block: 'nearest' }); } active = i; }
+  function open() { panel.hidden = false; btn.setAttribute('aria-expanded', 'true'); search.value = ''; render(); var s = list.querySelector('.sel'); if (s) s.scrollIntoView({ block: 'center' }); search.focus(); }
+  function close() { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+  function pick(el) { var id = el.dataset.id; setValue(id ? data.filter(function (k) { return String(k.id) === id; })[0] : null); close(); btn.focus(); }
+  btn.addEventListener('click', function () { panel.hidden ? open() : close(); });
+  clr.addEventListener('click', function (e) { e.stopPropagation(); setValue(null); });
+  search.addEventListener('input', render);
+  list.addEventListener('click', function (e) { var el = e.target.closest('.kpi-opt'); if (el) pick(el); });
+  list.addEventListener('mousemove', function (e) { var el = e.target.closest('.kpi-opt'); if (el) { var it = Array.prototype.indexOf.call(items(), el); if (it !== active) mark(it); } });
+  search.addEventListener('keydown', function (e) {
+    var n = items().length;
+    if (e.key === 'ArrowDown') { e.preventDefault(); mark(Math.min(n - 1, active + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); mark(Math.max(0, active - 1)); }
+    else if (e.key === 'Enter') { e.preventDefault(); var el = items()[active >= 0 ? active : (shown.length === 1 ? 1 : -1)]; if (el) pick(el); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(); btn.focus(); }
+  });
+  document.addEventListener('click', function (e) { if (!root.contains(e.target)) close(); });
+  btn.addEventListener('keydown', function (e) { if (e.key === 'ArrowDown') { e.preventDefault(); open(); } });
+})();
+</script>

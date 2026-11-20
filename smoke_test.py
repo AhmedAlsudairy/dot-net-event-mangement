@@ -271,6 +271,11 @@ s, h, _ = admin.post("/Kpi/Admin/KpiForm", {"Sn": kpi_sn, "KpiText": "Audit trai
 s, h, _ = admin.get("/Admin/Audit?Range=1h&What=KpiCreated"); check("KPI changes are logged", kpi_sn in h)
 s, h, _ = admin.post("/Admin/AuditPurge", {"days": "3650"}, "/Admin/Audit"); check("log clean-up runs (nothing that old yet)", "0 old entries deleted" in h or "Audit log" in h)
 s, h, _ = admin.get("/Admin/Settings"); check("settings has the audit retention option", "Keep log entries for (days)" in h)
+# --- the KPI picker on the event and visit forms
+for form in ("/Events/Create", "/Visits/Create"):
+    s, h, _ = staff.get(form)
+    check("KPI picker on " + form, 'id="kpiPicker"' in h and 'class="kpi-data"' in h and "Which KPI does this help?" in h and 'name="KpiId"' in h)
+s, h, _ = staff.get("/Events/Create"); check("KPI picker lists real KPI codes (not row numbers)", '"sn":"1.1.1.1"' in h or '"sn":"2.1.1.1"' in h)
 # --- logo: nothing uploaded yet, only the Admin can change it
 s, h, _ = anon.get("/brand/logo"); check("no logo uploaded yet -> 404", s == 404)
 s, h, url = staff.post("/Admin/RemoveLogo", {}, "/Account/Me"); check("staff cannot remove/upload the logo", "/Account/Denied" in url or s in (401, 403))

@@ -76,7 +76,7 @@ else if (Model.Status == EventStatus.Submitted)
         <dl class="kv">
             <dt>@L["Date"]</dt><dd><i class="bi bi-calendar3 text-muted"></i> @L.Range(Model) @if (Model.IsMultiDay) { <span class="badge bg-light text-dark border">@L.Num(Model.DayCount) @L["DayWord"]</span> } &nbsp; <i class="bi bi-clock text-muted"></i> @L.Times(Model)</dd>
             <dt>@L["Venue"]</dt><dd>@Model.Venue</dd>
-            @if (!string.IsNullOrEmpty(Model.KpiLabel)) { <dt>KPI</dt><dd><i class="bi bi-bullseye text-muted"></i> @Model.KpiLabel</dd> }
+            @if (!string.IsNullOrEmpty(Model.KpiLabel)) { var kl = GuestEvents.Services.KpiPicker.SplitLabel(Model.KpiLabel); <dt>KPI</dt><dd class="d-flex gap-2 align-items-start"><i class="bi bi-bullseye text-muted mt-1"></i>@if (kl.code != "") { <span class="kpi-sn">@kl.code</span> }<span dir="auto">@kl.text</span></dd> }
             <dt>@L["Type"]</dt><dd>@L[Model.Type]</dd>
             <dt>@L["Expected"]</dt><dd>@L.Num(Model.ExpectedAttendees)</dd>
             <dt>@L["Presenter"]</dt><dd>@Model.Presenter</dd>

@@ -292,3 +292,35 @@ a.stat.static:hover { border-color: var(--brand-2); }
 .seg a:hover { color: var(--ink); } .seg a.active { background: var(--card); color: var(--brand); box-shadow: 0 1px 2px rgba(16,24,40,.08); font-weight: 600; }
 .audit-legend { flex: 0 1 auto; min-width: 0; max-width: 40%; text-align: end; }
 .audit-bars .bar-col { min-width: 0; }
+
+/* ---------- KPI picker (searchable list on event and visit forms) ---------- */
+.kpi-pick { position: relative; }
+.kpi-pick-box { position: relative; }
+.kpi-pick-btn { width: 100%; display: flex; align-items: center; gap: .5rem; text-align: start; padding: .5rem .8rem; padding-inline-end: 4.2rem; min-height: 46px; background: #fff; border: 1px solid #d5dbe4; border-radius: 10px; color: var(--ink); }
+.kpi-pick-btn:hover { border-color: #b7c2cf; } .kpi-pick-btn:focus-visible, .kpi-pick-btn[aria-expanded=true] { outline: 0; border-color: var(--brand-2); box-shadow: 0 0 0 .22rem rgba(20,88,127,.15); }
+.kpi-pick-value { flex: 1; min-width: 0; display: flex; align-items: center; gap: .55rem; overflow: hidden; }
+.kpi-pick-value .kpi-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kpi-ph { color: var(--muted); }
+.kpi-caret { position: absolute; inset-inline-end: .85rem; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; transition: transform .15s; }
+.kpi-pick-btn[aria-expanded=true] ~ .kpi-caret { transform: translateY(-50%) rotate(180deg); }
+.kpi-pick-clear { position: absolute; inset-inline-end: 2.3rem; top: 50%; transform: translateY(-50%); border: 0; background: #eef1f5; color: var(--muted); width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: .7rem; padding: 0; }
+.kpi-pick-clear:hover { background: #fbe7ea; color: var(--bad); } .kpi-pick-clear[hidden] { display: none; }
+.kpi-sn { flex: none; background: #e4eef5; color: var(--brand); font-weight: 700; font-size: .78rem; padding: .12rem .5rem; border-radius: 6px; font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+.kpi-pick-panel { position: absolute; z-index: 1050; inset-inline: 0; top: calc(100% + 6px); background: #fff; border: 1px solid #cfd8e3; border-radius: 12px; box-shadow: 0 14px 38px rgba(16,24,40,.18); overflow: hidden; }
+.kpi-pick-panel[hidden] { display: none; }
+.kpi-pick-search { display: flex; align-items: center; gap: .55rem; padding: .6rem .8rem; border-bottom: 1px solid var(--line); background: #fafbfc; }
+.kpi-pick-search > i { color: var(--muted); }
+.kpi-pick-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: .95rem; }
+.kpi-pick-count { font-size: .75rem; color: var(--muted); white-space: nowrap; }
+.kpi-pick-list { max-height: min(380px, 55vh); overflow-y: auto; overscroll-behavior: contain; }
+.kpi-grp { position: sticky; top: 0; z-index: 1; padding: .35rem .8rem; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: #f3f6f9; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.kpi-opt { display: flex; gap: .65rem; align-items: flex-start; padding: .55rem .8rem; cursor: pointer; border-bottom: 1px solid #f1f3f6; }
+.kpi-opt.act { background: #eef5fa; } .kpi-opt.sel { background: #e8f3ee; box-shadow: inset 3px 0 0 var(--ok); }
+html[dir=rtl] .kpi-opt.sel { box-shadow: inset -3px 0 0 var(--ok); }
+.kpi-opt-none { align-items: center; color: var(--muted); font-size: .9rem; gap: .5rem; }
+.kpi-body { display: flex; flex-direction: column; min-width: 0; gap: .1rem; }
+.kpi-opt .kpi-txt { font-size: .9rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.kpi-goal { font-size: .74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi-opt mark { background: #ffe9a8; padding: 0 1px; border-radius: 2px; color: inherit; }
+.kpi-empty { padding: 1.2rem; text-align: center; color: var(--muted); font-size: .9rem; }
+@media (max-width: 576px) { .kpi-pick-list { max-height: 60vh; } }
