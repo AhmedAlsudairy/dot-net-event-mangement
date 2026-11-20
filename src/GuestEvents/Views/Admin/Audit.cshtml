@@ -1,8 +1,177 @@
-@model List<AuditLog>
-@{ ViewData["Title"] = L["Audit"]; }
-<div class="page-head"><h3>@L["Audit"]</h3><a asp-action="Notifications" class="btn btn-sm btn-outline-secondary"><i class="bi bi-envelope-paper"></i>Notifications</a></div>
+@model AuditVm
+@{
+    ViewData["Title"] = L.T("Audit log", "سجل التدقيق");
+    var f = Model.F;
+    string CatLabel(string c) => L.IsAr ? c switch { "Auth" => "الدخول", "Events" => "الفعاليات", "Visits" => "الزيارات", "Research" => "الأبحاث", "Approvals" => "الموافقات", "Admin" => "الإدارة", "Access" => "الصلاحيات", "KPI" => "المؤشرات", "Data export" => "التصدير", "System" => "النظام", _ => c } : c;
+    string SevBadge(string s) => s switch { "Warning" => "text-bg-warning", "Error" => "text-bg-danger", "Security" => "text-bg-primary", _ => "text-bg-light border" };
+    string SevIcon(string s) => s switch { "Warning" => "exclamation-triangle", "Error" => "x-octagon", "Security" => "shield-lock", _ => "info-circle" };
+    string SevLabel(string s) => L.IsAr ? s switch { "Info" => "عادي", "Warning" => "تحذير", "Error" => "خطأ", "Security" => "أمني", _ => s } : s;
+    string Url2(Dictionary<string, string?> r) => "?" + string.Join("&", r.Where(x => !string.IsNullOrEmpty(x.Value)).Select(x => x.Key + "=" + Uri.EscapeDataString(x.Value!)));
+    var ranges = new (string key, string en, string ar)[] { ("1h", "Last hour", "آخر ساعة"), ("24h", "24 hours", "24 ساعة"), ("7d", "7 days", "7 أيام"), ("30d", "30 days", "30 يومًا"), ("all", "All", "الكل") };
+    int maxDay = Math.Max(1, Model.Days.Max(d => d.total));
+}
+<div class="page-head">
+    <div>
+        <h3>@ViewData["Title"]</h3>
+        <div class="sub">@L.T("Who did what, when and from where. Sign-ins, approvals, setting and role changes, exports, KPI changes and server errors. Entries cannot be edited.", "من فعل ماذا ومتى ومن أين. تسجيل الدخول والموافقات وتغيير الإعدادات والأدوار والتصدير وتعديلات المؤشرات وأخطاء الخادم. لا يمكن تعديل السجلات.")</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-outline-success" href="@Url.Action("AuditExport")@Url2(f.ToRoute())&format=csv"><i class="bi bi-filetype-csv"></i>CSV</a>
+        <a class="btn btn-outline-success" href="@Url.Action("AuditExport")@Url2(f.ToRoute())&format=xlsx"><i class="bi bi-file-earmark-excel"></i>Excel</a>
+        <a asp-action="Notifications" class="btn btn-outline-secondary"><i class="bi bi-envelope-paper"></i>@L.T("Email log", "سجل البريد")</a>
+    </div>
+</div>
 <partial name="_Guide" model='"audit"' />
-<div class="card"><div class="table-responsive"><table class="table table-sm mb-0">
-    <thead><tr><th>@L["At"]</th><th>@L["By"]</th><th>Action</th><th>@L["Details"]</th></tr></thead>
-    <tbody>@foreach (var a in Model) { <tr><td>@L.DateTimeStr(a.At.ToLocalTime())</td><td>@a.User</td><td>@a.Action</td><td>@a.Details</td></tr> }</tbody>
+@if (TempData["Error"] != null) { <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @TempData["Error"]</div> }
+@if (TempData["Saved"] != null) { <div class="alert alert-success py-2"><i class="bi bi-check-circle"></i> @TempData["Saved"]</div> }
+
+@foreach (var s in Model.Suspicious)
+{
+    <div class="alert alert-danger d-flex gap-2 align-items-start"><i class="bi bi-shield-exclamation fs-5"></i>
+        <div><strong>@L.T("Possible password guessing:", "احتمال تخمين كلمة المرور:")</strong> @s.n @L.T("failed sign-ins in the last hour from", "محاولات دخول فاشلة في آخر ساعة من") @s.who.
+            <a href="@Url.Action("Audit")?What=LoginFailed&Range=1h">@L.T("See them", "اعرضها")</a></div></div>
+}
+
+<div class="row g-3 mb-3">
+    @{
+        var tiles = new (string ico, string tone, string label, int n, string link)[]
+        {
+            ("activity", "brand", L.T("Events in 24 h", "أحداث 24 ساعة"), Model.Today, "?Range=24h"),
+            ("box-arrow-in-right", "ok", L.T("Sign-ins", "تسجيلات دخول"), Model.Logins, "?Range=24h&What=Login"),
+            ("person-x", "warn", L.T("Failed sign-ins", "دخول فاشل"), Model.FailedLogins, "?Range=24h&What=LoginFailed"),
+            ("shield-lock", "brand", L.T("Security events", "أحداث أمنية"), Model.Security, "?Range=24h&Severity=Security"),
+            ("x-octagon", "bad", L.T("Errors", "أخطاء"), Model.Errors, "?Range=24h&Severity=Error"),
+        };
+    }
+    @foreach (var t in tiles)
+    {
+        <div class="col-6 col-lg"><a class="stat static d-flex align-items-center gap-3 text-decoration-none" href="@Url.Action("Audit")@t.link"><span class="ico @t.tone"><i class="bi bi-@t.ico"></i></span><div><div class="n @t.tone">@L.Num(t.n)</div><div class="l">@t.label</div></div></a></div>
+    }
+</div>
+
+<div class="card mb-3"><div class="card-body py-2">
+    <div class="d-flex align-items-end gap-1 audit-bars" aria-label="@L.T("Activity in the last 14 days", "النشاط في آخر 14 يومًا")">
+        @foreach (var d in Model.Days)
+        {
+            <div class="bar-col" title="@d.day.ToString("ddd d MMM"): @d.total @L.T("events", "حدث"), @d.problems @L.T("warnings/errors/security", "تحذير/خطأ/أمني")">
+                <div class="bar" style="height:@(Math.Max(2, d.total * 56 / maxDay))px"><div class="bar-bad" style="height:@(d.total == 0 ? 0 : d.problems * 100 / d.total)%"></div></div>
+                <div class="bar-label">@d.day.ToString("dd")</div>
+            </div>
+        }
+        <div class="ms-auto small text-muted ps-2 audit-legend">@L.T("Last 14 days", "آخر 14 يومًا")<br /><span class="legend-bad"></span> @L.T("warnings, errors, security", "تحذيرات وأخطاء وأمني")</div>
+    </div>
+</div></div>
+
+<form method="get" class="card mb-3"><div class="card-body">
+    <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+        <span class="small text-muted me-1">@L.T("Period", "الفترة"):</span>
+        <div class="seg">
+            @foreach (var r in ranges) { <a class="@(f.Range == r.key ? "active" : "")" href="@Url.Action("Audit")@Url2(new Dictionary<string, string?>(f.ToRoute(1)) { ["Range"] = r.key, ["From"] = null, ["To"] = null })">@L.T(r.en, r.ar)</a> }
+        </div>
+        <span class="small text-muted ms-2">@L.T("or dates", "أو تواريخ"):</span>
+        <input type="date" name="From" value="@f.From?.ToString("yyyy-MM-dd")" class="form-control form-control-sm" style="width:150px" onchange="document.getElementById('rg').value='custom'" />
+        <input type="date" name="To" value="@f.To?.ToString("yyyy-MM-dd")" class="form-control form-control-sm" style="width:150px" onchange="document.getElementById('rg').value='custom'" />
+        <input type="hidden" name="Range" id="rg" value="@f.Range" />
+    </div>
+    <div class="row g-2">
+        <div class="col-md-3"><input class="form-control form-control-sm" name="Q" value="@f.Q" placeholder="@L.T("Search details, page, IP, target...", "ابحث في التفاصيل والصفحة وIP...")" /></div>
+        <div class="col-6 col-md-2"><select class="form-select form-select-sm" name="Category"><option value="">@L.T("All categories", "كل الفئات")</option>@foreach (var c in AuditCatalog.Categories) { <option value="@c" selected="@(f.Category == c)">@CatLabel(c)</option> }</select></div>
+        <div class="col-6 col-md-2"><select class="form-select form-select-sm" name="Severity"><option value="">@L.T("Any severity", "أي خطورة")</option>@foreach (var s in AuditCatalog.Severities) { <option value="@s" selected="@(f.Severity == s)">@SevLabel(s)</option> }</select></div>
+        <div class="col-6 col-md-2"><select class="form-select form-select-sm" name="What"><option value="">@L.T("All actions", "كل الإجراءات")</option>@foreach (var a in AuditCatalog.Actions) { <option value="@a" selected="@(f.What == a)">@AuditCatalog.Label(a, L.IsAr)</option> }</select></div>
+        <div class="col-6 col-md-2"><select class="form-select form-select-sm" name="User"><option value="">@L.T("Everyone", "الجميع")</option>@foreach (var u in Model.Users) { <option value="@u" selected="@(f.User == u)">@u</option> }</select></div>
+        <div class="col-6 col-md-1"><select class="form-select form-select-sm" name="Outcome"><option value="">@L.T("Any", "أي")</option><option value="Failure" selected="@(f.Outcome == "Failure")">@L.T("Failed", "فاشل")</option><option value="Success" selected="@(f.Outcome == "Success")">@L.T("OK", "ناجح")</option></select></div>
+    </div>
+    <div class="d-flex gap-2 mt-3 align-items-center flex-wrap">
+        <button class="btn btn-sm btn-primary"><i class="bi bi-funnel"></i>@L.T("Apply", "تطبيق")</button>
+        <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("Audit")">@L.T("Reset", "إعادة تعيين")</a>
+        @if (!string.IsNullOrEmpty(f.Request)) { <span class="badge text-bg-info fw-normal"><i class="bi bi-link-45deg"></i> @L.T("one request:", "طلب واحد:") @f.Request <a class="text-white ms-1" href="@Url.Action("Audit")@Url2(new Dictionary<string, string?>(f.ToRoute(1)) { ["Request"] = null })">&times;</a></span> }
+        <div class="form-check form-switch ms-auto mb-0"><input class="form-check-input" type="checkbox" id="live" /><label class="form-check-label small" for="live">@L.T("Live (refresh every 15 s)", "مباشر (تحديث كل 15 ث)")</label></div>
+    </div>
+</div></form>
+
+<div class="d-flex justify-content-between align-items-center mb-2 small text-muted flex-wrap gap-2">
+    <span>@L.T($"{Model.Total:N0} entries match", $"{Model.Total:N0} سجل مطابق") · @L.T($"page {f.Page} of {Model.Pages}", $"صفحة {f.Page} من {Model.Pages}")</span>
+    <span>@L.T($"{Model.AllEntries:N0} kept in total", $"{Model.AllEntries:N0} محفوظ إجمالًا")@(Model.Oldest.HasValue ? $" · {L.T("since", "منذ")} {Model.Oldest.Value.ToLocalTime():yyyy-MM-dd}" : "")</span>
+</div>
+<div class="card"><div class="table-responsive"><table class="table table-hover table-sm mb-0 align-middle audit-table">
+    <thead><tr><th>@L["At"]</th><th></th><th>@L.T("Category", "الفئة")</th><th>@L["By"]</th><th>@L.T("What happened", "ماذا حدث")</th><th>@L["Details"]</th><th class="d-none d-lg-table-cell">IP</th></tr></thead>
+    <tbody>
+    @if (Model.Rows.Count == 0) { <tr><td colspan="7" class="empty-state">@L.T("No entries match these filters.", "لا توجد سجلات مطابقة.")</td></tr> }
+    @foreach (var a in Model.Rows)
+    {
+        var det = a.Details ?? "";
+        <tr class="@(a.Outcome == "Failure" ? "row-fail" : "")" style="cursor:pointer" data-id="@a.Id"
+            data-at="@L.DateTimeStr(a.At.ToLocalTime())" data-user="@a.User" data-roles="@a.Roles" data-action="@a.Action" data-label="@AuditCatalog.Label(a.Action, L.IsAr)" data-cat="@a.Category" data-sev="@a.Severity" data-out="@a.Outcome"
+            data-target="@a.Target" data-details="@a.Details" data-ip="@a.Ip" data-ua="@a.UserAgent" data-method="@a.Method" data-path="@a.Path" data-req="@a.CorrelationId" data-ms="@a.DurationMs">
+            <td class="text-nowrap small">@L.DateTimeStr(a.At.ToLocalTime())</td>
+            <td><span class="badge @SevBadge(a.Severity)" title="@SevLabel(a.Severity)"><i class="bi bi-@SevIcon(a.Severity)"></i></span></td>
+            <td class="small">@CatLabel(a.Category)</td>
+            <td class="small fw-semibold">@a.User</td>
+            <td class="small">@AuditCatalog.Label(a.Action, L.IsAr)@if (a.Outcome == "Failure") { <i class="bi bi-x-circle-fill text-danger ms-1" title="@L.T("Failed", "فشل")"></i>}@if (!string.IsNullOrEmpty(a.Target)) { <span class="badge text-bg-light border fw-normal ms-1">@a.Target</span> }</td>
+            <td class="small text-muted audit-det">@(det.Length > 110 ? det[..110] + "…" : det)</td>
+            <td class="small text-muted d-none d-lg-table-cell">@a.Ip</td>
+        </tr>
+    }
+    </tbody>
 </table></div></div>
+
+@if (Model.Pages > 1)
+{
+    <nav class="mt-3"><ul class="pagination pagination-sm justify-content-center flex-wrap">
+        @{ int start = Math.Max(1, f.Page - 3), end = Math.Min(Model.Pages, f.Page + 3); }
+        <li class="page-item @(f.Page == 1 ? "disabled" : "")"><a class="page-link" href="@Url.Action("Audit")@Url2(f.ToRoute(f.Page - 1))">&laquo;</a></li>
+        @if (start > 1) { <li class="page-item"><a class="page-link" href="@Url.Action("Audit")@Url2(f.ToRoute(1))">1</a></li> @if (start > 2) { <li class="page-item disabled"><span class="page-link">…</span></li> } }
+        @for (int p = start; p <= end; p++) { <li class="page-item @(p == f.Page ? "active" : "")"><a class="page-link" href="@Url.Action("Audit")@Url2(f.ToRoute(p))">@p</a></li> }
+        @if (end < Model.Pages) { @if (end < Model.Pages - 1) { <li class="page-item disabled"><span class="page-link">…</span></li> } <li class="page-item"><a class="page-link" href="@Url.Action("Audit")@Url2(f.ToRoute(Model.Pages))">@Model.Pages</a></li> }
+        <li class="page-item @(f.Page == Model.Pages ? "disabled" : "")"><a class="page-link" href="@Url.Action("Audit")@Url2(f.ToRoute(f.Page + 1))">&raquo;</a></li>
+    </ul></nav>
+}
+
+<details class="card mt-4"><summary class="card-header" style="cursor:pointer"><i class="bi bi-tools"></i>@L.T("Keeping the log", "إدارة السجل")</summary>
+<div class="card-body">
+    <p class="small text-muted mb-2">@(Model.Retention == 0 ? L.T("Entries are kept forever.", "تُحفظ السجلات دائمًا.") : L.T($"Entries older than {Model.Retention} days are deleted automatically every day.", $"تُحذف السجلات الأقدم من {Model.Retention} يومًا تلقائيًا كل يوم.")) <a asp-action="Settings">@L.T("Change this in Settings > Audit log", "غيّر ذلك من الإعدادات > سجل التدقيق")</a></p>
+    <form method="post" asp-action="AuditPurge" class="d-flex gap-2 align-items-center flex-wrap" onsubmit="return confirm('@L.T("Permanently delete the old entries? This cannot be undone. The deletion itself is logged.", "حذف السجلات القديمة نهائيًا؟ لا يمكن التراجع. سيُسجَّل الحذف نفسه.")')">
+        <span class="small">@L.T("Delete entries older than", "احذف السجلات الأقدم من")</span>
+        <input type="number" name="days" min="1" max="3650" value="365" class="form-control form-control-sm" style="width:100px" />
+        <span class="small">@L.T("days", "يومًا")</span>
+        <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i>@L.T("Delete now", "احذف الآن")</button>
+    </form>
+</div></details>
+
+<div class="modal fade" id="auditModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="am-title"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><dl class="row mb-0 audit-dl" id="am-body"></dl></div>
+    <div class="modal-footer"><a class="btn btn-sm btn-outline-secondary" id="am-user"><i class="bi bi-person"></i>@L.T("All by this person", "كل أحداث هذا الشخص")</a><a class="btn btn-sm btn-outline-secondary" id="am-req"><i class="bi bi-link-45deg"></i>@L.T("Same request", "الطلب نفسه")</a><button type="button" class="btn btn-sm btn-primary" data-bs-dismiss="modal">@L.T("Close", "إغلاق")</button></div>
+</div></div></div>
+
+@section Scripts {
+<script>
+(function () {
+  var rows = document.querySelectorAll('.audit-table tbody tr[data-id]');
+  var modalEl = document.getElementById('auditModal'); var modal = new bootstrap.Modal(modalEl);
+  var base = '@Url.Action("Audit")';
+  function row(k, v, mono) { return v ? '<dt class="col-sm-3">' + k + '</dt><dd class="col-sm-9' + (mono ? ' font-monospace small' : '') + '" style="white-space:pre-wrap;word-break:break-word"></dd>' : ''; }
+  rows.forEach(function (tr) {
+    tr.addEventListener('click', function () {
+      var d = tr.dataset, items = [
+        ['@L.T("When", "الوقت")', d.at], ['@L.T("What", "ماذا")', d.label + (d.label !== d.action ? '  (' + d.action + ')' : '')], ['@L.T("Who", "من")', d.user + (d.roles ? '  [' + d.roles + ']' : '')],
+        ['@L.T("Category", "الفئة")', d.cat], ['@L.T("Severity", "الخطورة")', d.sev], ['@L.T("Outcome", "النتيجة")', d.out], ['@L.T("About", "بخصوص")', d.target],
+        ['@L.T("Details", "التفاصيل")', d.details], ['@L.T("From IP", "عنوان IP")', d.ip], ['@L.T("Page", "الصفحة")', (d.method ? d.method + ' ' : '') + (d.path || '')],
+        ['@L.T("Took", "المدة")', d.ms ? d.ms + ' ms' : ''], ['@L.T("Request id", "معرّف الطلب")', d.req], ['@L.T("Browser", "المتصفح")', d.ua]
+      ];
+      var body = document.getElementById('am-body'); body.innerHTML = '';
+      items.forEach(function (it) { if (!it[1]) return; var dt = document.createElement('dt'); dt.className = 'col-sm-3'; dt.textContent = it[0]; var dd = document.createElement('dd'); dd.className = 'col-sm-9'; dd.style.whiteSpace = 'pre-wrap'; dd.style.wordBreak = 'break-word'; dd.textContent = it[1]; body.appendChild(dt); body.appendChild(dd); });
+      document.getElementById('am-title').textContent = d.label;
+      document.getElementById('am-user').href = base + '?Range=all&User=' + encodeURIComponent(d.user);
+      var rq = document.getElementById('am-req'); rq.style.display = d.req ? '' : 'none'; if (d.req) rq.href = base + '?Range=all&Request=' + encodeURIComponent(d.req);
+      modal.show();
+    });
+  });
+  // live mode: reload the list every 15 seconds while the switch is on (remembered in this browser)
+  var live = document.getElementById('live'), t = null;
+  function apply() { clearInterval(t); if (live.checked) t = setInterval(function () { if (!modalEl.classList.contains('show')) location.reload(); }, 15000); try { localStorage.setItem('auditLive', live.checked ? '1' : '0'); } catch (e) {} }
+  try { live.checked = localStorage.getItem('auditLive') === '1'; } catch (e) {}
+  live.addEventListener('change', apply); apply();
+})();
+</script>
+}

@@ -14,8 +14,10 @@ public class EntitiesModel : PageModel
     private string T(string en, string ar) => (Request.Cookies["lang"] ?? "en") == "ar" ? ar : en;
     private readonly AppDbContext _db;
 
-    public EntitiesModel(AppDbContext db)
+    private readonly GuestEvents.Services.AuditService _audit;
+    public EntitiesModel(AppDbContext db, GuestEvents.Services.AuditService audit)
     {
+        _audit = audit;
         _db = db;
     }
 
@@ -33,6 +35,7 @@ public class EntitiesModel : PageModel
             _db.Entities.Add(new Entity { NameAr = name.Trim(), IsActive = true });
             _db.SaveChanges();
             SeedData.EnsureDepartmentRoles(_db);
+            _audit.Log(User.Identity?.Name ?? "?", "KpiEntityAdded", name.Trim());
             TempData["Toast"] = T("Department added, with its own role.", "تمت إضافة الجهة وإنشاء دور خاص بها.");
         }
         return RedirectToPage();
@@ -45,6 +48,7 @@ public class EntitiesModel : PageModel
         {
             entity.IsActive = !entity.IsActive;
             _db.SaveChanges();
+            _audit.Log(User.Identity?.Name ?? "?", "KpiEntityToggled", $"{entity.NameAr} -> {(entity.IsActive ? "active" : "off")}");
         }
         return RedirectToPage();
     }

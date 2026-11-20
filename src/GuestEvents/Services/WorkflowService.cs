@@ -15,18 +15,16 @@ public class WorkflowService
     private readonly IWebHostEnvironment _env;
     private readonly ApprovalChain _chain;
 
-    public WorkflowService(AppDb db, SettingsService settings, MailService mail, QrService qr, ImageService img, IConfiguration cfg, IWebHostEnvironment env, ApprovalChain chain)
-    { _chain = chain; _db = db; _settings = settings; _mail = mail; _qr = qr; _img = img; _cfg = cfg; _env = env; }
+    private readonly AuditService _audit;
+    public WorkflowService(AppDb db, SettingsService settings, MailService mail, QrService qr, ImageService img, IConfiguration cfg, IWebHostEnvironment env, ApprovalChain chain, AuditService audit)
+    { _chain = chain; _db = db; _settings = settings; _mail = mail; _qr = qr; _img = img; _cfg = cfg; _env = env; _audit = audit; }
 
     public string PublicBase => (_cfg["App:PublicBaseUrl"] ?? "https://localhost:5001").TrimEnd('/');
     public string InternalBase => (_cfg["App:InternalBaseUrl"] ?? "https://localhost:5001").TrimEnd('/');
     public string AppData(params string[] parts) => Path.Combine(new[] { _env.ContentRootPath, "App_Data" }.Concat(parts).ToArray());
 
-    public async Task Audit(string user, string action, string? details = null)
-    {
-        _db.AuditLogs.Add(new AuditLog { User = user, Action = action, Details = details });
-        await _db.SaveChangesAsync();
-    }
+    /// <summary>Writes one audit entry (category, severity, IP, page and request id are filled in automatically).</summary>
+    public Task Audit(string user, string action, string? details = null, string? severity = null) => _audit.LogAsync(user, action, details, severity: severity);
 
     public async Task Submit(EventRequest e, string user)
     {

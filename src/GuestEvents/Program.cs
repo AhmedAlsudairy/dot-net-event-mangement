@@ -43,6 +43,7 @@ builder.Services.AddScoped<Loc>();
 builder.Services.AddScoped<SettingsService>();
 builder.Services.AddScoped<MailService>();
 builder.Services.AddScoped<ApprovalChain>();
+builder.Services.AddScoped<AuditService>();
 builder.Services.AddScoped<WorkflowService>();
 builder.Services.AddSingleton<ImageService>();
 builder.Services.AddSingleton<QrService>();
@@ -151,13 +152,19 @@ using (var scope = app.Services.CreateScope())
         db.Database.ExecuteSqlRaw("IF COL_LENGTH('Approvals','StepId') IS NULL ALTER TABLE Approvals ADD StepId INT NULL; IF COL_LENGTH('Approvals','StepName') IS NULL ALTER TABLE Approvals ADD StepName NVARCHAR(MAX) NULL");
         db.Database.ExecuteSqlRaw("IF COL_LENGTH('Events','CurrentStepId') IS NULL ALTER TABLE Events ADD CurrentStepId INT NULL; IF COL_LENGTH('Events','StepStartedAt') IS NULL ALTER TABLE Events ADD StepStartedAt DATETIME2 NULL");
         db.Database.ExecuteSqlRaw("IF COL_LENGTH('RoleAssignments','EntityId') IS NULL ALTER TABLE RoleAssignments ADD EntityId INT NULL");
+        foreach (var (c, t) in AuditService.SchemaColumns(true))
+            db.Database.ExecuteSqlRaw($"IF COL_LENGTH('AuditLogs','{c}') IS NULL ALTER TABLE AuditLogs ADD {c} {t} NULL");
+        db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_AuditLogs_At') CREATE INDEX IX_AuditLogs_At ON AuditLogs(At); IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_AuditLogs_User') CREATE INDEX IX_AuditLogs_User ON AuditLogs([User]); IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_AuditLogs_Category_Severity') CREATE INDEX IX_AuditLogs_Category_Severity ON AuditLogs(Category, Severity)");
+        db.Database.ExecuteSqlRaw("UPDATE AuditLogs SET Category='General' WHERE Category IS NULL; UPDATE AuditLogs SET Severity='Info' WHERE Severity IS NULL; UPDATE AuditLogs SET Outcome='Success' WHERE Outcome IS NULL");
     }
     else
     {
         db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS ApprovalSteps (Id INTEGER PRIMARY KEY AUTOINCREMENT, \"Order\" INTEGER NOT NULL, Name TEXT NOT NULL, Role TEXT NULL, Approvers TEXT NULL, RequiredApprovals INTEGER NOT NULL, NotifyEmail TEXT NULL, Enabled INTEGER NOT NULL)");
-        foreach (var (table, col, type) in new[] { ("Approvals", "StepId", "INTEGER"), ("Approvals", "StepName", "TEXT"), ("Events", "CurrentStepId", "INTEGER"), ("Events", "StepStartedAt", "TEXT"), ("RoleAssignments", "EntityId", "INTEGER") })
+        foreach (var (table, col, type) in new[] { ("Approvals", "StepId", "INTEGER"), ("Approvals", "StepName", "TEXT"), ("Events", "CurrentStepId", "INTEGER"), ("Events", "StepStartedAt", "TEXT"), ("RoleAssignments", "EntityId", "INTEGER") }.Concat(AuditService.SchemaColumns(false).Select(x => ("AuditLogs", x.col, x.type))))
             if (db.Database.SqlQueryRaw<int>($"SELECT COUNT(*) AS Value FROM pragma_table_info('{table}') WHERE name='{col}'").AsEnumerable().First() == 0)
                 db.Database.ExecuteSqlRaw($"ALTER TABLE {table} ADD COLUMN {col} {type} NULL");
+        db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS IX_AuditLogs_At ON AuditLogs(At); CREATE INDEX IF NOT EXISTS IX_AuditLogs_User ON AuditLogs(User); CREATE INDEX IF NOT EXISTS IX_AuditLogs_Category_Severity ON AuditLogs(Category, Severity)");
+        db.Database.ExecuteSqlRaw("UPDATE AuditLogs SET Category='General' WHERE Category IS NULL; UPDATE AuditLogs SET Severity='Info' WHERE Severity IS NULL; UPDATE AuditLogs SET Outcome='Success' WHERE Outcome IS NULL");
     }
     await ApprovalChain.EnsureDefaultsAsync(db, scope.ServiceProvider.GetRequiredService<SettingsService>());
     // Link an event / visit to a KPI (added after the first release)
@@ -186,6 +193,7 @@ using (var scope = app.Services.CreateScope())
 
 app.UseForwardedHeaders();
 if (!app.Environment.IsDevelopment()) { app.UseExceptionHandler("/Home/Error"); app.UseHsts(); }
+app.UseMiddleware<AuditMiddleware>();
 app.UseHttpsRedirection();
 
 // One app, two faces: on the public host ONLY the check-in/evaluation pages and static files are reachable.
@@ -218,6 +226,7 @@ public class TickService : BackgroundService
 {
     private readonly IServiceProvider _sp;
     private readonly ILogger<TickService> _log;
+    private DateTime _lastPurge = DateTime.MinValue;
     public TickService(IServiceProvider sp, ILogger<TickService> log) { _sp = sp; _log = log; }
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
@@ -225,7 +234,20 @@ public class TickService : BackgroundService
         {
             try { using var scope = _sp.CreateScope(); await scope.ServiceProvider.GetRequiredService<WorkflowService>().Tick(); }
             catch (Exception ex) { _log.LogError(ex, "Tick failed"); }
+            // once a day: delete log entries older than the retention period (Settings > Audit log)
+            if (DateTime.UtcNow - _lastPurge > TimeSpan.FromHours(23))
+            {
+                try
+                {
+                    using var scope = _sp.CreateScope();
+                    var days = SettingsService.Int(await scope.ServiceProvider.GetRequiredService<SettingsService>().AllAsync(), "AuditRetentionDays");
+                    await scope.ServiceProvider.GetRequiredService<AuditService>().PurgeAsync(days);
+                    _lastPurge = DateTime.UtcNow;
+                }
+                catch (Exception ex) { _log.LogError(ex, "Audit purge failed"); }
+            }
             await Task.Delay(TimeSpan.FromMinutes(10), ct);
         }
     }
 }
+

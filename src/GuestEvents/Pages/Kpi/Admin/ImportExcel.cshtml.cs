@@ -16,8 +16,10 @@ public class ImportExcelModel : PageModel
     private readonly ExcelExportService _exporter;
     private readonly AppDbContext _db;
 
-    public ImportExcelModel(ExcelImportService importer, ExcelExportService exporter, AppDbContext db)
+    private readonly GuestEvents.Services.AuditService _audit;
+    public ImportExcelModel(ExcelImportService importer, ExcelExportService exporter, AppDbContext db, GuestEvents.Services.AuditService audit)
     {
+        _audit = audit;
         _importer = importer;
         _exporter = exporter;
         _db = db;
@@ -45,11 +47,13 @@ public class ImportExcelModel : PageModel
         {
             await using var stream = file.OpenReadStream();
             Result = _importer.Import(stream);
+            _audit.Log(User.Identity?.Name ?? "?", "KpiImport", $"{file.FileName}: " + string.Join("; ", Result.Sheets.Select(s => $"{s.SheetName} +{s.Inserted} ~{s.Updated} skipped {s.Skipped}")));
             CurrentKpiCount = _db.Kpis.Count();
         }
         catch (Exception ex)
         {
             Error = ex.Message;
+            _audit.Log(User.Identity?.Name ?? "?", "KpiImport", $"{file.FileName}: FAILED - {ex.Message}", severity: "Warning");
         }
 
         return Page();

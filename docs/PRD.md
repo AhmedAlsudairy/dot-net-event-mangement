@@ -128,6 +128,7 @@ A role can come from **several** AD groups, and any person can also be given a r
 | AD-1 | Reports per event and overall: attendance versus expected, evaluation averages, response rate, average by presenter; Excel export. |
 | AD-2 | Settings page with tabs: Recipients, External visits, Research, Sign-in help, Approval and check-in, QR and public page, Event image, Evaluation, Email templates, Display. |
 | AD-3 | Admin assigns in-app roles to users, and configures the LDAP and SMTP connections from the browser. |
+| AD-4a | Advanced audit log: every entry has a category (Auth, Events, Visits, Research, Approvals, Admin, Access, KPI, Data export, System), a severity (Info, Warning, Error, Security), an outcome, the person and their roles, IP, browser, page and a request id. Sign-ins (and failed ones), blocked access, role and permission changes, KPI changes, exports, server errors and slow requests are all logged. The Admin page filters by period, category, severity, action, person and free text, opens a detail view per entry, follows one request end to end, warns about repeated failed sign-ins, exports CSV / Excel, can refresh live, and deletes entries older than a retention period (default 365 days, automatic daily). |
 | AD-4 | Audit log of submissions, decisions, settings changes and food, bus and research actions; a notifications log of every email sent with success or error. |
 | AD-5 | Arabic and English interface with right-to-left layout, optional Arabic digits and configurable date format; built-in help pages. |
 | AD-6 | On the LDAP & Email page an Admin presses Fetch groups from LDAP to list the directory's groups, then assigns groups to roles. A role box turns green when its groups exist and red when one does not. Nothing is saved until the Admin saves. |
@@ -247,7 +248,7 @@ The events database holds 14 tables managed by Entity Framework Core. The separa
 | Settings | Key/value configuration | Key, Value |
 | Notifications | Log of every email | Recipient, Subject, Success, Error |
 | RoleAssignments | In-app roles for people, by email or username | Username, Role (unique together) |
-| AuditLogs | Who did what and when | User, Action, Details, At |
+| AuditLogs | Who did what, when and from where | User, Action, Details, At, Category, Severity, Outcome, Ip, UserAgent, Method, Path, Target, Roles, CorrelationId, DurationMs |
 | ResearchDocs | Uploaded research paper or proposal | Title, DocType, Authors, Summary, OriginalFileName, FilePath, FileSize, uploader fields, UploadedAt, EmailSent |
 
 | Entity | Statuses |

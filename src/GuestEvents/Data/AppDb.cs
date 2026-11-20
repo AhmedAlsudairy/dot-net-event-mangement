@@ -24,6 +24,9 @@ public class AppDb : DbContext
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.Entity<QRCodeInfo>().HasIndex(q => q.Token).IsUnique();
+        b.Entity<AuditLog>().HasIndex(a => a.At);
+        b.Entity<AuditLog>().HasIndex(a => a.User);
+        b.Entity<AuditLog>().HasIndex(a => new { a.Category, a.Severity });
         b.Entity<RoleAssignment>().HasIndex(r => new { r.Username, r.Role }).IsUnique();
         b.Entity<QRCodeInfo>().HasOne(q => q.EventRequest).WithOne(e => e.QR).HasForeignKey<QRCodeInfo>(q => q.EventRequestId);
         b.Entity<EventImage>().HasOne<EventRequest>().WithOne(e => e.Image).HasForeignKey<EventImage>(i => i.EventRequestId);

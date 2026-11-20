@@ -18,10 +18,12 @@
         ("eval", "Evaluation", "bi-star", "Labels of the optional questions on the evaluation form.", new[] { "Questions" }),
         ("tpl", "Email templates", "bi-card-text", "Placeholders: {event_name} {presenter} {company} {contact_name} {date} {start} {end} {venue} {requester} {approver} {link}",
             new[] { "TplMediaSubject", "TplMediaBody", "TplContactSubject", "TplContactBody", "TplAdminSubject", "TplAdminBody", "TplRequesterSubject", "TplRequesterBody" }),
+        ("audit", "Audit log", "bi-clock-history", "How long the activity log is kept. Older entries are deleted automatically once a day.", new[] { "AuditRetentionDays" }),
         ("disp", "Display", "bi-translate", "Digits and date format.", new[] { "UseArabicDigits", "DateFormat" }),
     };
     var meta = new Dictionary<string, (string label, string help)>
     {
+        ["AuditRetentionDays"] = ("Keep log entries for (days)", "Entries older than this are deleted automatically every day. 365 = one year, 0 = keep everything. Admin > Audit log shows what is kept."),
         ["AppNameEn"] = ("App name (English)", "Shown when the language is English."), ["AppNameAr"] = ("App name (Arabic)", "Shown when the language is Arabic."),
         ["AdminMailbox"] = ("Admin mailbox", "Main address that gets approval notices, food requests and evaluation results."),
         ["AdminExtraTo"] = ("Extra admin recipients (To)", "More addresses, separated by commas."),

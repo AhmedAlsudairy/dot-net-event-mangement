@@ -111,7 +111,7 @@ public static class GuideContent
                 "يسجّلون الدخول بكلمة مرورهم المعتادة، ويسري الدور الجديد من **تسجيل الدخول التالي**." })),
         ["audit"] = (
             new("Audit log", new[] {
-                "Every sign-in, approval, rejection, setting change and export is recorded with who did it and when.",
+                "Every sign-in (and failed one), approval, rejection, setting and role change, export, KPI change and server error is recorded with who, when, from which IP and page. Click a row for all the details; use the filters, Live mode and CSV / Excel export.",
                 "Use it to answer \"who changed this?\". Entries cannot be edited." }),
             new("سجل التدقيق", new[] {
                 "يُسجَّل كل دخول وموافقة ورفض وتغيير في الإعدادات وتصدير مع اسم المنفّذ والوقت.",

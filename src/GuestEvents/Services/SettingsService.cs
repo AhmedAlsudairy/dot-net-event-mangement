@@ -13,6 +13,7 @@ public class SettingsService
     {
         ["AppNameEn"] = "Campus Hub",    // the app name shown everywhere (English)
         ["AppNameAr"] = "مركز الحرم",     // the app name shown everywhere (Arabic)
+        ["AuditRetentionDays"] = "365",  // log entries older than this are deleted automatically; 0 = keep forever
         ["AdminMailbox"] = "admin@example.com",
         ["AdminExtraTo"] = "",
         ["AdminCc"] = "",

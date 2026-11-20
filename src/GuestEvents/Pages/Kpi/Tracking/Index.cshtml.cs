@@ -5,6 +5,7 @@ using Kpi.Dashboard.Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 
 namespace Kpi.Dashboard.Web.Pages.Tracking;
 
@@ -16,8 +17,10 @@ public class IndexModel : PageModel
     private readonly TrackingSaveService _save;
     private readonly PermissionService _perms;
 
-    public IndexModel(AppDbContext db, TrackingQueryService query, TrackingSaveService save, PermissionService perms)
+    private readonly GuestEvents.Services.AuditService _audit;
+    public IndexModel(AppDbContext db, TrackingQueryService query, TrackingSaveService save, PermissionService perms, GuestEvents.Services.AuditService audit)
     {
+        _audit = audit;
         _perms = perms;
         _db = db;
         _query = query;
@@ -93,6 +96,15 @@ public class IndexModel : PageModel
         }));
     }
 
+    private IActionResult LogSaved(SaveTrackingRequest r)
+    {
+        var kpi = _db.Kpis.AsNoTracking().Where(k => k.Id == r.KpiId).Select(k => k.Sn).FirstOrDefault() ?? r.KpiId.ToString();
+        var ents = _db.Entities.AsNoTracking().ToDictionary(e => e.Id, e => e.NameAr);
+        var parts = r.Items.Select(i => $"{(ents.TryGetValue(i.EntityId, out var n) ? n : "#" + i.EntityId)}: {(string.IsNullOrEmpty(i.Status) ? "no status" : i.Status)}" + (string.IsNullOrWhiteSpace(i.Target) ? "" : $", target {i.Target}") + (string.IsNullOrEmpty(i.Deadline) ? "" : $", due {i.Deadline}"));
+        _audit.Log(User.Identity?.Name ?? "?", "TrackingSaved", $"KPI {kpi}, {r.Plan} plan: " + (r.Items.Count == 0 ? "no departments assigned" : string.Join(" | ", parts)));
+        return new JsonResult(new { ok = true });
+    }
+
     public IActionResult OnPostSave([FromBody] SaveTrackingRequest? request)
     {
         if (request is null) return BadRequest(new { ok = false, message = "طلب غير صالح." });
@@ -100,7 +112,7 @@ public class IndexModel : PageModel
         var outcome = _save.Save(request, _perms.For(User), User.GetEntityId(), User.GetUserId());
         return outcome switch
         {
-            SaveOutcome.Saved => new JsonResult(new { ok = true }),
+            SaveOutcome.Saved => LogSaved(request),
             SaveOutcome.Forbidden => Forbid(),
             _ => BadRequest(new { ok = false, message = "طلب غير صالح." })
         };

@@ -1,4 +1,4 @@
-"""End-to-end smoke test against a running Dev instance (Auth:Mode=Dev). Usage: python smoke_test.py"""
+"""End-to-end smoke test against a running Dev instance (Auth:Mode=Dev). Start the app with Auth__LoginsPerMinutePerIp=1000 (the test signs in many times from one IP). Usage: python smoke_test.py"""
 import http.cookiejar, re, ssl, sqlite3, struct, urllib.parse, urllib.request, datetime, uuid, os, sys
 
 BASE = "https://localhost:7100"
@@ -251,6 +251,26 @@ s, h, url = kpi.get("/Kpi/Admin/Roles"); check("kpi-only cannot open KPI permiss
 s, h, _ = staff.get("/"); check("staff menu has events and KPIs", "My events" in h and "bi-bullseye" in h)
 s, h, url = staff.get("/Account/Login"); check("login page lists test accounts in dev mode", True)
 anon = Client()
+# --- advanced audit log
+bad = Client()
+for _ in range(6): bad.post("/Account/Login", {"username": "nobody@example.com", "password": "wrong"}, "/Account/Login")
+s, h, _ = admin.get("/Admin/Audit"); check("audit page loads (admin)", s == 200 and "Audit log" in h and "Failed sign-ins" in h)
+check("audit: failed sign-ins raise the guessing alert", "Possible password guessing" in h)
+s, h, _ = admin.get("/Admin/Audit?Range=all&What=LoginFailed"); check("audit filter by action", "Failed sign-in" in h and "Signed in" not in h.split("<tbody>")[1].split("</tbody>")[0])
+s, h, _ = admin.get("/Admin/Audit?Range=all&Severity=Security"); check("audit filter by severity: security", "Blocked" in h or "Role given" in h or "Failed sign-in" in h)
+s, h, _ = admin.get("/Admin/Audit?Range=all&Q=nobody%40example.com"); check("audit free-text search", "nobody@example.com" in h)
+s, h, _ = admin.get("/Admin/Audit?Range=all&Category=Auth&Outcome=Failure"); check("audit filter by category + outcome", "row-fail" in h)
+s, h, _ = staff.get("/Admin/Audit"); check("audit page denied to staff", "/Account/Denied" in _ or s in (401, 403))
+s, b, _ = admin.get("/Admin/AuditExport?Range=all&format=csv", raw=True); check("audit export csv", s == 200 and b"Time,Severity,Category" in b and b"LoginFailed" in b)
+s, b, _ = admin.get("/Admin/AuditExport?Range=all&format=xlsx", raw=True); check("audit export xlsx", s == 200 and b[:2] == b"PK")
+s, h, _ = anon.get("/Home/Error"); s2, h2, _ = admin.get("/Admin/Audit?Range=1h&What=ServerError"); check("server errors (HTTP 500) are logged", "Server error" in h2)
+c = login("kpiviewer"); c.get("/Events"); s, h, _ = admin.get("/Admin/Audit?Range=1h&What=AccessDenied"); check("blocked access is logged with who and what page", "kpiviewer" in h and "/Events" in h)
+s, h, _ = admin.get("/Admin/Audit?Range=1h&What=Login"); check("sign-in entry has IP, roles and request id", "data-ip=\"" in h and "data-roles=\"" in h and 'data-req="' in h)
+kpi_sn = "AUD-" + uuid.uuid4().hex[:6]   # unique: the KPI database is not reset between runs
+s, h, _ = admin.post("/Kpi/Admin/KpiForm", {"Sn": kpi_sn, "KpiText": "Audit trail KPI", "Group": "BranchPlan"}, "/Kpi/Admin/KpiForm")
+s, h, _ = admin.get("/Admin/Audit?Range=1h&What=KpiCreated"); check("KPI changes are logged", kpi_sn in h)
+s, h, _ = admin.post("/Admin/AuditPurge", {"days": "3650"}, "/Admin/Audit"); check("log clean-up runs (nothing that old yet)", "0 old entries deleted" in h or "Audit log" in h)
+s, h, _ = admin.get("/Admin/Settings"); check("settings has the audit retention option", "Keep log entries for (days)" in h)
 # --- logo: nothing uploaded yet, only the Admin can change it
 s, h, _ = anon.get("/brand/logo"); check("no logo uploaded yet -> 404", s == 404)
 s, h, url = staff.post("/Admin/RemoveLogo", {}, "/Account/Me"); check("staff cannot remove/upload the logo", "/Account/Denied" in url or s in (401, 403))

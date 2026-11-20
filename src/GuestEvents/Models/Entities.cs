@@ -259,6 +259,7 @@ public class RoleAssignment
     public DateTime AssignedAt { get; set; } = DateTime.UtcNow;
 }
 
+/// <summary>One line of the audit / activity log. Entries are only ever added (and removed by the retention clean-up), never edited.</summary>
 public class AuditLog
 {
     public int Id { get; set; }
@@ -266,4 +267,21 @@ public class AuditLog
     public string Action { get; set; } = "";
     public string? Details { get; set; }
     public DateTime At { get; set; } = DateTime.UtcNow;
+    /// <summary>Auth, Events, Visits, Research, Approvals, Admin, Access, KPI, Data export, System.</summary>
+    [StringLength(30)] public string Category { get; set; } = "General";
+    /// <summary>Info, Warning, Error or Security.</summary>
+    [StringLength(10)] public string Severity { get; set; } = "Info";
+    /// <summary>Success or Failure.</summary>
+    [StringLength(10)] public string Outcome { get; set; } = "Success";
+    [StringLength(60)] public string? Ip { get; set; }
+    [StringLength(250)] public string? UserAgent { get; set; }
+    [StringLength(10)] public string? Method { get; set; }
+    [StringLength(300)] public string? Path { get; set; }
+    /// <summary>What the action was about, for example "Event:12" or "Visit:3".</summary>
+    [StringLength(80)] public string? Target { get; set; }
+    /// <summary>The roles the person had when it happened.</summary>
+    [StringLength(200)] public string? Roles { get; set; }
+    /// <summary>Same value for every entry written during one web request.</summary>
+    [StringLength(40)] public string? CorrelationId { get; set; }
+    public int? DurationMs { get; set; }
 }

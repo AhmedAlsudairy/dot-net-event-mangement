@@ -138,13 +138,15 @@ public class AccountController : AppController
         if (kpiEntity != null) claims.Add(new Claim("kpi_entity", kpiEntity.Value.ToString()));
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
             new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)));
-        await _wf.Audit(u.Username, "Login");
+        await _wf.Audit(u.Username, "Login", $"roles: {string.Join(", ", u.Roles)}");
         return LocalRedirect(Url.IsLocalUrl(returnUrl) ? returnUrl! : "/");
     }
 
     private async Task<IActionResult> Failed(string who, AuthFail fail, string? returnUrl, string? known)
     {
-        await _wf.Audit(known ?? (who.Length > 100 ? who[..100] : who), "LoginFailed", fail.ToString());
+        var attempted = who.Length > 100 ? who[..100] : who;
+        await _wf.Audit(known ?? attempted, "LoginFailed", $"{fail}" + (known != null && known != attempted ? $" (typed: {attempted})" : ""),
+            severity: fail is AuthFail.TooMany or AuthFail.Locked ? "Security" : "Warning");
         ViewBag.ErrorKey = ReasonKey(fail); ViewBag.ReturnUrl = returnUrl; ViewBag.Sso = _cfg.GetValue("Auth:Sso", false); ViewBag.Dev = (_cfg["Auth:Mode"] ?? "Ldap") == "Dev";
         return View("Login");
     }
@@ -152,12 +154,18 @@ public class AccountController : AppController
     [HttpPost]
     public async Task<IActionResult> Logout()
     {
+        if (User.Identity?.IsAuthenticated == true) await _wf.Audit(Username, "Logout");
         await HttpContext.SignOutAsync();
         return RedirectToAction(nameof(Login));
     }
 
     [AllowAnonymous]
-    public IActionResult Denied() => View();
+    public async Task<IActionResult> Denied(string? returnUrl)
+    {
+        if (User.Identity?.IsAuthenticated == true)
+            await _wf.Audit(Username, "AccessDenied", "Tried to open " + (Url.IsLocalUrl(returnUrl) ? returnUrl : "a page they have no role for"));
+        return View();
+    }
 
     /// <summary>"My access": the signed-in person's roles in plain words, what they can open and what they cannot.</summary>
     [Authorize]

@@ -15,8 +15,10 @@ public class RolesModel : PageModel
     private string T(string en, string ar) => (Request.Cookies["lang"] ?? "en") == "ar" ? ar : en;
     private readonly AppDbContext _db;
 
-    public RolesModel(AppDbContext db)
+    private readonly GuestEvents.Services.AuditService _audit;
+    public RolesModel(AppDbContext db, GuestEvents.Services.AuditService audit)
     {
+        _audit = audit;
         _db = db;
     }
 
@@ -109,6 +111,7 @@ public class RolesModel : PageModel
         }
         _db.SaveChanges();
         PermissionService.Invalidate();
+        _audit.Log(User.Identity?.Name ?? "?", "KpiRoleSaved", $"{role.Name}: {(wanted.Count == 0 ? "no permissions" : string.Join(", ", wanted.OrderBy(x => x)))}" + (applied > 0 ? $" (also applied to {applied} department roles)" : ""));
 
         TempData["Toast"] = applied > 0 ? T($"Role saved and applied to {applied} other department role(s).", $"تم حفظ الدور وتطبيق صلاحياته على {applied} دورًا آخر للجهات.") : id.HasValue ? T("Role saved.", "تم حفظ الدور.") : T("Role created.", "تم إنشاء الدور.");
         return RedirectToPage();
@@ -125,6 +128,7 @@ public class RolesModel : PageModel
         _db.Roles.Remove(role);
         _db.SaveChanges();
         PermissionService.Invalidate();
+        _audit.Log(User.Identity?.Name ?? "?", "KpiRoleDeleted", role.Name);
         TempData["Toast"] = T("Role deleted.", "تم حذف الدور.");
         return RedirectToPage();
     }

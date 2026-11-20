@@ -15,9 +15,11 @@ public class KpisModel : PageModel
     private string T(string en, string ar) => (Request.Cookies["lang"] ?? "en") == "ar" ? ar : en;
     private readonly AppDbContext _db;
     private readonly PermissionService _perms;
+    private readonly GuestEvents.Services.AuditService _audit;
 
-    public KpisModel(AppDbContext db, PermissionService perms)
+    public KpisModel(AppDbContext db, PermissionService perms, GuestEvents.Services.AuditService audit)
     {
+        _audit = audit;
         _perms = perms;
         _db = db;
     }
@@ -53,6 +55,7 @@ public class KpisModel : PageModel
         {
             _db.Kpis.Remove(kpi); // cascades to TrackingItems for this KPI
             _db.SaveChanges();
+            _audit.Log(User.Identity?.Name ?? "?", "KpiDeleted", $"KPI {kpi.Sn}: {(kpi.KpiText.Length > 120 ? kpi.KpiText[..120] : kpi.KpiText)}");
             TempData["Toast"] = T("The KPI and its tracking data were deleted.", "تم حذف المؤشر وكل بيانات متابعته.");
         }
         return RedirectToPage();

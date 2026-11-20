@@ -14,8 +14,10 @@ public class KpiFormModel : PageModel
     private string T(string en, string ar) => (Request.Cookies["lang"] ?? "en") == "ar" ? ar : en;
     private readonly AppDbContext _db;
 
-    public KpiFormModel(AppDbContext db)
+    private readonly GuestEvents.Services.AuditService _audit;
+    public KpiFormModel(AppDbContext db, GuestEvents.Services.AuditService audit)
     {
+        _audit = audit;
         _db = db;
     }
 
@@ -112,6 +114,7 @@ public class KpiFormModel : PageModel
         kpi.Group = Group;
 
         _db.SaveChanges();
+        _audit.Log(User.Identity?.Name ?? "?", Id.HasValue ? "KpiUpdated" : "KpiCreated", $"KPI {kpi.Sn}: {(kpi.KpiText.Length > 120 ? kpi.KpiText[..120] : kpi.KpiText)}");
         TempData["Toast"] = Id.HasValue ? T("KPI saved.", "تم حفظ تعديلات المؤشر.") : T("KPI added.", "تمت إضافة المؤشر.");
         return RedirectToPage("Kpis");
     }

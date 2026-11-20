@@ -11,8 +11,10 @@ public class ReviewModel : PageModel
 {
     private readonly AppDbContext _db;
 
-    public ReviewModel(AppDbContext db)
+    private readonly GuestEvents.Services.AuditService _audit;
+    public ReviewModel(AppDbContext db, GuestEvents.Services.AuditService audit)
     {
+        _audit = audit;
         _db = db;
     }
 
@@ -27,6 +29,7 @@ public class ReviewModel : PageModel
         {
             item.IsResolved = !item.IsResolved;
             _db.SaveChanges();
+            _audit.Log(User.Identity?.Name ?? "?", "KpiReviewToggled", $"Review item {item.Seq} -> {(item.IsResolved ? "resolved" : "reopened")}");
         }
         return RedirectToPage();
     }
