@@ -280,6 +280,7 @@ s, h, _ = staff.get("/Events/Create"); check("KPI picker lists real KPI codes (n
 s, h, _ = admin.get("/Kpi/Tracking"); check("responsive: tracking rows turn into cards on phones", "m-cards" in h and 'data-label=' in h)
 s, h, _ = admin.get("/Admin/Audit"); check("responsive: audit rows are compact cards on phones", "audit-table m-cards" in h)
 s, h, _ = admin.get("/"); check("responsive: viewport covers notches", "viewport-fit=cover" in h)
+s, h, _ = admin.get("/"); check("responsive: full menu bar from 1200px (not only 1400px)", "navbar-expand-xl" in h and "navbar-expand-xxl" not in h)
 s, h, _ = admin.get("/Visits"); check("responsive: visits list has phone cards", "m-cards" in h or "No visits" in h or "empty" in h)
 # --- logo: nothing uploaded yet, only the Admin can change it
 s, h, _ = anon.get("/brand/logo"); check("no logo uploaded yet -> 404", s == 404)

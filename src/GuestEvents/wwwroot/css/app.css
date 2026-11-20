@@ -409,9 +409,6 @@ img, canvas, svg { max-width: 100%; }
   .kpi-tabs { scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
   html[dir=rtl] .kpi-tabs { mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent); }
   .kpi-tabs a { scroll-snap-align: center; }
-  .topbar .navbar-collapse { padding-bottom: .6rem; }
-  .topbar .navbar-nav .nav-link { padding: .7rem .8rem !important; font-size: 1rem; }
-  .topbar .dropdown-item { padding: .6rem .9rem; }
   .row.g-3 > [class*="col-"] { min-width: 0; }
 }
 
@@ -441,8 +438,30 @@ img, canvas, svg { max-width: 100%; }
   .role-people .btn-link { min-width: 38px; min-height: 38px; display: inline-grid; place-items: center; }
   .role-people .who { word-break: break-all; }
 }
-@media (max-width: 991.98px) { .topbar .navbar-collapse { margin-top: .6rem; } }
+/* the top bar folds into the menu button below 1200px; keep the opened menu roomy */
+@media (max-width: 1199.98px) {
+  .topbar .navbar-collapse { margin-top: .6rem; padding-bottom: .6rem; }
+  .topbar .navbar-nav .nav-link { padding: .7rem .8rem !important; font-size: 1rem; }
+  .topbar .dropdown-item { padding: .6rem .9rem; }
+}
+/* 1200-1399px: the full bar must fit on one line, so tighten it a little */
+@media (min-width: 1200px) and (max-width: 1399.98px) {
+  .topbar .nav-link { padding: .45rem .4rem !important; font-size: .88rem; gap: .25rem; }
+  .topbar .navbar-brand { font-size: 1.05rem; margin-inline-end: .5rem; }
+  .topbar .btn-sm { padding-inline: .5rem; }
+}
 @media (max-width: 575.98px) {
   #entityChecklist { max-height: 38vh !important; }
   #entityChecklist > .col { flex: 0 0 100%; max-width: 100%; width: 100%; }
+}
+
+/* ---- Small text links, switches and tabs get a comfortable tap area on phones and touch screens ---- */
+@media (max-width: 767.98px), (pointer: coarse) {
+  a.small, a[href^="mailto:"], .m-cards td > a, .m-cards td .fw-semibold > a, .login-guide summary, .guide-toggle { display: inline-flex; align-items: center; min-height: 40px; }
+  a.small { padding-inline: .15rem; }
+  .form-check { min-height: 40px; display: flex; align-items: center; gap: .55rem; padding-inline-start: 0; }
+  .form-check .form-check-input { margin: 0; flex: none; }
+  .form-check-label { min-height: 40px; display: inline-flex; align-items: center; }
+  .seg a, .kpi-tabs a { min-height: 40px; display: inline-flex; align-items: center; }
+  .page-head a.small { margin-bottom: .1rem; }
 }
