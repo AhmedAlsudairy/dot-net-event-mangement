@@ -3,6 +3,16 @@
     ViewData["Title"] = L.T("Appearance", "المظهر");
     string cur(string k) => Model[k];
     var mode = cur("ThemeMode"); var radius = cur("ThemeRadius");
+    var fontEn = cur("FontEn"); var fontAr = cur("FontAr"); var fscale = int.TryParse(cur("FontScale"), out var fs0) ? fs0 : 100;
+    var stacks = Fonts.AllBuiltin.Select(b => b.Key).Append("system").Concat(Fonts.CustomFonts.Select(c => "custom:" + c.Id)).ToDictionary(k => k, k => Fonts.Stack(k));
+    var gspec = Fonts.AllBuiltin.ToDictionary(b => b.Key, b => b.Google);
+    var jopt = new System.Text.Json.JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    var stacksJson = System.Text.Json.JsonSerializer.Serialize(stacks, jopt); var gspecJson = System.Text.Json.JsonSerializer.Serialize(gspec, jopt);
+    string FontOptions(string selected) =>
+        $"<option value=\"system\"{(selected == "system" ? " selected" : "")}>{L.T("Default (system font)", "الافتراضي (خط النظام)")}</option>"
+        + $"<optgroup label=\"{L.T("Arabic and English", "عربي وإنجليزي")}\">" + string.Concat(Fonts.ArabicCapable.Select(b => $"<option value=\"{b.Key}\"{(selected == b.Key ? " selected" : "")}>{b.Name}</option>")) + "</optgroup>"
+        + $"<optgroup label=\"{L.T("English (Latin) only", "إنجليزي فقط")}\">" + string.Concat(Fonts.Latin.Select(b => $"<option value=\"{b.Key}\"{(selected == b.Key ? " selected" : "")}>{b.Name}</option>")) + "</optgroup>"
+        + $"<optgroup label=\"{L.T("Imported fonts", "الخطوط المستوردة")}\" class=\"opt-custom\">" + string.Concat(Fonts.CustomFonts.Select(c => $"<option value=\"custom:{c.Id}\"{(selected == "custom:" + c.Id ? " selected" : "")}>{System.Net.WebUtility.HtmlEncode(c.Name)}</option>")) + "</optgroup>";
     var presetsJson = System.Text.Json.JsonSerializer.Serialize(Theme.Presets.Select(p => new { key = p.Key, p = p.Primary, s = p.Secondary, a = p.Accent, bg = p.Bg }));
 }
 <div class="page-head">
@@ -73,6 +83,45 @@
                 }
             </div>
         </div></div>
+
+        <div class="card mb-3"><div class="card-header"><i class="bi bi-fonts"></i>@L.T("Fonts and text size", "الخطوط وحجم النص")</div><div class="card-body d-grid gap-3">
+            <div>
+                <label class="form-label mb-1" for="fontEn">@L.T("Font for English pages", "خط الصفحات الإنجليزية")</label>
+                <select class="form-select" name="fontEn" id="fontEn">@Html.Raw(FontOptions(fontEn))</select>
+            </div>
+            <div>
+                <label class="form-label mb-1" for="fontAr">@L.T("Font for Arabic pages", "خط الصفحات العربية")</label>
+                <select class="form-select" name="fontAr" id="fontAr">@Html.Raw(FontOptions(fontAr))</select>
+                <div class="form-text">@L.T("Built-in fonts load from Google Fonts (they need internet on the user's device). Imported fonts are served by this app, so they also work offline. If a font cannot load, the system font is used.", "الخطوط المدمجة تُحمَّل من Google Fonts (تحتاج إنترنت على جهاز المستخدم). الخطوط المستوردة يقدّمها التطبيق نفسه فتعمل دون إنترنت. إذا تعذّر تحميل خط يُستخدم خط النظام.")</div>
+            </div>
+            <div>
+                <label class="form-label mb-1">@L.T("Default text size", "حجم النص الافتراضي")</label>
+                <div class="seg w-100" id="scaleSeg">
+                    @foreach (var (sv, en, ar) in new[] { (90, "Small", "صغير"), (100, "Normal", "عادي"), (110, "Large", "كبير"), (120, "Extra large", "كبير جدًا") })
+                    {
+                        <label class="flex-fill text-center mb-0"><input type="radio" name="fontScale" value="@sv" class="d-none" @(fscale == sv ? "checked" : "") /><a role="button" class="@(fscale == sv ? "active" : "")" style="display:block">@L.T(en, ar)</a></label>
+                    }
+                </div>
+            </div>
+            <hr class="my-0" />
+            <div>
+                <div class="fw-semibold mb-1"><i class="bi bi-upload"></i> @L.T("Import your own font", "استيراد خطك الخاص")</div>
+                <div class="form-text mb-2">@L.T("WOFF2, WOFF, TTF or OTF, up to 3 MB. Only import fonts you have the right to use on a website.", "WOFF2 أو WOFF أو TTF أو OTF حتى 3 ميغابايت. استورد فقط خطوطًا يحق لك استخدامها في المواقع.")</div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <input type="file" id="fontFile" accept=".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf" class="form-control form-control-sm" style="flex:1 1 200px" />
+                    <input type="text" id="fontName" class="form-control form-control-sm" style="flex:1 1 140px" maxlength="40" placeholder="@L.T("Display name (optional)", "اسم العرض (اختياري)")" />
+                    <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" id="fontUpload"><i class="bi bi-upload"></i>@L.T("Import", "استيراد")</button>
+                </div>
+                <div class="small mt-2" id="fontMsg" role="status"></div>
+                <ul class="list-unstyled mt-2 mb-0" id="fontList">
+                    @foreach (var c in Fonts.CustomFonts)
+                    {
+                        <li class="d-flex align-items-center gap-2 py-1" data-id="@c.Id"><i class="bi bi-file-earmark-font text-muted"></i><span class="flex-grow-1" style="font-family:'@Fonts.FaceName(c)'">@c.Name <span class="text-muted small">@c.Ext.TrimStart('.').ToUpper() · @(c.Size / 1024) KB</span></span>
+                            <button type="button" class="btn btn-sm btn-outline-danger font-del" title="@L.T("Delete", "حذف")"><i class="bi bi-trash"></i></button></li>
+                    }
+                </ul>
+            </div>
+        </div></div>
     </div>
 
     <div class="col-lg-7">
@@ -107,7 +156,11 @@
                         <div class="col-sm-6"><input class="form-control form-control-sm" placeholder="@L.T("A text field", "حقل نصي")" /></div>
                         <div class="col-sm-6"><select class="form-select form-select-sm"><option>@L.T("A dropdown", "قائمة منسدلة")</option></select></div>
                     </div>
-                    <div class="alert alert-info mt-3 mb-0 py-2 small"><i class="bi bi-info-circle"></i> @L.T("This is how notices look.", "هكذا تظهر الإشعارات.")</div>
+                    <div class="alert alert-info mt-3 mb-2 py-2 small"><i class="bi bi-info-circle"></i> @L.T("This is how notices look.", "هكذا تظهر الإشعارات.")</div>
+                    <div class="row g-2 small">
+                        <div class="col-sm-6"><div class="border rounded p-2 h-100" style="font-family:var(--pv-en)"><div class="text-muted" style="font-size:.7rem">EN</div><b>Aa</b> The quick brown fox jumps over the lazy dog. 0123456789</div></div>
+                        <div class="col-sm-6"><div class="border rounded p-2 h-100" dir="rtl" style="font-family:var(--pv-ar)"><div class="text-muted" style="font-size:.7rem">AR</div><b>أب</b> نص عربي تجريبي لعرض شكل الخط. ٠١٢٣٤٥٦٧٨٩</div></div>
+                    </div>
                 </div>
             </div>
             <div class="small text-muted mt-2" id="contrastNote"></div>
@@ -168,6 +221,50 @@
   document.querySelectorAll('#previewSeg a').forEach(function (a) { a.addEventListener('click', function () { setPreview(a.dataset.pv); }); });
   setPreview('@(mode == "dark" ? "dark" : "light")');
   refresh();
+
+  // ---- fonts ----
+  var STACKS = @Html.Raw(stacksJson), GOOGLE = @Html.Raw(gspecJson), UI_AR = @(L.IsAr ? "true" : "false");
+  var selEn = document.getElementById('fontEn'), selAr = document.getElementById('fontAr'), fmsg = document.getElementById('fontMsg');
+  var gl = document.createElement('link'); gl.rel = 'stylesheet'; document.head.appendChild(gl);
+  function stack(k) { return STACKS[k] || STACKS['system']; }
+  function previewFonts() {
+    var specs = []; [selEn.value, selAr.value].forEach(function (k) { if (GOOGLE[k] && specs.indexOf(GOOGLE[k]) < 0) specs.push(GOOGLE[k]); });
+    gl.href = specs.length ? 'https://fonts.googleapis.com/css2?' + specs.map(function (s) { return 'family=' + s; }).join('&') + '&display=swap' : '';
+    pv.style.setProperty('--pv-en', stack(selEn.value) + ',' + stack(selAr.value)); pv.style.setProperty('--pv-ar', stack(selAr.value) + ',' + stack(selEn.value));
+    pv.style.fontFamily = UI_AR ? stack(selAr.value) + ',' + stack(selEn.value) : stack(selEn.value) + ',' + stack(selAr.value);
+    var sc = f.querySelector('input[name=fontScale]:checked'); pv.style.zoom = sc ? (parseInt(sc.value, 10) / 100) : 1;
+  }
+  selEn.addEventListener('change', previewFonts); selAr.addEventListener('change', previewFonts);
+  document.querySelectorAll('#scaleSeg label').forEach(function (l) { l.addEventListener('click', function (e) {
+    e.preventDefault(); l.querySelector('input').checked = true; document.querySelectorAll('#scaleSeg a').forEach(function (a) { a.classList.toggle('active', a === l.querySelector('a')); }); previewFonts(); }); });
+  previewFonts();
+  function say(t, good) { fmsg.className = 'small mt-2 ' + (good ? 'text-success' : 'text-danger'); fmsg.textContent = t; }
+  var token = function () { return f.querySelector('input[name=__RequestVerificationToken]').value; };
+  function addFace(d) {
+    var st = document.createElement('style'); var fmt = d.ext === '.woff2' ? 'woff2' : d.ext === '.woff' ? 'woff' : d.ext === '.otf' ? 'opentype' : 'truetype';
+    st.textContent = '@@font-face{font-family:"' + d.face + '";src:url(/brand/font/' + d.id + '?v=' + d.size + ') format("' + fmt + '");font-display:swap}'; document.head.appendChild(st);
+    STACKS[d.key] = '"' + d.face + '",' + STACKS['system'];
+  }
+  document.getElementById('fontUpload').addEventListener('click', function () {
+    var file = document.getElementById('fontFile').files[0]; if (!file) { say('@L.T("Choose a font file first.", "اختر ملف خط أولًا.")', false); return; }
+    var fd = new FormData(); fd.append('font', file); fd.append('name', document.getElementById('fontName').value); fd.append('__RequestVerificationToken', token());
+    var btn = this; btn.disabled = true;
+    fetch('@Url.Action("UploadFont")', { method: 'POST', body: fd, headers: { 'X-CSRF-TOKEN': token() } }).then(function (r) { return r.json(); }).then(function (d) {
+      btn.disabled = false; if (!d.ok) { say(d.message || '@L.T("Could not import the font.", "تعذّر استيراد الخط.")', false); return; }
+      addFace(d); [selEn, selAr].forEach(function (s) { var g = s.querySelector('.opt-custom'); var o = document.createElement('option'); o.value = d.key; o.textContent = d.name; g.appendChild(o); });
+      var li = document.createElement('li'); li.className = 'd-flex align-items-center gap-2 py-1'; li.dataset.id = d.id;
+      li.innerHTML = '<i class="bi bi-file-earmark-font text-muted"></i><span class="flex-grow-1" style="font-family:\'' + d.face + '\'"></span><button type="button" class="btn btn-sm btn-outline-danger font-del" title="@L.T("Delete", "حذف")"><i class="bi bi-trash"></i></button>';
+      li.querySelector('span').textContent = d.name + ' '; document.getElementById('fontList').appendChild(li); bindDel(li);
+      document.getElementById('fontFile').value = ''; document.getElementById('fontName').value = ''; say('@L.T("Imported:", "تم الاستيراد:")' + ' ' + d.name + '. @L.T("Pick it in the lists above, then press Save the look.", "اخترْه من القوائم أعلاه ثم اضغط حفظ المظهر.")', true);
+    }).catch(function () { btn.disabled = false; say('@L.T("Could not reach the server.", "تعذّر الاتصال بالخادم.")', false); });
+  });
+  function bindDel(li) { li.querySelector('.font-del').addEventListener('click', function () {
+    if (!confirm('@L.T("Delete this font? Pages that use it go back to the default font.", "حذف هذا الخط؟ الصفحات التي تستخدمه تعود إلى الخط الافتراضي.")')) return;
+    var fd = new FormData(); fd.append('id', li.dataset.id); fd.append('__RequestVerificationToken', token());
+    fetch('@Url.Action("DeleteFont")', { method: 'POST', body: fd, headers: { 'X-CSRF-TOKEN': token() } }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { say(d.message, false); return; } var key = 'custom:' + li.dataset.id;
+      [selEn, selAr].forEach(function (s) { if (s.value === key) s.value = 'system'; var o = s.querySelector('option[value="' + key + '"]'); if (o) o.remove(); }); li.remove(); previewFonts(); say('@L.T("Font deleted.", "تم حذف الخط.")', true); }); }); }
+  document.querySelectorAll('#fontList li').forEach(bindDel);
 })();
 </script>
 }

@@ -4,7 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <script>(function () { var m = '@Theme.Mode', lock = @(Theme.Locked ? "true" : "false"); try { var u = localStorage.getItem('themeMode'); if (u && !lock) m = u; } catch (e) { }
-        if (m === 'auto') m = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; document.documentElement.setAttribute('data-bs-theme', m); })();</script>
+        if (m === 'auto') m = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; document.documentElement.setAttribute('data-bs-theme', m);
+        try { var fs = localStorage.getItem('fontScale'); if (fs && !lock) document.documentElement.style.setProperty('--font-scale', (parseInt(fs, 10) / 100).toString()); } catch (e) { } })();</script>
     <meta name="robots" content="noindex" />
     <meta name="theme-color" content="#0B3D5C" />
     <title>@L["App"]</title>
@@ -13,7 +14,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     @if (Brand.Has) { <link rel="icon" href="/brand/logo?v=@Brand.Version" /> }
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
-    <style id="theme-css">@Html.Raw(Theme.Css)</style>
+    @Html.Raw(Fonts.HeadHtml)
+    <style id="theme-css">@Html.Raw(Fonts.Css)@Html.Raw(Theme.Css)</style>
 </head>
 <body>
 <div class="public-wrap">

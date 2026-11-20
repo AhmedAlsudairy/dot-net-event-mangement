@@ -112,7 +112,7 @@ Visit approvers and bus coordinators are chosen in **Settings > External visits 
 | `/Admin/Settings` | Nine tabs: Recipients, External visits, Research, Sign-in help, Approval and check-in, QR and public page, Event image, Evaluation, Email templates, Display |
 | `/Admin/RolesPage` | Give a role to an email address or username |
 | `/Admin/Connections` | LDAP and email: defaults, tests, fetch groups, members, per-role preview, direct assignment |
-| `/Admin/Appearance` | Colours, themes, light/dark mode and corner style for the whole platform |
+| `/Admin/Appearance`, `/Admin/UploadFont`, `/Admin/DeleteFont`, `/brand/font/{id}` | Colours, themes, light/dark mode, corner style, fonts (built-in or imported) and text size for the whole platform |
 | `/Admin/Audit`, `/Admin/AuditExport`, `/Admin/Notifications` | Audit log (filters, details, CSV / Excel export, clean-up), log of every email sent |
 
 ### Public host (no sign-in)

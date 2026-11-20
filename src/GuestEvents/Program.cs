@@ -112,6 +112,7 @@ var app = builder.Build();
 
 Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "App_Data"));
 Brand.Init(app.Environment.ContentRootPath);
+Fonts.Init(app.Environment.ContentRootPath);
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDb>();
@@ -188,6 +189,7 @@ using (var scope = app.Services.CreateScope())
     Loc.UseArabicDigits = SettingsService.Bool(s, "UseArabicDigits");
     Loc.DateFmt = s["DateFormat"];
     Theme.Apply(s);
+    Fonts.Apply(s);
     if (!string.IsNullOrWhiteSpace(s["AppNameEn"])) Loc.BrandEn = s["AppNameEn"].Trim();
     if (!string.IsNullOrWhiteSpace(s["AppNameAr"])) Loc.BrandAr = s["AppNameAr"].Trim();
 }

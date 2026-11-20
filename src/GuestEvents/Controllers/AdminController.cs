@@ -68,6 +68,7 @@ public class AdminController : AppController
         Loc.UseArabicDigits = SettingsService.Bool(s, "UseArabicDigits");
         Loc.DateFmt = s["DateFormat"];
         Theme.Apply(s);
+        Fonts.Apply(s);
         if (!string.IsNullOrWhiteSpace(s["AppNameEn"])) Loc.BrandEn = s["AppNameEn"].Trim();
         if (!string.IsNullOrWhiteSpace(s["AppNameAr"])) Loc.BrandAr = s["AppNameAr"].Trim();
         TempData[errors.Count == 0 ? "Saved" : "Error"] = errors.Count == 0 ? "1" : "Invalid: " + string.Join(", ", errors);
@@ -396,17 +397,22 @@ public class AdminController : AppController
     }
 
     [HttpPost]
-    public async Task<IActionResult> Appearance(string primary, string secondary, string accent, string bg, string mode, string radius, string? preset, bool lockTheme)
+    public async Task<IActionResult> Appearance(string primary, string secondary, string accent, string bg, string mode, string radius, string? preset, bool lockTheme, string? fontEn, string? fontAr, int? fontScale)
     {
         primary = (primary ?? "").Trim().ToUpperInvariant(); secondary = (secondary ?? "").Trim().ToUpperInvariant(); accent = (accent ?? "").Trim().ToUpperInvariant(); bg = (bg ?? "").Trim().ToUpperInvariant();
         var err = Theme.Validate(primary, secondary, accent, bg, mode ?? "", radius ?? "");
         if (err != null) { TempData["Error"] = err; return RedirectToAction(nameof(Appearance)); }
+        var cur0 = await _settings.AllAsync();
+        fontEn = string.IsNullOrEmpty(fontEn) ? cur0["FontEn"] : fontEn; fontAr = string.IsNullOrEmpty(fontAr) ? cur0["FontAr"] : fontAr;
+        var scale = fontScale ?? int.Parse(cur0["FontScale"]);
+        if (!Fonts.IsValidKey(fontEn) || !Fonts.IsValidKey(fontAr)) { TempData["Error"] = "Choose one of the listed fonts."; return RedirectToAction(nameof(Appearance)); }
+        if (!Fonts.Scales.Contains(scale)) { TempData["Error"] = "Choose one of the text sizes."; return RedirectToAction(nameof(Appearance)); }
         var key = Theme.Presets.FirstOrDefault(p => p.Primary == primary && p.Secondary == secondary && p.Accent == accent && p.Bg == bg)?.Key ?? "custom";
         var current = await _settings.AllAsync();
-        var values = new Dictionary<string, string> { ["ThemePreset"] = key, ["ThemePrimary"] = primary, ["ThemeSecondary"] = secondary, ["ThemeAccent"] = accent, ["ThemeBg"] = bg, ["ThemeMode"] = mode!, ["ThemeRadius"] = radius!, ["ThemeLock"] = lockTheme ? "true" : "false" };
+        var values = new Dictionary<string, string> { ["ThemePreset"] = key, ["ThemePrimary"] = primary, ["ThemeSecondary"] = secondary, ["ThemeAccent"] = accent, ["ThemeBg"] = bg, ["ThemeMode"] = mode!, ["ThemeRadius"] = radius!, ["ThemeLock"] = lockTheme ? "true" : "false", ["FontEn"] = fontEn, ["FontAr"] = fontAr, ["FontScale"] = scale.ToString() };
         foreach (var kv in values) if (current[kv.Key] != kv.Value) await _settings.SetAsync(kv.Key, kv.Value);
-        Theme.Apply(await _settings.AllAsync());
-        await _wf.Audit(Username, "ThemeChanged", $"{key}: primary {primary}, secondary {secondary}, accent {accent}, background {bg}, mode {mode}, corners {radius}{(lockTheme ? ", locked for everyone" : "")}");
+        Theme.Apply(await _settings.AllAsync()); Fonts.Apply(await _settings.AllAsync());
+        await _wf.Audit(Username, "ThemeChanged", $"{key}: primary {primary}, secondary {secondary}, accent {accent}, background {bg}, mode {mode}, corners {radius}, fonts {fontEn} / {fontAr}, text size {scale}%{(lockTheme ? ", locked for everyone" : "")}");
         TempData["Saved"] = "1";
         return RedirectToAction(nameof(Appearance));
     }
@@ -414,11 +420,41 @@ public class AdminController : AppController
     [HttpPost]
     public async Task<IActionResult> AppearanceReset()
     {
-        foreach (var k in new[] { "ThemePreset", "ThemePrimary", "ThemeSecondary", "ThemeAccent", "ThemeBg", "ThemeMode", "ThemeRadius", "ThemeLock" }) await _settings.SetAsync(k, SettingsService.Defaults[k]);
-        Theme.Apply(await _settings.AllAsync());
+        foreach (var k in new[] { "ThemePreset", "ThemePrimary", "ThemeSecondary", "ThemeAccent", "ThemeBg", "ThemeMode", "ThemeRadius", "ThemeLock", "FontEn", "FontAr", "FontScale" }) await _settings.SetAsync(k, SettingsService.Defaults[k]);
+        Theme.Apply(await _settings.AllAsync()); Fonts.Apply(await _settings.AllAsync());
         await _wf.Audit(Username, "ThemeChanged", "reset to the default theme");
         TempData["Saved"] = "1";
         return RedirectToAction(nameof(Appearance));
+    }
+
+    /// <summary>Import a font file (WOFF2, WOFF, TTF or OTF). It is checked by content, kept in App_Data/fonts and served to every page.</summary>
+    [HttpPost, RequestSizeLimit(4_000_000)]
+    public async Task<IActionResult> UploadFont(IFormFile? font, string? name)
+    {
+        if (font == null) return Json(new { ok = false, message = "Choose a font file first." });
+        var s = await _settings.AllAsync(); var list = Fonts.ParseList(s["CustomFonts"]);
+        string? err; Fonts.Custom? added;
+        await using (var st = font.OpenReadStream()) err = Fonts.TryAdd(st, font.Length, font.FileName, name, list.Count, out added);
+        if (err != null) return Json(new { ok = false, message = err });
+        list.Add(added!);
+        await _settings.SetAsync("CustomFonts", Fonts.ToJson(list));
+        Fonts.Apply(await _settings.AllAsync());
+        await _wf.Audit(Username, "FontImported", $"{added!.Name} ({added.Ext}, {added.Size / 1024} KB)");
+        return Json(new { ok = true, id = added.Id, key = "custom:" + added.Id, name = added.Name, face = Fonts.FaceName(added), ext = added.Ext, size = added.Size });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteFont(string id)
+    {
+        var s = await _settings.AllAsync(); var list = Fonts.ParseList(s["CustomFonts"]);
+        var f = list.FirstOrDefault(c => c.Id == id);
+        if (f == null) return Json(new { ok = false, message = "That font is not in the list." });
+        list.Remove(f); Fonts.DeleteFile(f);
+        await _settings.SetAsync("CustomFonts", Fonts.ToJson(list));
+        foreach (var k in new[] { "FontEn", "FontAr" }) if (s[k] == "custom:" + id) await _settings.SetAsync(k, "system");   // a deleted font falls back to the default
+        Fonts.Apply(await _settings.AllAsync());
+        await _wf.Audit(Username, "FontDeleted", f.Name);
+        return Json(new { ok = true });
     }
 
     // ---------------- Audit / activity log ----------------

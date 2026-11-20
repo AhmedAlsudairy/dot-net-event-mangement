@@ -36,7 +36,7 @@ class Client:
             r = e
         return r.status if hasattr(r, "status") else r.code, r.read().decode("utf-8", "replace"), r.geturl()
 
-    def multipart(self, path, fields, token_from):
+    def multipart(self, path, fields, token_from, files=None):
         _, html, _ = self.get(token_from)
         m = re.search(r'name="__RequestVerificationToken"[^>]*value="([^"]+)"', html)
         fields = dict(fields); fields["__RequestVerificationToken"] = m.group(1)
@@ -44,6 +44,8 @@ class Client:
         parts = []
         for k, v in fields.items():
             parts.append(f'--{bd}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode())
+        for k, (fn, data, mime) in (files or {}).items():
+            parts.append(f'--{bd}\r\nContent-Disposition: form-data; name="{k}"; filename="{fn}"\r\nContent-Type: {mime}\r\n\r\n'.encode() + data + b"\r\n")
         parts.append(f'--{bd}--\r\n'.encode())
         req = urllib.request.Request(BASE + path, b"".join(parts), {"Content-Type": f"multipart/form-data; boundary={bd}"})
         try:
@@ -292,6 +294,34 @@ check("users get a Light / Dark switch by default", 'data-theme-mode="dark"' in 
 s, h, _ = admin.post("/Admin/Appearance", dict(base, lockTheme="true"), "/Admin/Appearance"); s, h, _ = admin.get("/"); check("theme can be locked for everyone (no switch)", 'data-theme-mode="dark"' not in h)
 s, h, _ = admin.get("/Admin/Audit?Range=1h&What=ThemeChanged"); check("appearance changes are logged", "Appearance changed" in h)
 s, h, _ = admin.post("/Admin/AppearanceReset", {}, "/Admin/Appearance"); s, h, _ = admin.get("/"); check("reset brings back the default look", "--brand:#0B3D5C" in h and 'data-bs-theme="light"' in h and 'data-theme-mode="dark"' in h)
+# --- fonts: built-in, imported, text size
+import glob, json as _json
+s, h, _ = admin.get("/Admin/Appearance"); check("fonts card on the appearance page", "Fonts and text size" in h and 'id="fontEn"' in h and 'id="fontUpload"' in h)
+check("font list offers built-in Arabic and Latin fonts", "Cairo" in h and "Inter" in h and "Imported fonts" in h)
+s, h, u = staff.multipart("/Admin/UploadFont", {}, "/Account/Me", files={"font": ("x.ttf", b"x" * 100, "font/ttf")}); check("staff cannot import fonts", "/Account/Denied" in u or s in (401, 403))
+s, h, _ = admin.multipart("/Admin/UploadFont", {"name": "Fake"}, "/Admin/Appearance", files={"font": ("fake.ttf", b"this is not a font file at all" * 4, "font/ttf")}); check("a file that is not a font is refused", s == 200 and _json.loads(h)["ok"] is False)
+fpath = next(iter(glob.glob("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf") + glob.glob("/usr/share/fonts/**/*.ttf", recursive=True)), None)
+if fpath:
+    fdata = open(fpath, "rb").read()
+    s, h, _ = admin.multipart("/Admin/UploadFont", {"name": "Smoke Sans"}, "/Admin/Appearance", files={"font": ("smoke.ttf", fdata, "font/ttf")}); j = _json.loads(h)
+    check("a real font file is imported", j.get("ok") is True and j.get("key", "").startswith("custom:"), h[:120])
+    fid = j["id"]; fkey = j["key"]
+    s, hb, _ = anon.get("/brand/font/" + fid, raw=True); check("imported font is served to everyone", s == 200 and hb[:4] in (b"\x00\x01\x00\x00", b"true"))
+    s, h, _ = admin.get("/brand/font/zzzzzzzzzzzz"); check("unknown font id gives 404", s == 404)
+    fb = {"primary": "#0B3D5C", "secondary": "#14587F", "accent": "#E0A526", "bg": "#F4F6F9", "mode": "light", "radius": "soft"}
+    s, h, _ = admin.post("/Admin/Appearance", dict(fb, fontEn="custom:doesnotexist"), "/Admin/Appearance"); check("an unknown font choice is refused", "Choose one of the listed fonts" in h)
+    s, h, _ = admin.post("/Admin/Appearance", dict(fb, fontScale="105"), "/Admin/Appearance"); check("an unknown text size is refused", "Choose one of the text sizes" in h)
+    s, h, _ = admin.post("/Admin/Appearance", dict(fb, fontEn=fkey, fontAr="Cairo", fontScale="120"), "/Admin/Appearance"); check("fonts and text size saved", "Saved. The new look is now live" in h)
+    s, h, _ = admin.get("/"); check("imported font is live (font-face, stack, size)", "@font-face" in h and ("UserFont-" + fid) in h and "--font-scale:1.2" in h)
+    check("built-in Arabic font loads from Google Fonts", "fonts.googleapis.com/css2?family=Cairo" in h)
+    s, h, _ = anon.get("/Account/Login"); check("fonts apply to the login page too", ("UserFont-" + fid) in h)
+    s, h, _ = admin.get("/Admin/Audit?Range=1h&What=FontImported"); check("font import is logged", "Font imported" in h)
+    s, h, _ = admin.post("/Admin/DeleteFont", {"id": fid}, "/Admin/Appearance"); check("font can be deleted", _json.loads(h)["ok"] is True)
+    s, h, _ = admin.get("/"); check("after deleting, pages fall back to the default font", ("UserFont-" + fid) not in h and "--font-en:-apple-system" in h)
+    s, h, _ = admin.get("/brand/font/" + fid); check("deleted font is gone (404)", s == 404)
+else:
+    print("SKIP font import tests (no TTF font found on this machine)")
+s, h, _ = admin.post("/Admin/AppearanceReset", {}, "/Admin/Appearance"); s, h, _ = admin.get("/"); check("reset also restores fonts and text size", "--font-scale:1;" in h or "--font-scale:1}" in h)
 # --- responsive: phone-friendly markup is present
 s, h, _ = admin.get("/Kpi/Tracking"); check("responsive: tracking rows turn into cards on phones", "m-cards" in h and 'data-label=' in h)
 s, h, _ = admin.get("/Admin/Audit"); check("responsive: audit rows are compact cards on phones", "audit-table m-cards" in h)

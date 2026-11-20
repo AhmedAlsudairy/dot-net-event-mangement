@@ -10,9 +10,8 @@
     --nav-from: var(--brand); --nav-to: var(--brand-2); --radius-sm: 10px;
     --radius: 14px; --shadow: 0 1px 2px rgba(16,24,40,.05), 0 4px 14px rgba(16,24,40,.06);
 }
-html { scroll-behavior: smooth; }
-body { background: var(--bg); color: var(--ink); font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Tahoma, "Noto Sans Arabic", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
-[dir=rtl] body { font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", Arial, sans-serif; }
+html { scroll-behavior: smooth; font-size: calc(100% * var(--font-scale, 1)); }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Tahoma, "Noto Sans Arabic", Arial, sans-serif); -webkit-font-smoothing: antialiased; }
 a { color: var(--brand-2); }
 .text-muted, .form-text { color: var(--muted) !important; }
 h3, h4, h5 { letter-spacing: -.01em; }

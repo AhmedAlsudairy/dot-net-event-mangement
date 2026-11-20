@@ -21,6 +21,10 @@ public class SettingsService
         ["ThemeMode"] = "light",         // light, dark or auto (follow the device)
         ["ThemeRadius"] = "soft",        // corner style: soft, sharp or round
         ["ThemeLock"] = "false",         // true = people cannot choose their own light/dark mode
+        ["FontEn"] = "system",           // Admin > Appearance: font for English pages: system, a built-in name, or custom:<id>
+        ["FontAr"] = "system",           // font for Arabic pages
+        ["FontScale"] = "100",           // default text size in percent (90, 100, 110, 120)
+        ["CustomFonts"] = "",            // JSON list of imported font files (kept in App_Data/fonts)
         ["AuditRetentionDays"] = "365",  // log entries older than this are deleted automatically; 0 = keep forever
         ["AdminMailbox"] = "admin@example.com",
         ["AdminExtraTo"] = "",

@@ -33,14 +33,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <script>(function () { var m = '@Theme.Mode', lock = @(Theme.Locked ? "true" : "false"); try { var u = localStorage.getItem('themeMode'); if (u && !lock) m = u; } catch (e) { }
-        if (m === 'auto') m = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; document.documentElement.setAttribute('data-bs-theme', m); })();</script>
+        if (m === 'auto') m = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; document.documentElement.setAttribute('data-bs-theme', m);
+        try { var fs = localStorage.getItem('fontScale'); if (fs && !lock) document.documentElement.style.setProperty('--font-scale', (parseInt(fs, 10) / 100).toString()); } catch (e) { } })();</script>
     <title>@(ViewData["Title"] ?? L["App"]) - @L["App"]</title>
     @if (L.IsAr) { <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" /> }
     else { <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" /> }
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     @if (Brand.Has) { <link rel="icon" href="/brand/logo?v=@Brand.Version" /> }
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
-    <style id="theme-css">@Html.Raw(Theme.Css)</style>
+    @Html.Raw(Fonts.HeadHtml)
+    <style id="theme-css">@Html.Raw(Fonts.Css)@Html.Raw(Theme.Css)</style>
     @await RenderSectionAsync("Head", required: false)
 </head>
 <body>
@@ -135,6 +137,13 @@
                                         <a href="#" data-theme-mode="dark"><i class="bi bi-moon-stars"></i> @L.T("Dark", "داكن")</a>
                                         <a href="#" data-theme-mode="auto"><i class="bi bi-circle-half"></i> @L.T("Auto", "تلقائي")</a>
                                     </div>
+                                    <div class="small text-muted mt-2 mb-1"><i class="bi bi-type"></i> @L.T("Text size", "حجم النص")</div>
+                                    <div class="seg theme-seg w-100" role="group">
+                                        <a href="#" data-font-scale="90" style="font-size:.72rem">A</a>
+                                        <a href="#" data-font-scale="100" style="font-size:.85rem">A</a>
+                                        <a href="#" data-font-scale="110" style="font-size:1rem">A</a>
+                                        <a href="#" data-font-scale="120" style="font-size:1.15rem">A</a>
+                                    </div>
                                 </div>
                             }
                             <form method="post" asp-controller="Account" asp-action="Logout"><button class="dropdown-item text-danger"><i class="bi bi-box-arrow-right"></i>@L["Logout"]</button></form>
@@ -192,6 +201,15 @@
             var eff = m === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : m;
             document.documentElement.setAttribute('data-bs-theme', eff); paint(); window.dispatchEvent(new Event('themechange'));
         }); });
+        paint();
+    })();
+    (function () {
+        var seg = document.querySelectorAll('[data-font-scale]'); if (!seg.length) return;
+        function cur() { try { return localStorage.getItem('fontScale') || '@Fonts.Scale'; } catch (e) { return '@Fonts.Scale'; } }
+        function paint() { var c = cur(); seg.forEach(function (a) { a.classList.toggle('active', a.dataset.fontScale === c); }); }
+        seg.forEach(function (a) { a.addEventListener('click', function (e) {
+            e.preventDefault(); e.stopPropagation(); var v = a.dataset.fontScale; try { localStorage.setItem('fontScale', v); } catch (x) { }
+            document.documentElement.style.setProperty('--font-scale', (parseInt(v, 10) / 100).toString()); paint(); }); });
         paint();
     })();
 </script>
