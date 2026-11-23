@@ -15,7 +15,7 @@ Settings: host `127.0.0.1`, port `1389` (LDAPS `1636`), Base DN `DC=test,DC=loca
 | staff / hod / media / admin | staff123 / hod123 / media123 / admin123 | the four roles |
 | research | research123 | the Research in-charge role (AD group `Research-InCharge`); lands on the research archive |
 | share1 / share2 | share123 | two accounts with the SAME email (shared@test.local): email sign-in refused, username works, and Test LDAP lists the duplicate |
-| nogroup | nogroup123 | valid AD user without a role -> "no role" message; give a role on the Roles page |
+| nogroup | nogroup123 | valid AD user without a role -> "no role" message; give a role on the Access & roles page |
 | disabled | disabled123 | disabled account |
 | locked / pwexpired / acctexpired | locked123 / pwexpired123 / acctexpired123 | locked out / password expired / account expired (clear messages) |
 | nested | nested123 | Staff only through a group inside a group |
@@ -32,10 +32,10 @@ Settings: host `127.0.0.1`, port `1389` (LDAPS `1636`), Base DN `DC=test,DC=loca
     $env:ASPNETCORE_ENVIRONMENT='Development'
     $env:Auth__Mode='Ldap'; $env:Ldap__Host='127.0.0.1'; $env:Ldap__Port='1389'; $env:Ldap__UseSsl='false'
     $env:Ldap__BaseDn='DC=test,DC=local'; $env:Ldap__ServiceAccountDn='CN=svc-events,OU=Service,DC=test,DC=local'; $env:Ldap__ServiceAccountPassword='svcpass'
-    cd src\GuestEvents; dotnet run --urls https://localhost:7100
+    cd src\GuestEvents; dotnet run --urls https://localhost:7100   # Linux/macOS: cd src/GuestEvents && dotnet run --urls https://localhost:7100
 
 ## Tests
-- `python smoke_test.py` - whole app, dev mode, fresh database (60+ checks).
+- `python smoke_test.py` - whole app, dev mode, fresh database (about 250 checks: approval flow and steps, roles and KPI roles, home and My access, audit log, appearance, fonts, logo, KPI picker, phone layout markup, exports). Start the app with `Auth__LoginsPerMinutePerIp=1000` (it signs in many times from one address). To run it beside an instance you are using, start a second instance on another port with its own databases (`ConnectionStrings__Default`, `ConnectionStrings__Kpi`) and run `SMOKE_BASE=https://localhost:7101 SMOKE_DB=<events.db of that instance> python smoke_test.py` (on Windows set the two variables with `$env:`). Font import checks need a TTF font on the machine (they are skipped otherwise).
 - `python testtools\ldap_smtp_test.py` - basic LDAP sign-in + email (main app in LDAP mode).
 - `python testtools\research_groups_test.py` - "Fetch groups from LDAP", the Research role, the research upload flow, sign-in by email, roles and approvers by email, the forgot-password page, the directory readiness report (users, emails, duplicate emails) the form defaults, and the group explorer (nested members, cycles, several groups per role, people-per-role preview, direct assignment) (81 checks). Restart the test app before each run (the forgot-password limit is kept in memory).
   Start the fake AD on :1390 (`python testtools\fake_ad.py 1390`), Mailpit on :1025, and a separate app on :7102 in LDAP mode with its own database:
@@ -45,3 +45,5 @@ Settings: host `127.0.0.1`, port `1389` (LDAPS `1636`), Base DN `DC=test,DC=loca
   and a SECOND app on :7101 with `Auth__Sso=true`, `Auth__LoginsPerMinutePerIp=5` and `ConnectionStrings__Default='Data Source=App_Data/sso-test.db'`
   (it checks the Windows single sign-on challenge and the login rate limit).
 - `python testtools\screenshots.py <folder>` - screenshots of the main pages (dev mode).
+
+The browser checks used while building the phone layout, themes and fonts were Playwright scripts (not kept in the repo): sign in with the dev buttons, open each page at 320, 360, 390, 768, 1024 and 1440 px in English and Arabic, and fail on sideways scrolling.

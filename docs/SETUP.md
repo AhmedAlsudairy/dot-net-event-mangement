@@ -12,7 +12,7 @@ Related: [USER-GUIDE.md](USER-GUIDE.md) (how people use it), [PRD.md](PRD.md) (w
 4. [Get the code](#4-get-the-code)
 5. [Path A: demo on your computer (10 minutes)](#5-path-a-demo-on-your-computer-10-minutes)
 6. [Path B: real sign-in on your computer with a fake directory](#6-path-b-real-sign-in-on-your-computer-with-a-fake-directory)
-7. [Path C: production](#7-path-c-production)
+7. [Path C: production](#7-path-c-production) (Windows/IIS, and [Linux with nginx](#7l-linux-server-ubuntu-with-systemd-and-nginx))
 8. [Database options](#8-database-options)
 9. [Configuration reference](#configuration-reference)
 10. [Operate: backup, upgrade, logs](#10-operate-backup-upgrade-logs)
@@ -32,7 +32,7 @@ Related: [USER-GUIDE.md](USER-GUIDE.md) (how people use it), [PRD.md](PRD.md) (w
 Do **A** first even if you are going to production. It proves the code runs on your machine.
 
 > [!NOTE]
-> **Platform.** The app is developed and tested on **Windows**. It is plain ASP.NET Core 8, so Linux hosting is possible, but it is **not tested**: the event-image feature uses SkiaSharp, and the project does not yet reference the SkiaSharp Linux native package, so on Linux you would need to add `SkiaSharp.NativeAssets.Linux` (and install fontconfig and an Arabic-capable font) before approving events works. Use Windows Server unless you are ready to do that.
+> **Platform.** The app runs on **Windows and Linux**. It is plain ASP.NET Core 8; the project references the SkiaSharp and HarfBuzz Linux native packages, so the event image works on Linux too (install `fontconfig` and an Arabic-capable font such as Noto, see 7.L). The whole test suite has been run on Linux. Windows hosting uses IIS (steps C1 to C12); Linux hosting uses systemd and nginx (section 7.L).
 
 ---
 
@@ -108,7 +108,7 @@ What is where:
 | `testtools` | fake Active Directory, mail catcher notes, automated checks |
 | `smoke_test.py` | quick end-to-end check of the whole app in demo mode |
 | `src/GuestEvents/appsettings.json` | first-run settings (placeholders only, no secrets) |
-| `src/GuestEvents/App_Data` | created on first run: database, event images, research files, encryption keys. **Never commit or share it** |
+| `src/GuestEvents/App_Data` | created on first run: the databases (`events.db`, `kpi_dashboard.db`), event images, research files, the app logo (`branding`), imported fonts (`fonts`) and encryption keys. **Never commit or share it** |
 
 ---
 
@@ -118,11 +118,13 @@ What is where:
 
 ```powershell
 cd src\GuestEvents
-$env:ASPNETCORE_ENVIRONMENT = 'Development'
+$env:ASPNETCORE_ENVIRONMENT = 'Development'; $env:Auth__Mode = 'Dev'
 dotnet run --urls https://localhost:7100
 ```
 
-**You should see** `Now listening on: https://localhost:7100` and `Application started`. The first start downloads packages and creates `App_Data\events.db`.
+On Linux or macOS: `ASPNETCORE_ENVIRONMENT=Development Auth__Mode=Dev dotnet run --urls https://localhost:7100`.
+
+**You should see** `Now listening on: https://localhost:7100` and `Application started`. The first start downloads packages and creates `App_Data\events.db` and `App_Data\kpi_dashboard.db`.
 
 If the browser warns about the certificate, run this once and restart the browser: `dotnet dev-certs https --trust`
 
@@ -130,7 +132,7 @@ If the browser warns about the certificate, run this once and restart the browse
 
 ### Step A2. Sign in
 
-Open https://localhost:7100. Demo mode (`Auth:Mode=Dev`) has built-in users. The password for all of them is `dev`.
+Open https://localhost:7100. Demo mode (`Auth:Mode=Dev`) has built-in users, password `dev` for all of them. The sign-in page shows a **Test mode** box: click an account to sign in as it.
 
 | Role | Email | Username |
 |---|---|---|
@@ -140,29 +142,42 @@ Open https://localhost:7100. Demo mode (`Auth:Mode=Dev`) has built-in users. The
 | Dean | `dean@example.com` | `dean` |
 | Media | `media@example.com` | `media` |
 | Research in-charge | `research@example.com` | `research` |
+| KPI team (all-round KPI work) | `kpi@example.com` | `kpi` |
+| KPI manager | `kpimanager@example.com` | `kpimanager` |
+| KPI editor | `kpieditor@example.com` | `kpieditor` |
+| Department KPI officer | `kpiofficer@example.com` | `kpiofficer` |
+| KPI viewer | `kpiviewer@example.com` | `kpiviewer` |
 
-**You should see** the **My events** page. As Admin, a **setup checklist** also appears on the home page.
+**You should see** the **Home** page for events-side roles (the KPI roles land on the KPI dashboard). As Admin, a **setup checklist** also appears on Home.
 
 ### Step A3. Take the 10-minute tour
 
 1. **As `staff`:** press **New request > New event request**, fill the form (any values), press **Submit for approval**.
-2. **As `hod`** (use a private window or sign out first): open **Pending approvals**, press **Approve**. **You should see** the event become *Approved*.
+2. **As `hod`** (use a private window or sign out first): open **Approvals**, press **Approve**. By default the event goes on to the **Dean**: sign in as `dean` and approve it too. **You should see** the event become *Approved* after the last step.
 3. **As `staff` again:** open the event. **You should see** a generated event image, **Download QR**, a printable **poster** and the **Food request** button.
 4. **As `staff`:** press **New request > External visit (bus)**, tomorrow's date, submit. As `hod`, open **External visits** and approve. As `admin`, open the visit, type bus details and press **Confirm**.
 5. **As `staff`:** **New request > Upload research**, choose any small PDF, press **Upload and send**. As `research`, open **Research archive**. **You should see** the upload and a download button.
-6. **As `admin`:** open **Admin > Notifications**. Email is switched off in demo mode, so each email is logged but not sent. Open **Admin > LDAP & Email** and **Admin > Settings** to look around.
+6. **As `admin`:** open **Admin > Notifications**. Email is switched off in demo mode, so each email is logged but not sent. Open **Admin > LDAP & Email**, **Admin > Settings**, **Admin > Appearance** (try a theme and dark mode), **Admin > Access & roles** and **Admin > Audit log** to look around. As `kpiofficer` or `kpimanager`, open the KPI pages.
 
-> To start again from scratch, stop the app and delete `src\GuestEvents\App_Data\events.db`.
+> To start again from scratch, stop the app and delete `src\GuestEvents\App_Data\events.db` (and `kpi_dashboard.db` to also reset the KPIs).
 
 ### Step A4. (Optional) Run the automated check
 
-With the app running in demo mode, in another PowerShell window from the repo folder:
+Start a **fresh** demo instance with a high sign-in limit (the test signs in many times from one address):
 
 ```powershell
-python smoke_test.py
+$env:Auth__Mode = 'Dev'; $env:Auth__LoginsPerMinutePerIp = '1000'
+dotnet run --project src\GuestEvents --urls https://localhost:7100
 ```
 
-**You should see** a list of `PASS` lines and no `FAIL`.
+then, in another window from the repo folder, `python smoke_test.py`. **You should see** about 250 `PASS` lines and `FAILED: 0`.
+
+To test while you keep using your own copy, start a **second** instance on another port with its own databases and point the test at it (`ConnectionStrings__Default` and `ConnectionStrings__Kpi` set to files outside `App_Data`):
+
+```powershell
+$env:SMOKE_BASE = 'https://localhost:7101'; $env:SMOKE_DB = 'C:\temp\smoke\events.db'
+python smoke_test.py
+```
 
 ---
 
@@ -228,7 +243,7 @@ Open https://localhost:7100 and sign in with an **email**:
 | `research@test.local` | `research123` | Research in-charge |
 
 **You should see** the **My events** page, with your name from the directory in the top right.
-Try `nogroup@test.local` / `nogroup123`: you should see "your password is correct but you have no role yet". Fix it as Admin: **Admin > Roles**, add `nogroup@test.local` as Staff, then sign in again.
+Try `nogroup@test.local` / `nogroup123`: you should see "your password is correct but you have no role yet". Fix it as Admin: **Admin > Access & roles**, add `nogroup@test.local` as Staff, then sign in again.
 
 ### Step B5. Explore the directory tools (as `admin@test.local`)
 
@@ -259,7 +274,7 @@ Follow these steps in order. Do not skip the checks.
 ### Step C1. Prepare Active Directory
 
 1. **Service account.** Create a normal domain user, for example `svc-events`, with a long random password that does not expire (or a rotation plan). No special rights.
-2. **Groups** (optional but recommended). Create the groups you want, for example `Events-Staff`, `Events-HOD`, `Events-Dean`, `Events-Media`, `Events-Admin`, `Research-InCharge`, and add people. If you prefer not to create groups, you can give roles to individual people later in **Admin > Roles**. The **KPI team** role (KPI pages only) has no AD group; assign it to people in **Admin > Roles**. You can use any existing groups: the app lets you pick them from a list.
+2. **Groups** (optional but recommended). Create the groups you want, for example `Events-Staff`, `Events-HOD`, `Events-Dean`, `Events-Media`, `Events-Admin`, `Research-InCharge`, and add people. If you prefer not to create groups, you can give roles to individual people later in **Admin > Access & roles**. The five **KPI roles** (KPI team, KPI manager, KPI editor, Department KPI officer, KPI viewer) have no AD group; give them to people in **Admin > Access & roles**. You can use any existing groups: the app lets you pick them from a list.
 3. **Emails.** Check people have the `mail` attribute filled in. People sign in with it; people without one can still use their short username.
 4. **LDAPS.** Make sure the domain controller answers on port 636 with a certificate the app server trusts (issued by your company CA). If it uses a self-signed certificate, you can pin its thumbprint later in the app (step C9).
 
@@ -356,12 +371,12 @@ Publish **only the public name** to the internet (firewall or reverse proxy rule
 ### Step C7. First start and first Admin
 
 1. Open https://events.company.local and sign in with the email in `App__BootstrapAdmins` and that person's company password.
-2. **You should see** the **My events** page with a **setup checklist** at the top.
+2. **You should see** the **Home** page with a **setup checklist** at the top.
 3. If you see "your password is correct but you have no role", the bootstrap value does not match: use the email exactly as it is in Active Directory (or the short username).
 
 ### Step C8. Create the other roles
 
-Roles come from AD groups, from people you add directly, or both. Do this in **Admin > LDAP & Email** (step C9), or add people one by one in **Admin > Roles** (type an email, choose a role, press **Add role**). A role applies from the person's next sign-in.
+Roles come from AD groups, from people you add directly, or both. Do this in **Admin > LDAP & Email** (step C9), or add people one by one in **Admin > Access & roles** (find the role's card, type an email, press **Add**; for a Department KPI officer also choose the department). A role applies from the person's next sign-in. Roles that work only in the KPI pages are given here, not by AD group.
 
 ### Step C9. Connect and check the directory in the browser
 
@@ -395,6 +410,7 @@ Open **Admin > Settings**. The home-page checklist shows what is still unset.
 
 | Tab | Set this | Why |
 |---|---|---|
+| Name (and the Logo card on top) | App name in English and Arabic, logo | what people see in the top bar, login page and tab |
 | Recipients | Admin mailbox, Media officer email, HOD email (for visits) | receive approval notices, event images, reminders |
 | External visits (bus) | Approval required? approvers, approver email, bus coordinators, bus email, minimum notice | who decides and who arranges the bus |
 | Research | Research in-charge email, maximum file size | where uploads are emailed |
@@ -402,6 +418,9 @@ Open **Admin > Settings**. The home-page checklist shows what is still unset.
 | Approval and check-in | reminder days, check-in windows, require email/phone | event behaviour |
 | QR and public page | rotating QR, venue network prefixes | protect check-in |
 | Event image, Evaluation, Email templates, Display | titles, colours, fonts, wording, digits, date format | look and wording |
+| Audit log | how many days to keep log entries (365; 0 = forever) | how long the activity log is kept |
+
+Then open **Admin > Appearance** for the colours, light or dark mode, fonts and text size, and **Admin > Approval flow** for who approves events.
 
 Press **Save** (all tabs save together).
 
@@ -410,7 +429,9 @@ Press **Save** (all tabs save together).
 Tick each one before announcing the system:
 
 - [ ] An ordinary Staff member can sign in with their **email** and company password.
-- [ ] A person with no role sees the "no role yet" message (and is fixed in **Admin > Roles**).
+- [ ] A person with no role sees the "no role yet" message (and is fixed in **Admin > Access & roles**).
+- [ ] A KPI-only person lands on the KPI dashboard; a Department KPI officer sees only their department.
+- [ ] Demo mode is **off** (`Auth:Mode` is `Ldap`): the sign-in page shows no Test mode box.
 - [ ] **Test LDAP** is green and every role group is `found`.
 - [ ] **Send test email** arrives, and **Admin > Notifications** shows `Success`.
 - [ ] Staff submits an event and it goes through every step of **Admin > Approval flow** (by default HOD, then Dean; each step is emailed in turn): only after the last step approves are the **image and QR** created and the **four emails** arrive (media officer, company contact, admin, requester).
@@ -420,7 +441,88 @@ Tick each one before announcing the system:
 - [ ] A research upload arrives at the research in-charge with the file attached and appears in the **Research archive**.
 - [ ] **Forgot your password?** works (reset button and/or the Ask IT email).
 - [ ] A backup of `App_Data` and the database has been taken and a restore has been tried (section 10).
-- [ ] Arabic and English both look right (button at the top).
+- [ ] Arabic and English both look right (button at the top), on a phone too, and the chosen theme and fonts show on the sign-in page.
+
+### 7.L Linux server (Ubuntu) with systemd and nginx
+
+Use this instead of IIS (C5, C6) when the server runs Linux. Steps C1 (Active Directory), C7 to C12 (first start, roles, directory, mail, settings, checklist) are the same. It was tested on Ubuntu with the .NET 8 runtime.
+
+1. **Install the runtime, fonts and web server.**
+   ```bash
+   sudo apt update
+   sudo apt install -y aspnetcore-runtime-8.0 nginx fontconfig fonts-noto-core certbot python3-certbot-nginx sqlite3
+   ```
+   (If `aspnetcore-runtime-8.0` is not in your Ubuntu release, add Microsoft's package feed first.) The fonts are needed for the event image; `fonts-noto-core` includes Arabic.
+2. **Publish and copy.** On a build machine (or on the server with the .NET 8 SDK): `dotnet publish src/GuestEvents -c Release -o publish`, then copy `publish/` to `/opt/campus-hub` on the server.
+3. **A service user and the data folder.**
+   ```bash
+   sudo useradd -r -s /usr/sbin/nologin campushub
+   sudo mkdir -p /opt/campus-hub/App_Data
+   sudo chown -R campushub:campushub /opt/campus-hub
+   ```
+4. **First-run settings in one protected file**, `/etc/campus-hub.env` (`sudo chmod 600`, owned by root). Never use `Auth__Mode=Dev` here.
+   ```
+   ASPNETCORE_URLS=http://127.0.0.1:5000
+   Auth__Mode=Ldap
+   Ldap__Host=dc1.company.local
+   Ldap__ServiceAccountDn=CN=svc-events,OU=Service,DC=company,DC=local
+   Ldap__ServiceAccountPassword=...
+   App__InternalBaseUrl=https://events.company.com
+   App__PublicBaseUrl=https://qr.company.com
+   App__PublicHost=qr.company.com
+   App__BootstrapAdmins=first.admin@company.com
+   Security__HashSecret=<a long random value>
+   Smtp__Enabled=true
+   Smtp__Host=smtp.company.local
+   ```
+   (More keys: the configuration reference below.)
+5. **systemd service**, `/etc/systemd/system/campus-hub.service`:
+   ```ini
+   [Unit]
+   Description=Campus Hub
+   After=network.target
+
+   [Service]
+   WorkingDirectory=/opt/campus-hub
+   ExecStart=/usr/bin/dotnet /opt/campus-hub/GuestEvents.dll
+   EnvironmentFile=/etc/campus-hub.env
+   User=campushub
+   Restart=always
+   RestartSec=5
+   KillSignal=SIGINT
+   SyslogIdentifier=campus-hub
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+   `sudo systemctl daemon-reload && sudo systemctl enable --now campus-hub`. **You should see** `active (running)` in `systemctl status campus-hub`; logs: `journalctl -u campus-hub -f`.
+6. **nginx reverse proxy**, `/etc/nginx/sites-available/campus-hub` (link it into `sites-enabled`):
+   ```nginx
+   server {
+       server_name events.company.com qr.company.com;
+       client_max_body_size 30m;           # research uploads
+       location / {
+           proxy_pass http://127.0.0.1:5000;
+           proxy_set_header Host $host;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+       }
+   }
+   ```
+   Point the host names' DNS at the server, then `sudo nginx -t && sudo systemctl reload nginx` and get HTTPS certificates with `sudo certbot --nginx -d events.company.com -d qr.company.com`. The app trusts the forwarded headers from the local proxy only.
+7. **Firewall:** `sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable`. Keep port 5000 closed to the outside (it listens on 127.0.0.1 only).
+8. **Backup (daily)** with a cron job as root: copy a consistent copy of each database and archive the rest of `App_Data`:
+   ```bash
+   #!/bin/sh
+   D=/var/backups/campus-hub/$(date +%F); mkdir -p "$D"
+   sqlite3 /opt/campus-hub/App_Data/events.db ".backup '$D/events.db'"
+   sqlite3 /opt/campus-hub/App_Data/kpi_dashboard.db ".backup '$D/kpi_dashboard.db'"
+   tar -czf "$D/app_data_files.tgz" -C /opt/campus-hub/App_Data images research branding fonts keys
+   find /var/backups/campus-hub -maxdepth 1 -mtime +30 -exec rm -rf {} +
+   ```
+9. **Update:** take a backup, `sudo systemctl stop campus-hub`, copy the new `publish/` files over `/opt/campus-hub` **without deleting `App_Data`**, `sudo chown -R campushub:campushub /opt/campus-hub`, `sudo systemctl start campus-hub`. New tables and columns are created on start.
+
+> **No Active Directory reachable from the server?** Sign-in needs either LDAP or demo mode, and demo mode (everyone has the password `dev`) must never face other people. Make the directory reachable (LDAPS over a VPN or a private link) or ask for the local-accounts option listed in the PRD roadmap.
 
 ---
 
@@ -457,6 +559,7 @@ Environment variables use a double underscore for the colon: `Ldap:Host` is `Lda
 |---|---|---|
 | `Db:Provider` | `Sqlite` | `Sqlite` or `SqlServer` |
 | `ConnectionStrings:Default` | `Data Source=App_Data/events.db` | Database connection |
+| `ConnectionStrings:Kpi` | `Data Source=App_Data/kpi_dashboard.db` | The KPI dashboard's SQLite file (migrated automatically) |
 | `Auth:Mode` | `Ldap` | `Ldap`, or `Dev` for demo mode (built-in users, password `dev`) |
 | `Auth:Sso` | `false` | Windows single sign-on (Kerberos/NTLM) when the server is joined to the domain |
 | `Auth:LoginsPerMinutePerIp` | `20` | Login rate limit |
@@ -477,6 +580,7 @@ Environment variables use a double underscore for the colon: `Ldap:Host` is `Lda
 
 | Tab | Keys |
 |---|---|
+| Name | `AppNameEn`, `AppNameAr` (the logo is a file at `App_Data/branding/logo.png`, set with the Logo card) |
 | Recipients | `AdminMailbox`, `AdminExtraTo`, `AdminCc`, `MediaOfficerEmail`, `HodUsername`, `HodEmail` |
 | External visits (bus) | `VisitApprovalRequired` (Yes), `VisitApprovers`, `VisitApproverEmail`, `VisitBusUsers`, `VisitBusEmail`, `VisitBusCc`, `VisitNotifyRequester` (Yes), `VisitMinDaysAhead` (0) |
 | Research | `ResearchEmail`, `ResearchCc`, `ResearchNotifySubmitter` (Yes), `ResearchMaxMb` (20, range 1 to 25) |
@@ -486,7 +590,10 @@ Environment variables use a double underscore for the colon: `Ldap:Host` is `Lda
 | Event image | `ImgTitleEn`, `ImgTitleAr`, `ImgPrimary`, `ImgAccent`, `ImgFont` |
 | Evaluation | `Questions` (four optional labels) |
 | Email templates | subject and body for media, contact, admin and requester |
+| Audit log | `AuditRetentionDays` (365; 0 keeps everything; old entries are deleted once a day) |
 | Display | `UseArabicDigits`, `DateFormat` |
+
+**Admin > Appearance** keeps its choices in Settings too: `ThemePreset`, `ThemePrimary`, `ThemeSecondary`, `ThemeAccent`, `ThemeBg`, `ThemeMode` (light, dark, auto), `ThemeRadius` (sharp, soft, round), `ThemeLock`, `FontEn`, `FontAr`, `FontScale` (90 to 120) and `CustomFonts` (the list of imported font files kept in `App_Data/fonts`). Approval steps are edited at **Admin > Approval flow** and KPI permissions at **KPIs > Permissions**; they are not in this table.
 
 Visit approvers, bus coordinators, the HOD and in-app role assignments accept an **email address or a username**. An empty approver list means anyone with the HOD role may approve visits; Admin can always approve and confirm.
 
@@ -496,7 +603,7 @@ Visit approvers, bus coordinators, the HOD and in-app role assignments accept an
 
 ### Back up (daily)
 
-Back up the **database** and the whole **`App_Data`** folder together. `App_Data` holds event images, logos, research uploads and the **encryption keys** (`App_Data\keys`). Without the keys, saved LDAP and mail passwords cannot be read and must be typed again.
+Back up the **database** and the whole **`App_Data`** folder together. `App_Data` holds both SQLite databases (`events.db`, `kpi_dashboard.db`, with their `-wal` files), event images, company logos, research uploads, the app logo (`branding`), imported fonts (`fonts`) and the **encryption keys** (`App_Data\keys`). Without the keys, saved LDAP and mail passwords cannot be read and must be typed again.
 
 Example (SQLite) for a scheduled task:
 
@@ -524,7 +631,7 @@ Stop the site, put the files back in `App_Data` (and restore the database), star
 
 ### Logs and health
 
-- **Admin > Audit log:** who submitted, approved, uploaded, downloaded, changed roles or settings.
+- **Admin > Audit log:** who signed in (and failed to), submitted, approved, uploaded, downloaded, changed roles, KPIs, settings or the look, plus server errors and slow pages, with IP and request id; filter, export to CSV or Excel. Entries older than `AuditRetentionDays` are deleted automatically.
 - **Admin > Notifications:** every email, with success or the error text.
 - Application logs go to the console, or to IIS stdout logs if you enable them in `web.config` (`stdoutLogEnabled`).
 - A background job runs every 10 minutes (reminders, status roll-over). The working week is Sunday to Thursday.
@@ -543,8 +650,8 @@ Change the service account password in AD, then enter it on **Admin > LDAP & Ema
 | Browser says the certificate is not trusted (local) | `dotnet dev-certs https --trust`, restart the browser |
 | App starts but the page is blank or 500 on IIS | Install the **Hosting Bundle** and run `iisreset`; the app pool must be *No Managed Code*; enable `stdoutLogEnabled` in `web.config` and read the log |
 | 500 error or "unable to open database file" | The app pool identity cannot write to `App_Data`: re-run the `icacls` command in step C5 |
-| Cannot sign in | Use the company **email**. The account must be enabled in AD and have a role (AD group or **Admin > Roles**). If two accounts share the email, sign in with the username. Test on LDAP & Email with a test user |
-| "Your password is correct but you have no role" | Add the person in **Admin > Roles**, or add them to one of the role groups, then sign in again |
+| Cannot sign in | Use the company **email**. The account must be enabled in AD and have a role (AD group or **Admin > Access & roles**). If two accounts share the email, sign in with the username. Test on LDAP & Email with a test user |
+| "Your password is correct but you have no role" | Add the person in **Admin > Access & roles**, or add them to one of the role groups, then sign in again |
 | "Cannot reach the server, or the secure (TLS) handshake failed" | Check server name, port and Encryption. Port 3268/3269 means the "whole forest" box is ticked. For a self-signed certificate use *Trust this certificate only* and the thumbprint shown by Test LDAP |
 | "The service account was rejected" | Service account DN or password is wrong (LDAP & Email) |
 | A role box is red | The group name is not found under the Base DN. Press **Fetch groups** and pick the exact name |
@@ -556,6 +663,13 @@ Change the service account password in AD, then enter it on **Admin > LDAP & Ema
 | Event image shows boxes instead of Arabic letters | The server has no Arabic-capable font: install one and set it in **Settings > Event image > Font** |
 | QR page not reachable from the internet | `App__PublicHost` must equal the public name and the name must reach the app; only `/p/...` is served there |
 | Everyone is logged out suddenly | Sessions last 30 minutes of inactivity; if it happens all the time, the encryption keys in `App_Data\keys` are not persisted (check permissions) |
+| The sign-in page shows a **Test mode** box | `Auth:Mode` is `Dev`: switch it to `Ldap` before anyone else can reach the site |
+| A person cannot see the KPIs menu | Their role has no KPI view permission: **Admin > Access & roles**, the role's card, **Edit what it can do** (or **Customize**) |
+| A Department KPI officer sees nothing or "department not set" | The role was added without a department: remove it on its card and add it again with the department chosen |
+| A theme or colour cannot be saved | The primary or secondary colour is too light for white text (needs contrast 3:1): pick a darker one in **Admin > Appearance** |
+| Fonts look different from the chosen one | Built-in fonts load from Google Fonts and need internet on the user's device; import a font file for offline use. A browser that cached the old CSS needs Ctrl+F5 |
+| Linux: 502 Bad Gateway from nginx | The service is not running: `systemctl status campus-hub` and `journalctl -u campus-hub -e` (often a wrong value in `/etc/campus-hub.env` or `App_Data` not owned by the service user) |
+| Linux: event approval fails or the image is blank | Install `fontconfig` and a font with Arabic (`fonts-noto-core`), then restart the service |
 | Saved LDAP/mail passwords stopped working after a move | The `App_Data\keys` folder was not copied with the database; re-enter the passwords |
 
 ---
@@ -574,5 +688,7 @@ Change the service account password in AD, then enter it on **Admin > LDAP & Ema
 | **Bootstrap admin** | A person made Admin by configuration so the very first Admin exists |
 | **Public host** | The internet-facing name that serves only the QR check-in and evaluation pages |
 | **Reverse proxy** | A front door (IIS or nginx) that handles HTTPS and forwards requests to the app |
-| **`App_Data`** | The folder where the app keeps its database, images, uploads and encryption keys |
+| **`App_Data`** | The folder where the app keeps its databases, images, uploads, the logo, imported fonts and encryption keys |
+| **KPI role** | A set of KPI permissions with the same name as an app role (for example `KpiEditor`); the app role gets those permissions in the KPI pages |
+| **Theme** | The colours, light or dark mode, corners, fonts and text size the Admin sets at Admin > Appearance |
 

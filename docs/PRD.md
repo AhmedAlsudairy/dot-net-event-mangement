@@ -1,6 +1,6 @@
 # Campus Hub (events, external visits, research and KPIs) - Product Requirements
 
-Last updated: 2026-10-24. See also [SETUP.md](SETUP.md), [USER-GUIDE.md](USER-GUIDE.md) and [SITEMAP.md](SITEMAP.md).
+Last updated: 2026-11-23. See also [SETUP.md](SETUP.md), [USER-GUIDE.md](USER-GUIDE.md) and [SITEMAP.md](SITEMAP.md).
 
 ## 1. Overview
 
@@ -8,11 +8,12 @@ Campus Hub is an internal web app that takes a guest workshop or a student bus t
 
 **Problem.** Guest events and student trips are arranged by email and phone. Approvals are slow and untracked, the media team gets no image, attendance is on paper, and the transport office hears about trips too late.
 
-**Product.** Three areas share one login, role model, settings page, mail engine and audit log:
+**Product.** Four areas share one login, role model, settings page, mail engine, look and audit log:
 
 - **Guest event request** - staff request an event with a company guest; the request goes through an **approval chain the Admin configures** (by default HOD, then Dean); only after the last step approves does the system create the event image and a QR code, emails the media officer, contact and admin, collects check-ins from the public QR page, and gathers anonymous evaluations. Staff can also request food for an approved event.
 - **External visit (bus) request** - staff request a bus to take students off campus; a separately configured approver decides; a bus coordinator confirms the bus and enters bus details.
 - **Research upload** - staff upload a research paper or proposal (PDF or Word); it is emailed to the research in-charge and kept in an archive. There is nothing to approve.
+- **KPI dashboard** - the strategic KPIs, which department is responsible, targets, deadlines and status, with charts, Excel import and export, and five KPI roles; events and visits can be linked to the KPI they help.
 
 **Goals**
 
@@ -20,7 +21,9 @@ Campus Hub is an internal web app that takes a guest workshop or a student bus t
 - Approvers, bus coordinators and email recipients are changeable by an Admin in Settings, with no code change.
 - Sign in with the company email address and existing Active Directory password; no new passwords.
 - Work in Arabic (right-to-left) and English, with optional Arabic digits.
-- Every decision and settings change is written to an audit log.
+- Every decision, sign-in and settings change is written to a detailed audit log.
+- Each person lands on a page that fits their role and can see what they may open (Home, My access).
+- The Admin controls the platform's look (colours, light/dark, fonts, logo, name) without code; it works on phones, tablets and desktops.
 
 **Non-goals (v1)**
 
@@ -32,7 +35,7 @@ Campus Hub is an internal web app that takes a guest workshop or a student bus t
 
 ## 2. Users and roles
 
-Five roles cover everyone who signs in; guests never sign in and only see the public QR pages. A person gets a role from their Active Directory group, from an in-app role assignment made by an Admin, or both.
+Eleven roles cover everyone who signs in; guests never sign in and only see the public QR pages. A person gets a role from their Active Directory group, from an in-app role assignment made by an Admin, or both. Six roles work on the events side (Staff, HOD, Dean, Media, Research, Admin) and five roles work only in the KPI pages.
 
 | Role | AD group (default) | Who | Can do |
 |---|---|---|---|
@@ -41,10 +44,15 @@ Five roles cover everyone who signs in; guests never sign in and only see the pu
 | Dean | Events-Dean | Dean | Default second and final approval step for events: nothing is confirmed until the last step approves |
 | Media | Events-Media | Media officer | View approved events and download the event image and QR |
 | Research | Research-InCharge | Research in-charge | Receives every research upload by email; browses, searches and downloads the research archive. Nothing to approve or reject |
-| Admin | Events-Admin | Administration / IT | Everything: reports, food confirmation, settings, roles, connections, audit log; can always approve visits, confirm buses and see the research archive |
+| Admin | Events-Admin | Administration / IT | Everything: reports, food confirmation, settings, appearance, approval flow, access and roles, connections, audit log; can always approve visits, confirm buses and see the research archive; has every KPI permission |
+| KPI team | none (given in the app) | A small team that does all the KPI work | KPI pages only: follow and update any department, assign KPIs, add/edit/import/export (no delete) |
+| KPI manager | none | Owner of the KPI workbook | KPI pages only: define KPIs (add, edit, delete, import), assign them to departments, manage departments, export; does not update progress |
+| KPI editor | none | Follow-up officer | KPI pages only: update target, deadline and status for any department; export |
+| Department KPI officer | none | The person in a department who owns its KPIs | KPI pages only, one department only (chosen by the Admin): update that department's targets; the dashboard shows only that department |
+| KPI viewer | none | Manager or committee member | KPI pages only: read-only dashboard and tracking, Excel export |
 | Guest (no login) | none | Event attendees | Check in and evaluate through the public QR link |
 
-A role can come from **several** AD groups, and any person can also be given a role directly by email address or username.
+A role can come from **several** AD groups, and any person can also be given a role directly by email address or username. The KPI roles have no AD group and are given in the app. Other roles are read-only in the KPI pages unless the Admin creates a KPI role of the same name to widen or hide them.
 
 **Visit permissions are separate from roles.** In Settings, an Admin lists the people (email or username) who approve visits and who confirm buses. Those people see every submitted visit and a badge of what is waiting for them. They still need one of the roles to be able to sign in.
 
@@ -77,7 +85,7 @@ A role can come from **several** AD groups, and any person can also be given a r
 | EV-4b | **Sequence.** Steps run strictly one after the other. When a step has enough approvals the next step's people are emailed and the requester is told; after the last step the event is Approved (image, QR and the final emails). A rejection by any eligible person at any step needs a comment and returns the request to the requester, who can edit and resubmit; it then starts again at step 1. |
 | EV-4c | **Rules.** Each person can approve once per step. A requester can never approve their own request. A person sees only the requests waiting at a step they may decide. A step with requests waiting cannot be switched off or deleted and at least one step must stay active. Every decision is stored with the step name and shown in the decision history. |
 | EV-5 | A reminder email goes to the people of the current step after a configurable number of working days (Sunday to Thursday). |
-| EV-6 | When the **Dean** approves, the system generates the event image (locked template, bilingual) and a QR code, then emails the media officer (image), the company contact (image), the admin mailbox and the requester. |
+| EV-6 | When the **last approval step** approves (the Dean in the default chain), the system generates the event image (locked template, bilingual) and a QR code, then emails the media officer (image), the company contact (image), the admin mailbox and the requester. |
 | EV-7 | Status rolls over automatically: Approved, Event done, Evaluation closed. |
 
 ### B. Attendance and evaluation (public QR pages)
@@ -112,26 +120,17 @@ A role can come from **several** AD groups, and any person can also be given a r
 | XV-9 | The requester is emailed on approval, rejection and bus confirmation when that setting is on. |
 | XV-10 | Approvers and bus coordinators see a badge on the External visits menu counting what waits for them. |
 
-### G. KPI link and KPI dashboard
-
-| ID | Requirement |
-|---|---|
-| G1 | The event form and the external-visit form have an optional drop-down **Which KPI does this help?** listing the KPIs from the KPI dashboard, grouped by domain. One KPI can be chosen. |
-| G2 | The chosen KPI (number and text) is shown on the event and visit detail pages and is kept even if the KPI list changes later. |
-| G3 | Everyone signed in can open the KPI dashboard and tracking table; only roles with the matching KPI permission can add or edit KPIs, assign entities, import, export, manage entities or roles. |
-| G4 | KPI saves from the tracking table are refused with a real 401/403 (not a redirect) when the user is signed out or has no permission. |
-
 ### E. Reports, sign-in and administration
 
 | ID | Requirement |
 |---|---|
 | AD-1 | Reports per event and overall: attendance versus expected, evaluation averages, response rate, average by presenter; Excel export. |
-| AD-2 | Settings page with tabs: Recipients, External visits, Research, Sign-in help, Approval and check-in, QR and public page, Event image, Evaluation, Email templates, Display. |
-| AD-3 | Admin assigns in-app roles to users, and configures the LDAP and SMTP connections from the browser. |
-| AD-4c | Fonts: one font for English pages and one for Arabic pages from a built-in list or imported font files (WOFF2/WOFF/TTF/OTF up to 3 MB, content-checked, kept in App_Data/fonts and served by the app), and a default text size (90-120%) that each person can adjust for themselves unless the theme is locked. |
-| AD-4b | Appearance: the Admin chooses a ready-made theme or four own colours (primary, secondary, accent, page background), light / dark / follow-the-device mode, and corner style; a live preview in light and dark checks readability (white text on the primary and secondary colours must reach 3:1, 4.5:1 is shown as readable). The theme is applied to every page, the login and public pages and the KPI charts through CSS variables; people can pick their own light/dark mode unless the Admin locks it. |
-| AD-4a | Advanced audit log: every entry has a category (Auth, Events, Visits, Research, Approvals, Admin, Access, KPI, Data export, System), a severity (Info, Warning, Error, Security), an outcome, the person and their roles, IP, browser, page and a request id. Sign-ins (and failed ones), blocked access, role and permission changes, KPI changes, exports, server errors and slow requests are all logged. The Admin page filters by period, category, severity, action, person and free text, opens a detail view per entry, follows one request end to end, warns about repeated failed sign-ins, exports CSV / Excel, can refresh live, and deletes entries older than a retention period (default 365 days, automatic daily). |
+| AD-2 | Settings page with tabs: Name, Recipients, External visits, Research, Sign-in help, Approval and check-in, QR and public page, Event image, Evaluation, Email templates, Audit log, Display; and the logo card. |
+| AD-3 | **Access & roles:** one page with a card per role (who has it, what it does on the events side, which approval steps it handles, its KPI permissions with Customize/Edit), where the Admin adds or removes people by email or username (and sets the department of a KPI officer), plus a comparison of the KPI roles. The Admin also configures the LDAP and SMTP connections from the browser. |
 | AD-4 | Audit log of submissions, decisions, settings changes and food, bus and research actions; a notifications log of every email sent with success or error. |
+| AD-4a | Advanced audit log: every entry has a category (Auth, Events, Visits, Research, Approvals, Admin, Access, KPI, Data export, System), a severity (Info, Warning, Error, Security), an outcome, the person and their roles, IP, browser, page and a request id. Sign-ins (and failed ones), blocked access, role and permission changes, KPI changes, exports, server errors and slow requests are all logged. The Admin page filters by period, category, severity, action, person and free text, opens a detail view per entry, follows one request end to end, warns about repeated failed sign-ins, exports CSV / Excel, can refresh live, and deletes entries older than a retention period (default 365 days, automatic daily). |
+| AD-4b | Appearance, branding and fonts: see section I. |
+| AD-4c | Excel exports: events (with approval history, KPI and counts), visits, evaluations, one event's attendance and the KPI report. |
 | AD-5 | Arabic and English interface with right-to-left layout, optional Arabic digits and configurable date format; built-in help pages. |
 | AD-6 | On the LDAP & Email page an Admin presses Fetch groups from LDAP to list the directory's groups, then assigns groups to roles. A role box turns green when its groups exist and red when one does not. Nothing is saved until the Admin saves. |
 | AD-7 | Forgot password: the sign-in page links to a page with a Reset my password button (a URL an Admin sets, such as a self-service portal) and an Ask IT form that emails the IT helpdesk. The app never stores or changes passwords. The answer is the same for every address, and one address can ask once every 10 minutes. |
@@ -150,6 +149,47 @@ A role can come from **several** AD groups, and any person can also be given a r
 | RS-6 | There is no approval step: nobody accepts or rejects an upload. |
 | RS-7 | The Research role and Admin see all uploads, search them and download files; staff see only their own uploads. |
 | RS-8 | The uploader can receive a receipt email (a setting). |
+
+### G. KPI link and KPI dashboard
+
+| ID | Requirement |
+|---|---|
+| G1 | The event form and the external-visit form have an optional **Which KPI does this help?** picker: a searchable list (type a number or a word) grouped by domain in numeric order, showing each KPI's code, text and strategic goal, with keyboard use, a clear button and a plain drop-down fallback without JavaScript. One KPI can be chosen. |
+| G2 | The chosen KPI (code and text) is shown on the event and visit detail pages and is kept even if the KPI list changes later. |
+| G3 | Each role has KPI permissions (view dashboard, view tracking, update own department, update any department, assign, add/edit, delete, import, export, manage departments, manage users, manage roles). Roles map by name to KPI roles; Admin has all of them; a role without a KPI role of its own is read-only. |
+| G4 | KPI saves from the tracking table are refused with a real 401/403 (not a redirect) when the user is signed out or has no permission. |
+| G5 | A **Department KPI officer** is tied to one department by the Admin; the tracking table, dashboard, saves and exports are limited to that department. |
+| G6 | The KPI pages follow the app language (English/Arabic), the theme (including dark mode and the KPI charts) and the fonts. Tracking rows, the KPI list and other tables become cards on phones. |
+| G7 | KPI changes (add, edit, delete, tracking updates, imports, exports, departments, permissions) are written to the audit log. |
+
+### H. Landing, access and guidance
+
+| ID | Requirement |
+|---|---|
+| H1 | After sign-in, events-side roles land on **Home**: what is waiting for them (requests to approve, requests returned, drafts, visits needing a bus, approved events to announce, new research, overdue KPI targets), quick actions for their role, recent requests, events in the next 14 days, a KPI snapshot, and for Admin a setup checklist. |
+| H2 | People who have only a KPI role land on the KPI dashboard; people with no role see "No access yet"; opening a page outside one's role shows "Your role cannot open this page" with links to what they can use. |
+| H3 | **My access** lists the person's roles in plain words, their department (KPI officer), the approval steps they handle and every area with a tick or the role it needs, plus how to ask the Admin. |
+| H4 | The sign-in page explains what each kind of role sees; in demo mode it lists the test accounts and signs in with one click. A "You are signed in as" bar and the user menu show the person's roles. |
+| H5 | The top menu shows only what the person may use and stays on one line from 1200 px wide for every role and both languages. |
+
+### I. Appearance, branding and fonts
+
+| ID | Requirement |
+|---|---|
+| I1 | **Appearance.** The Admin chooses one of eight ready-made themes or four own colours (primary, secondary, accent, page background), light / dark / follow-the-device mode and corner style (sharp, soft, round). A live preview in light and dark is built by the server from the same code as the real theme; white text on the primary and secondary colours must reach 3:1 (4.5:1 is shown as readable) or the colour is refused. |
+| I2 | The theme applies to every page, the login and public pages and the KPI charts through CSS variables. People can choose their own Light / Dark / Auto in their browser unless the Admin locks the mode for everyone. Reset restores the default. |
+| I3 | **Name and logo.** The Admin sets the app name in English and Arabic and uploads a logo (PNG, JPG or WEBP up to 3 MB, decoded and resized to 256 px) shown in the top bar, login and public pages and as the tab icon. |
+| I4 | **Fonts.** One font for English pages and one for Arabic pages from 16 built-in fonts or imported font files (WOFF2, WOFF, TTF, OTF; up to 3 MB and 10 files; type decided by file content; stored in `App_Data/fonts` and served by the app, so they work offline). If a font cannot load, the system font is used. |
+| I5 | **Text size.** The Admin sets a default (90 to 120 percent); each person can change their own text size unless the theme is locked. |
+| I6 | All appearance changes are logged. |
+
+### J. Phones, tablets and desktops
+
+| ID | Requirement |
+|---|---|
+| J1 | Every page fits widths from 320 px up without sideways scrolling, in English and Arabic. |
+| J2 | Wide tables become readable cards on phones (KPI tracking, KPI list, audit log, visits, reports, food, research, email log, review items); tab bars scroll sideways; pop-ups are full screen on phones; form fields use 16 px text; action bars respect the phone's safe area. |
+| J3 | Touch screens get tap areas of about 40 px for links, switches and tabs; how-to boxes start folded on phones. |
 
 ## 4. Workflows and status lifecycles
 
@@ -184,7 +224,7 @@ Research uploads have no lifecycle: one upload is saved, emailed to the research
 
 See [SITEMAP.md](SITEMAP.md) for the diagram and every route.
 
-The top bar shows My events, **KPI dashboard** (everyone signed in), External visits, Research, Pending approvals (anyone who may decide at a step), Reports and Food requests (Admin only) and an Admin menu. A yellow New request button lets Staff and Admin start an event, an external visit or a research upload. The External visits link carries a badge for approvers and bus coordinators. The Research link opens the archive for the research in-charge and Admin, and a person's own uploads for staff.
+The top bar shows **Home**, My events, External visits, Research, **KPIs**, **Approvals** (anyone who may decide at a step) and an **Admin** menu (Reports & Excel, Food request, Settings, Appearance, Approval flow, Access & roles, LDAP & Email, KPI entities, Import KPIs, Audit log, Notifications), each only for the roles that may use it. A yellow New request button lets Staff and Admin start an event, an external visit or a research upload. The External visits link carries a badge for approvers and bus coordinators, and Approvals a count. The user menu has My access, Light / Dark / Auto, text size and sign out. People with only KPI roles see just the KPIs menu.
 
 ## 6. Architecture
 
@@ -195,18 +235,18 @@ flowchart TD
     PX["Reverse proxy<br/>TLS, two hostnames;<br/>the public host reaches only /p"]
     PX --> APP
 
-    subgraph APP["GuestEvents web app (ASP.NET Core 8 MVC, one process)"]
-        CT["Controllers and views<br/>Events, Visits, Research, Approvals,<br/>Food, Reports, Admin, Account, Public QR"]
+    subgraph APP["Campus Hub web app (ASP.NET Core 8 MVC, one process)"]
+        CT["Controllers and views<br/>Home, Events, Visits, Research, Approvals,<br/>Food, Reports, Admin (Settings, Appearance,<br/>Approval flow, Access and roles, Audit),<br/>Account (sign-in, My access), Public QR"]
         KP["KPI dashboard (Razor Pages, /Kpi)<br/>Dashboard, Tracking, KPIs, Import/Export,<br/>Entities, KPI roles"]
         KP --> SV
-        SV["Services<br/>Workflow, Settings, language,<br/>Mail, QR, Image (SkiaSharp), LDAP, device hash"]
-        PR["Protection and jobs<br/>cookie sign-in, role checks,<br/>anti-forgery, rate limits,<br/>public host filter, 10-minute tick job"]
+        SV["Services<br/>Workflow, Approval chain, Settings, Audit,<br/>language, Theme, Fonts, Brand (logo),<br/>Mail, QR, Image (SkiaSharp), LDAP, device hash"]
+        PR["Protection and jobs<br/>cookie sign-in, role checks,<br/>anti-forgery, rate limits,<br/>public host filter, error and slow-request log,<br/>10-minute tick job, daily log clean-up"]
         CT --> SV
     end
 
     APP -- "EF Core" --> DB[("Database<br/>SQLite or SQL Server")]
     APP -- "EF Core (migrations)" --> KDB[("KPI database<br/>App_Data/kpi_dashboard.db (SQLite)")]
-    APP -- "read and write" --> FS[("App_Data folder<br/>images, logos, research uploads, keys")]
+    APP -- "read and write" --> FS[("App_Data folder<br/>event images, company logos, research uploads,<br/>app logo, imported fonts, keys")]
     APP -- "LDAPS 636" --> AD["Active Directory<br/>sign-in and groups"]
     APP -- "SMTP" --> SM["Mail server"]
 ```
@@ -215,16 +255,20 @@ A single ASP.NET Core 8 MVC application serves both the internal site and the pu
 
 | Layer | Technology |
 |---|---|
-| Web | ASP.NET Core 8 MVC, Razor views, Bootstrap 5.3 and Bootstrap Icons from a CDN |
+| Web | ASP.NET Core 8 MVC, Razor views, Bootstrap 5.3 (light and dark) and Bootstrap Icons from a CDN; the look is driven by CSS variables built by the server (`Theme`, `Fonts`) |
 | Data | Entity Framework Core 8 with SQLite (default) or SQL Server |
 | Auth | LDAP via the Novell LDAP library, cookie authentication, optional Negotiate (Windows SSO) |
 | Mail | MailKit over SMTP, every send logged in Notifications |
-| Image and QR | SkiaSharp for the event image; a QR generator for the code |
+| Image and QR | SkiaSharp (with the Linux native packages, so Windows and Linux both work) for the event image and the logo; a QR generator for the code |
 | Excel | ClosedXML for report exports and the KPI Excel import/export |
 | KPI dashboard | ASP.NET Core Razor Pages under `/Kpi`, its own EF Core context and SQLite file, Chart.js charts |
-| Background | A hosted service that ticks every 10 minutes |
+| Background | A hosted service that ticks every 10 minutes (reminders, status roll-over) and once a day deletes audit entries past the retention period |
 
-**KPI dashboard (merged in).** The former stand-alone KPI Alignment & Execution Dashboard is part of this app. It has no accounts of its own: the events sign-in is the only one, and the `/Kpi` pages sit behind the same cookie. Permissions are looked up per request from the directory roles in the cookie: each role (Admin, HOD, Dean, Staff, Media, Research) maps to the KPI role of the **same name** (Admin = every permission; a role without a KPI role of its own = read-only Viewer). An Admin can add a KPI role named like a directory role at `/Kpi/Admin/Roles` to widen it. The KPI data lives in a separate SQLite file (`ConnectionStrings:Kpi`, default `App_Data/kpi_dashboard.db`) migrated automatically at start, so it can stay SQLite even when the events database is SQL Server. Events and visits point at a KPI by id (`KpiId`) and keep a text snapshot (`KpiLabel`); there is no database link between the two files.
+**KPI dashboard (merged in).** The former stand-alone KPI Alignment & Execution Dashboard is part of this app. It has no accounts of its own: the events sign-in is the only one, and the `/Kpi` pages sit behind the same cookie. Permissions are looked up per request from the roles in the cookie: each role maps to the KPI role of the **same name** (Admin = every permission; a role without a KPI role of its own = read-only Viewer). Five KPI roles are created automatically (`Kpi`, `KpiManager`, `KpiEditor`, `KpiOfficer`, `KpiViewer`) and given to people at Access & roles; a department officer carries the department id as a claim (`kpi_entity`) so the pages and saves are limited to it. An Admin can add or edit a KPI role named like any app role. The KPI data lives in a separate SQLite file (`ConnectionStrings:Kpi`, default `App_Data/kpi_dashboard.db`) migrated automatically at start, so it can stay SQLite even when the events database is SQL Server. Events and visits point at a KPI by id (`KpiId`) and keep a text snapshot (`KpiLabel`); there is no database link between the two files.
+
+**Look and feel.** `Theme` turns the Admin's four colours, mode and corner style into CSS variables (including the soft tints and a full dark palette); `Fonts` adds the chosen fonts (Google Fonts links and `@font-face` rules for imported files) and the default text size; `Brand` stores the resized logo. Both layouts (internal and public) inject them, so every page, including login and the KPI pages and charts, follows the theme. The user's own Light / Dark / Auto and text size live in the browser.
+
+**Audit.** `AuditService` writes every entry with category, severity, outcome, roles, IP, browser, page, item and a per-request id; `AuditCatalog` names each action. A middleware logs unhandled exceptions, server errors, blocked API calls and requests slower than 5 seconds without logging normal page views.
 
 **Request flow for an external visit.** A staff member submits a visit; the app saves it, writes an audit row and emails the approver. The approver opens the link, decides, and the app emails the requester and the bus recipients; the bus coordinator confirms the bus and the requester gets the final email.
 
@@ -249,7 +293,7 @@ The events database holds 14 tables managed by Entity Framework Core. The separa
 | Visits | External visit (bus request) | KpiId, KpiLabel, Name, Destination, Date, DepartureTime, ReturnTime, PickupLocation, StudentCount, StaffCount, SupervisorName/Phone, Status, DecisionBy, DecisionComment, BusDetails |
 | Settings | Key/value configuration | Key, Value |
 | Notifications | Log of every email | Recipient, Subject, Success, Error |
-| RoleAssignments | In-app roles for people, by email or username | Username, Role (unique together) |
+| RoleAssignments | In-app roles for people, by email or username | Username, Role (unique together), EntityId (the department of a KPI officer), AssignedBy, AssignedAt |
 | AuditLogs | Who did what, when and from where | User, Action, Details, At, Category, Severity, Outcome, Ip, UserAgent, Method, Path, Target, Roles, CorrelationId, DurationMs |
 | ResearchDocs | Uploaded research paper or proposal | Title, DocType, Authors, Summary, OriginalFileName, FilePath, FileSize, uploader fields, UploadedAt, EmailSent |
 
@@ -260,7 +304,7 @@ The events database holds 14 tables managed by Entity Framework Core. The separa
 | External visit | Draft, Submitted, Approved (bus pending), Bus confirmed, Rejected |
 | Research upload | None: recorded and emailed on upload, with an EmailSent flag |
 
-SQLite is the default database. SQL Server is supported by setting one configuration value. On start, the app creates missing tables, so existing databases pick up the Visits and ResearchDocs tables and the KpiId/KpiLabel columns without a manual migration.
+SQLite is the default database. SQL Server is supported by setting one configuration value. On start, the app creates missing tables and columns, so existing databases pick up new tables (Visits, ResearchDocs, ApprovalSteps) and new columns (KpiId/KpiLabel, the approval-step fields, the audit columns and indexes, RoleAssignments.EntityId) without a manual migration. Appearance, font, name and retention choices are rows in Settings (keys `Theme*`, `Font*`, `CustomFonts`, `AppNameEn/Ar`, `AuditRetentionDays`); the logo is `App_Data/branding/logo.png` and imported fonts are files in `App_Data/fonts`.
 
 ## 8. Security, privacy and non-functional requirements
 
@@ -268,20 +312,20 @@ The internal app and the public QR pages run as one application with two faces, 
 
 | Area | Requirement |
 |---|---|
-| Sign-in | Active Directory over LDAPS (port 636) with a service account; the sign-in name is the company email address (the AD mail attribute), and the short username, `DOMAIN\user` and UPN also work; optional Windows single sign-on (Kerberos/NTLM) when the server is domain-joined. A Dev mode exists for local testing only. |
+| Sign-in | **Dev mode (built-in test accounts, password `dev`) is for local testing only and must never be reachable by other people.** Active Directory over LDAPS (port 636) with a service account; the sign-in name is the company email address (the AD mail attribute), and the short username, `DOMAIN\user` and UPN also work; optional Windows single sign-on (Kerberos/NTLM) when the server is domain-joined. A Dev mode exists for local testing only. |
 | Session | Cookie named `ge_auth`, HttpOnly, Secure, 30-minute sliding expiry. |
 | Brute-force protection | After 5 wrong passwords for one name the app stops asking AD for 10 minutes; login is also rate limited per IP (default 20 per minute). |
 | CSRF | Anti-forgery token validated on every POST. |
 | Public host | When `App:PublicHost` is set, requests on that host reach only `/p`, static files and the language switch; all else returns 404. Public pages are rate limited (60 reads and 30 submits per minute per IP by default). |
 | Anonymity | Attendance and evaluation hash the device with two different salts and share no key, so a rating cannot be traced to a check-in. |
 | Secrets | LDAP and SMTP passwords saved from the browser are encrypted with ASP.NET Data Protection; keys live in `App_Data/keys` and use Windows DPAPI on Windows. Back up that folder with the database. |
-| Uploads | Logo must be PNG or JPG, up to 2 MB, and its file header is checked, not only the extension. |
+| Uploads | The company logo on an event must be PNG or JPG, up to 2 MB, and its file header is checked, not only the extension. The app logo is decoded as an image (PNG, JPG, WEBP, up to 3 MB) and re-saved resized. Imported fonts are identified by their first bytes (WOFF2, WOFF, TTF, OTF), limited to 3 MB and 10 files, stored under a random name and served with `nosniff`. |
 | Research files | Only PDF, DOC and DOCX; the file header must match the extension; size limited (default 20 MB). Stored under `App_Data/research` with a random name, never served as a static file. Download is allowed only to the uploader, the Research role and Admin, and each download is audited. |
 | Group lookup | Fetch groups, group members and the per-role preview are Admin only, use the LDAP service account, read names and emails only (capped) and are audited where they change data. Results are shown on the page and not stored. |
 | Forgot password | No password is stored or changed by the app; the answer is identical for every address; one request per address every 10 minutes. |
 | Headers | nosniff, no-referrer and X-Frame-Options DENY on every response; HSTS outside Development. |
-| Audit | Submissions, decisions, bus confirmations, research uploads and downloads, role changes and every settings change are logged with user and time. |
-| Language | Arabic (right-to-left) and English, switched per browser by cookie. |
+| Audit | Sign-ins and failed sign-ins, blocked access, submissions, decisions, bus confirmations, research uploads and downloads, role and KPI-permission changes, KPI changes, exports, settings, appearance and font changes, server errors and slow requests are logged with person, roles, time, IP, page and request id. Entries cannot be edited; the Admin can export them and old ones are deleted automatically after a retention period (default 365 days). Repeated failed sign-ins raise an alert. |
+| Language and display | Arabic (right-to-left) and English, switched per browser by cookie; light and dark mode and text size per browser; layouts from 320 px phones to wide desktops. Built-in fonts load from Google Fonts (imported fonts work offline). |
 | Availability | Single-server deployment; a background job runs every 10 minutes for reminders and status roll-over. Target (an assumption to confirm): business-hours availability, daily database and `App_Data` backup. |
 | Capacity | Designed for one school or department: hundreds of requests a year, not thousands of concurrent users (an assumption to confirm). |
 
@@ -316,8 +360,9 @@ See [SETUP.md](SETUP.md#configuration-reference) for every first-run key and eve
 | 1 | Departure-time check and cancel flow for visits | Closes the gaps in same-day and late changes |
 | 2 | Visit email templates in Settings | Match the event emails; Arabic and English wording |
 | 3 | Visit reminder to the approver after N working days | Same behavior as event approvals |
-| 4 | Visits in Reports and Excel export | Counts by month, destination and approval time |
+| 4 | Visit counts by month, destination and approval time in Reports (the visits Excel export already exists) | Management view of trips |
 | 5 | Calendar view of approved visits and bus conflicts | Avoids two trips needing the same bus |
 | 6 | Student roster and parent consent per visit | Only if the school requires it |
+| 9 | Local accounts (email and password kept in the app) as an alternative to Active Directory | For deployments without a reachable directory, such as a public VPS |
 | 7 | Research: virus scan, retention rule and filters by type and year | Keeps the archive safe and usable as it grows |
 | 8 | In-app password reset (needs delegated reset rights for the service account) | Today the app points to the company reset page or IT |
